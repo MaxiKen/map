@@ -38,7 +38,8 @@ layers; the layer tools (show all, hide all, fit visible, grid, labels, clear fi
 
 **Legend** — the legend of everything that is on the map. Tap an entry to zoom to it, to show only
 that class, or to add it to the map as a **label**. Labels are dragged on the map and edited in the
-label panel (text, size, colour, halo, bold/italic, rotation).
+label panel (text, size, colour, halo, bold/italic, rotation). Raster classes work the same way: the
+extent of a class is read from the value grid, so "zoom to it" and "add label" land on that class.
 
 **Info** — attributes of whatever you tap, plus facts: area, perimeter, compactness, rank
 ("54th largest of 1,485 polygons"), share of the layer and of Nigeria, centroid, UTM zone,
@@ -52,7 +53,11 @@ and the legend columns.
 - Advanced: import GeoJSON, export visible layers / CSV / PNG, attribute table, distance & bearing.
 
 Colours, filters, classifications, labels and the panel order are kept in `localStorage`, so a reload
-does not lose the work. "Reset the work" in Tools clears it.
+does not lose the work. "Reset the work" in Tools clears it. With a mouse, hovering the map shows the
+name of the feature under the pointer.
+
+For support, the console exposes `window.__nwg` (`map`, `L`, `stack`, `annotations`,
+`rasterClassAnchor`, `layerRank`).
 
 ## Setup
 1. Create a GitHub repo and upload everything in this folder (keep the `.github` folder).

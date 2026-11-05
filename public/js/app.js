@@ -126,6 +126,45 @@ async function start() {
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
+// hover read-out: name of the feature under the mouse (desktop only)
+let hoverInfo = null, hoverTimer = 0, hoverPos = null;
+map.on('hover', (x, y) => {
+  if (window.matchMedia('(hover: none)').matches) return;
+  hoverPos = [x, y];
+  if (hoverTimer) return;
+  hoverTimer = setTimeout(() => {
+    hoverTimer = 0;
+    if (!hoverPos) return;
+    const [hx, hy] = hoverPos;
+    const hit = measure ? null : map.identify(hx, hy).find((r) => r.feature);
+    const next = hit ? { x: hx, y: hy, text: titleOf(hit.layer, hit.feature) } : null;
+    const changed = (!!next !== !!hoverInfo) || (next && hoverInfo && next.text !== hoverInfo.text);
+    hoverInfo = next;
+    if (changed) map.render();
+  }, 70);
+});
+map.cv.addEventListener('pointerleave', () => { hoverPos = null; if (hoverInfo) { hoverInfo = null; map.render(); } });
+map.extraTop.push((ctx, m) => {
+  if (!hoverInfo) return;
+  const text = hoverInfo.text.length > 46 ? hoverInfo.text.slice(0, 45) + '…' : hoverInfo.text;
+  ctx.save();
+  ctx.font = '600 11.5px system-ui,sans-serif';
+  const w = ctx.measureText(text).width;
+  let x = hoverInfo.x + 14, y = hoverInfo.y + 16;
+  if (x + w + 16 > m.W) x = m.W - w - 20;
+  if (y + 22 > m.H) y = hoverInfo.y - 26;
+  ctx.globalAlpha = 0.94;
+  ctx.fillStyle = '#0b3d2e';
+  const r = 7;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.lineTo(x + w + 12 - r, y); ctx.quadraticCurveTo(x + w + 12, y, x + w + 12, y + r);
+  ctx.lineTo(x + w + 12, y + 20 - r); ctx.quadraticCurveTo(x + w + 12, y + 20, x + w + 12 - r, y + 20);
+  ctx.lineTo(x + r, y + 20); ctx.quadraticCurveTo(x, y + 20, x, y + 20 - r);
+  ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.fillText(text, x + 7, y + 10.5);
+  ctx.restore();
+});
+
 function home() {
   const side = matchMedia('(min-width:900px)').matches ? 400 : 0;
   map.fitBounds(NIGERIA, 22);
@@ -272,6 +311,8 @@ function applyFilter(st, rerender = true) {
 function applyOrderFromStack() {
   stack.forEach((id, i) => { const o = L.get(id)?.obj; if (o) o.z = 10 + i; });
   map._sort(); map.render();
+  const tab = $('.tab[data-tab="layers"] span');
+  if (tab && catalog) tab.textContent = stack.length ? `Layers · ${stack.length}` : 'Layers';
 }
 async function setLayer(id, on, opts = {}) {
   const st = L.get(id); if (!st || st.meta.kind === 'table') return;
@@ -366,7 +407,7 @@ function renderLayerLists() {
   const act = $('#activelist');
   const vis = [...stack].reverse();
   act.innerHTML = `<div class="sec">On the map <span class="n">${vis.length ? vis.length + ' layer' + (vis.length > 1 ? 's' : '') : ''}</span></div>` +
-    (vis.length ? '<div class="group"><div class="lrows" id="active-rows"></div></div>'
+    (vis.length ? '<p class="hint">Drag ⠿ to restack — the top layer is drawn on top.</p><div class="group"><div class="lrows" id="active-rows"></div></div>'
       : '<p class="empty">Nothing on the map yet — turn a layer on below.</p>');
   const arows = $('#active-rows');
   if (arows) {
@@ -455,7 +496,7 @@ async function refreshLegend() {
   const box = $('#legend');
   const active = [...stack].reverse().map((id) => L.get(id)).filter((st) => st.obj);
   if (!active.length) { box.innerHTML = '<p class="empty">Turn on a layer to see its legend.<br>Tap any legend entry to zoom to it, filter to it or add it to the map as a label.</p>'; return; }
-  const out = [];
+  const out = ['<p class="hint">Tap a legend entry to zoom to it, show only that class, or add it to the map as a label.</p>'];
   for (const st of active) {
     const m = st.meta;
     let rows = '';
@@ -510,16 +551,37 @@ function reclassLegend(st) {
 }
 $('#legend').addEventListener('click', (e) => {
   const row = e.target.closest('.lgrow[data-layer]'); if (!row) return;
-  legendEntryActions(row.dataset.layer, row.dataset.kind, row.dataset.key, row.dataset.field);
+  legendEntryActions(row.dataset.layer, row.dataset.kind, row.dataset.key, row.dataset.field)
+    .catch((err) => { console.error(err); toast('Could not open this legend entry'); });
 });
 
+/** centre + extent of a raster class, found in the value grid (used by legend actions) */
+function rasterClassAnchor(st, value) {
+  const o = st.obj; if (!o || !o.vals || !o.vals.data) return null;
+  const { w, h, data, dtype } = o.vals;
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9, n = 0;
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const v = data[j * w + i];
+    const hit = dtype === 'i2' ? (v === value) : (Math.round(v) === value);
+    if (!hit) continue;
+    if (i < x0) x0 = i; if (i > x1) x1 = i; if (j < y0) y0 = j; if (j > y1) y1 = j; n++;
+  }
+  if (!n) return null;
+  const [wx0, wy0, wx1, wy1] = o.wb;
+  const lon = unX(wx0 + (((x0 + x1) / 2) + 0.5) / w * (wx1 - wx0));
+  const lat = unY(wy0 + (((y0 + y1) / 2) + 0.5) / h * (wy1 - wy0));
+  const west = unX(wx0 + (x0 / w) * (wx1 - wx0)), east = unX(wx0 + ((x1 + 1) / w) * (wx1 - wx0));
+  const north = unY(wy0 + (y0 / h) * (wy1 - wy0)), south = unY(wy0 + ((y1 + 1) / h) * (wy1 - wy0));
+  return { lon, lat, bbox: [west, south, east, north], count: n };
+}
 function featuresForClass(st, field, value) {
   if (!st.obj?.features || field == null) return [];
   return st.obj.features.filter((f) => String(f.props[field] ?? '') === String(value));
 }
-function legendEntryActions(layerId, kind, key, field) {
+async function legendEntryActions(layerId, kind, key, field) {
   const st = L.get(layerId); if (!st) return;
   const m = st.meta;
+  if (m.kind === 'raster' && st.obj && !st.obj.vals && m.values) { try { await loadValues(st); } catch { } }
   let entry = null;
   if (kind === 'class') entry = (m.classes || []).find((c) => String(c.value) === String(key));
   else if (kind === 'legend') entry = (m.legendClasses || []).find((c) => String(c.key) === String(key));
@@ -527,10 +589,23 @@ function legendEntryActions(layerId, kind, key, field) {
   const label = entry.label || String(key);
   const props = entry.props || {};
   const useField = field || m.legendKey || (kind === 'style' ? m.style?.field : null);
+  const anchor = (() => {
+    if (m.kind === 'raster') {
+      const ra = rasterClassAnchor(st, +entry.value || +key);
+      return ra ? { lon: ra.lon, lat: ra.lat, bbox: ra.bbox, count: ra.count } : null;
+    }
+    const feats = featuresForClass(st, useField, kind === 'style' ? label : entry.key);
+    if (!feats.length) return null;
+    let best = feats[0];
+    for (const f of feats) if (f.bb[2] - f.bb[0] > best.bb[2] - best.bb[0]) best = f;
+    const [x, y] = labelAnchor(best);
+    return { lon: unX(x), lat: unY(y), bbox: [unX(best.bb[0]), unY(best.bb[3]), unX(best.bb[2]), unY(best.bb[1])], count: feats.length };
+  })();
   openModal('Legend entry', (body) => {
     body.innerHTML = `<h4>${esc(label)}</h4>
       <p class="muted">${esc(m.label)}</p>
       ${Object.keys(props).length ? `<div class="kv">${Object.entries(props).filter(([, v]) => v !== '' && v != null).map(([k, v]) => `<div>${esc(k.replace(/_/g, ' '))}</div><div>${esc(v)}</div>`).join('')}</div>` : ''}
+      ${anchor ? `<div class="lgnote">${anchor.count.toLocaleString()} ${m.kind === 'raster' ? 'cells' : 'features'} at ${fmtLL(anchor.lat, anchor.lon)}</div>` : '<div class="lgnote">No feature of this class is on the map.</div>'}
       <h4>Use this entry</h4>
       <div class="frow act" style="justify-content:stretch">
         <button class="btn primary" id="le-label">${icon('tag')} Add label to the map</button>
@@ -539,14 +614,6 @@ function legendEntryActions(layerId, kind, key, field) {
         <button class="btn" id="le-zoom">${icon('zoom')} Zoom to it</button>
         <button class="btn" id="le-filter">${icon('filter')} Show only this</button>
       </div>`;
-    const anchor = (() => {
-      const feats = featuresForClass(st, useField, kind === 'style' ? label : entry.key);
-      if (!feats.length) return null;
-      let best = feats[0];
-      for (const f of feats) if (f.bb[2] - f.bb[0] > best.bb[2] - best.bb[0]) best = f;
-      const [x, y] = labelAnchor(best);
-      return { lon: unX(x), lat: unY(y), bb: best.bb };
-    })();
     body.querySelector('#le-label').onclick = () => {
       const [lo, la] = anchor ? [anchor.lon, anchor.lat] : map.center();
       const a = addAnnotation({ text: label, lon: lo, lat: la, size: 15, bold: true });
@@ -557,10 +624,11 @@ function legendEntryActions(layerId, kind, key, field) {
     body.querySelector('#le-zoom').onclick = () => {
       if (!anchor) { toast('This entry has no features on the map'); return; }
       closeModal(); openSheet('layers');
-      map.fitBounds([unX(anchor.bb[0]), unY(anchor.bb[3]), unX(anchor.bb[2]), unY(anchor.bb[1])], 60);
+      map.fitBounds(anchor.bbox, 60);
+      if (!mobileQ.matches) { map.cx -= 200 / map.S; map._viewChanged(); }
     };
     body.querySelector('#le-filter').onclick = () => {
-      if (!anchor) { if (st.obj?.features) { st.filter = { field: useField, op: 'eq', value: kind === 'style' ? label : entry.key }; applyFilter(st); closeModal(); toast('Filtered'); } return; }
+      if (!anchor || !st.obj?.features) { toast('Raster classes cannot be filtered — the raster is drawn as one image'); return; }
       st.filter = { field: useField, op: 'eq', value: kind === 'style' ? label : entry.key };
       applyFilter(st); closeModal(); toast('Showing only ' + label); saveProject();
     };
@@ -585,7 +653,6 @@ function layerRank(st) {
   const kind = st.meta.kind;
   const metric = kind === 'polygon' ? 'area' : kind === 'line' ? 'length' : null;
   if (!metric || !st.obj?.features) return null;
-  if (kind === 'line' && st.obj.features.length > 12000) return null;   // too many lines to rank quickly
   const arr = st.obj.features.map((f) => ({ idx: f.idx, v: featureMetrics(f)[metric] || 0 }));
   const sorted = arr.slice().sort((a, b) => b.v - a.v);
   const pos = new Map(); sorted.forEach((r, i) => pos.set(r.idx, i + 1));
@@ -735,7 +802,7 @@ map.extraTop.push((ctx, m) => {
   }
 });
 window.addEventListener('pointerdown', (e) => {
-  if (!annotations.length) return;
+  if (!annotations.length || e.target !== map.cv) return;   // never swallow taps on panels / inputs
   const r = map.cv.getBoundingClientRect();
   const px = e.clientX - r.left, py = e.clientY - r.top;
   if (px < 0 || py < 0 || px > r.width || py > r.height) return;
@@ -1564,9 +1631,16 @@ function buildAbout() {
   $('#about').innerHTML = `<p>${catalog.layers.length} layers in ${catalog.groups.length} groups.<br>Built from the GeoPackages on ${esc(catalog.built)}.</p>
     <p>Every legend now lives inside the attribute table of its own layer, so class names, colours and extra columns show up when you tap a feature. Basemaps need no API key.</p>`;
 }
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('unhandled', e.reason);
+  toast('Something went wrong — the details are in the browser console', 4000);
+});
 window.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
   if (e.key === 'Escape') { if (editing) closeLabelEditor(); else if (!$('#modal').hidden) closeModal(); else if (!$('#search').hidden) $('#search').hidden = true; }
   if (e.key === 'g' || e.key === 'G') { gridOn = !gridOn; map.setGrid(gridOn); updateToolState(); saveProject(); }
 });
+// handy when something needs a closer look from the browser console
+window.__nwg = { map, L, get stack() { return stack; }, get annotations() { return annotations; }, rasterClassAnchor, layerRank, showResults };
+
 start();
