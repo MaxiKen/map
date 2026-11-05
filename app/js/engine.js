@@ -109,6 +109,8 @@ export class GeoMap {
     this.extraTop = [];                                        // drawn above everything, incl. grid labels
     this.basemap = 'light'; this.tiles = new Map(); this.minZoom = 2; this.maxZoom = 19;
     this.grid = { on: false, step: null };
+    this.overlay = null;         // transient drawing preview (focus-area capture)
+    this.clip = null;            // focus area: {type:'rect', wb:[]} | {type:'poly', rings:[[x,y,...]]} | {type:'circle', c:[x,y], r}
     this.listeners = { view: [], click: [], hover: [], layers: [], tileerror: [] };
     this._raf = 0; this._moving = false; this.tileErrors = 0;
     this.dpr = Math.min(window.devicePixelRatio || 1, 2.5);
@@ -116,6 +118,7 @@ export class GeoMap {
     new ResizeObserver(() => this.resize()).observe(document.documentElement);
   }
   on(ev, fn) { (this.listeners[ev] || (this.listeners[ev] = [])).push(fn); }
+  off(ev, fn) { const a = this.listeners[ev]; if (!a) return; const i = a.indexOf(fn); if (i >= 0) a.splice(i, 1); }
   _emit(ev, ...a) { for (const f of this.listeners[ev] || []) f(...a); }
   get S() { return 256 * Math.pow(2, this.zoom); }
   resize() {
@@ -179,6 +182,7 @@ export class GeoMap {
     if (bm.url) this._drawTiles(bm);
     if (this.grid.on) this._drawGridLines();
     const tol = this._moving ? 1.6 : 0.7;
+    if (this.clip) { ctx.save(); this._clipPath(ctx); ctx.clip('evenodd'); }
     for (const l of this.layers) {
       if (!l.visible || l.opacity <= 0) continue;
       ctx.globalAlpha = 1;
@@ -187,9 +191,85 @@ export class GeoMap {
     }
     ctx.globalAlpha = 1;
     if (this.selection) this._drawSelection(this.selection);
+    if (this.clip) { ctx.restore(); this._drawClipFocus(); }
+    if (this.overlay) this.overlay(ctx, this);
     if (this.grid.on) this._drawGridLabels();
     for (const e of this.extra) e(ctx, this);
     for (const e of this.extraTop) e(ctx, this);
+  }
+  // ---- focus / clip area
+  setClip(clip) {
+    if (clip && clip.type === 'poly') {
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      for (const ring of clip.rings) for (let i = 0; i < ring.length; i += 2) {
+        if (ring[i] < x0) x0 = ring[i]; if (ring[i] > x1) x1 = ring[i];
+        if (ring[i + 1] < y0) y0 = ring[i + 1]; if (ring[i + 1] > y1) y1 = ring[i + 1];
+      }
+      clip._bb = [x0, y0, x1, y1];
+    }
+    this.clip = clip || null;
+    this.render();
+  }
+  _appendClip(ctx) {
+    const c = this.clip; if (!c) return false;
+    if (c.type === 'rect') {
+      const [x0, y0] = this.toScreen(c.wb[0], c.wb[1]), [x1, y1] = this.toScreen(c.wb[2], c.wb[3]);
+      ctx.rect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0));
+    } else if (c.type === 'poly') {
+      for (const ring of c.rings) {
+        for (let i = 0; i < ring.length; i += 2) {
+          const [x, y] = this.toScreen(ring[i], ring[i + 1]);
+          i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+        }
+        ctx.closePath();
+      }
+    }
+    return true;
+  }
+  _clipPath(ctx) { ctx.beginPath(); this._appendClip(ctx); }
+  containsClip(wx, wy) {
+    const c = this.clip; if (!c) return true;
+    if (c.type === 'rect') return wx >= Math.min(c.wb[0], c.wb[2]) && wx <= Math.max(c.wb[0], c.wb[2]) && wy >= Math.min(c.wb[1], c.wb[3]) && wy <= Math.max(c.wb[1], c.wb[3]);
+    if (c.type === 'poly') {
+      let bb = c._bb;
+      if (!bb) {
+        let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+        for (const ring of c.rings) for (let i = 0; i < ring.length; i += 2) {
+          if (ring[i] < x0) x0 = ring[i]; if (ring[i] > x1) x1 = ring[i];
+          if (ring[i + 1] < y0) y0 = ring[i + 1]; if (ring[i + 1] > y1) y1 = ring[i + 1];
+        }
+        bb = c._bb = [x0, y0, x1, y1];
+      }
+      if (wx < bb[0] || wx > bb[2] || wy < bb[1] || wy > bb[3]) return false;
+      let hits = 0;
+      for (const ring of c.rings) if (pip(wx, wy, [ring])) hits++;
+      return hits % 2 === 1;   // even-odd: rings inside rings behave like holes
+    }
+    return true;
+  }
+  clipBounds() {
+    const c = this.clip; if (!c) return null;
+    if (c.type === 'rect') return [unX(Math.min(c.wb[0], c.wb[2])), unY(Math.max(c.wb[1], c.wb[3])), unX(Math.max(c.wb[0], c.wb[2])), unY(Math.min(c.wb[1], c.wb[3]))];
+    if (c.type === 'poly') {
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      for (const ring of c.rings) for (let i = 0; i < ring.length; i += 2) {
+        if (ring[i] < x0) x0 = ring[i]; if (ring[i] > x1) x1 = ring[i];
+        if (ring[i + 1] < y0) y0 = ring[i + 1]; if (ring[i + 1] > y1) y1 = ring[i + 1];
+      }
+      return [unX(x0), unY(y1), unX(x1), unY(y0)];
+    }
+    return null;
+  }
+  _drawClipFocus() {
+    const ctx = this.ctx; if (!this.clip) return;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, 0, this.W, this.H); this._appendClip(ctx);
+    ctx.fillStyle = this.basemap === 'dark' ? 'rgba(0,0,0,.55)' : 'rgba(250,250,248,.62)';
+    ctx.fill('evenodd');
+    ctx.beginPath(); this._appendClip(ctx);
+    ctx.setLineDash([7, 5]); ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(11,107,69,.95)';
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.restore();
   }
   _drawTiles(bm) {
     const ctx = this.ctx; const z = Math.max(0, Math.min(bm.max, Math.round(this.zoom))); const n = 1 << z;
@@ -416,6 +496,7 @@ export class GeoMap {
   // ---- hit testing & sampling
   identify(px, py) {
     const [wx, wy] = this.fromScreen(px, py), S = this.S, out = [];
+    if (!this.containsClip(wx, wy)) return out;
     for (const l of [...this.layers].reverse()) {
       if (!l.visible || l.opacity <= 0) continue;
       if (l.kind === 'raster' || l.kind === 'image') {
@@ -499,6 +580,14 @@ export function convertFeature(f) {
   if (!type || !parts.length) return null;
   const bb = type === 'point' ? bboxOf([Float64Array.from(parts)]) : type === 'line' ? bboxOf(parts) : bboxOf(parts.flat());
   return { props, type, parts: type === 'point' ? Float64Array.from(parts) : parts, bb };
+}
+export function pointInFeature(x, y, f) {
+  if (!f) return false;
+  if (x < f.bb[0] || x > f.bb[2] || y < f.bb[1] || y > f.bb[3]) return false;
+  if (f.type === 'poly') { for (const poly of f.parts) if (pip(x, y, poly)) return true; return false; }
+  if (f.type === 'point') { for (let i = 0; i < f.parts.length; i += 2) if (Math.hypot(x - f.parts[i], y - f.parts[i + 1]) < 0.0004) return true; return false; }
+  if (f.type === 'line') return false;
+  return false;
 }
 function pip(x, y, rings) {
   let inside = false;

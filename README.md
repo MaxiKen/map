@@ -32,32 +32,68 @@ CARTO tiles are deliberately not used — since August 2026 the free CARTO tiles
 "API KEY REQUIRED" watermark when no key is supplied.
 
 ## The app
-**Layers** — every layer, grouped by theme, plus the layers currently on the map at the top
-(the one you switched on last is on top, and it is drawn on top). Drag the ⠿ handle to reorder
-layers; the layer tools (show all, hide all, fit visible, grid, labels, clear filters) are here.
+The map is built for **readers**. Whoever uploads the GeoPackages owns the content; everyone else opens
+the site to look at it. So the tools are about *seeing and analysing*, not authoring: nothing a visitor
+touches changes the data, and no visitor is asked to import, style or label anything.
 
-**Legend** — the legend of everything that is on the map. Tap an entry to zoom to it, to show only
-that class, or to add it to the map as a **label**. Labels are dragged on the map and edited in the
-label panel (text, size, colour, halo, bold/italic, rotation). Raster classes work the same way: the
-extent of a class is read from the value grid, so "zoom to it" and "add label" land on that class.
+### Focus on an area (the main viewing tool)
+Nigeria-wide layers are noisy. **Clip to an area** (Tools -> *Clip to an area*, or the **Clip** button
+in Layers) restricts the map to one shape:
 
-**Info** — attributes of whatever you tap, plus facts: area, perimeter, compactness, rank
-("54th largest of 1,485 polygons"), share of the layer and of Nigeria, centroid, UTM zone,
-bounding box, distance to Abuja, nearest neighbour for points. Raster taps show the class name
-and the legend columns.
+- **drag a box**, **draw a polygon** (tap corners, *Done* to close), **borrow a polygon from any layer**
+  (tap a state, an LGA, a geological unit), **use the current view**, or **tap "Focus on it"** on any
+  legend entry;
+- everything outside fades back, and only features inside are drawn and picked;
+- the status bar shows the area in km² and the edge length, and **Area summary** counts what is inside;
+- the focus area is remembered on the device and travels with the saved view.
 
-**Tools**
-- Starter: add a label, measure distance, measure area, go to coordinates, save the map as a PNG, grid lines.
-- Everyday GIS: symbology (fill, stroke, width, dash, marker shape/size, labels), feature labels,
-  reclassify a numeric field (quantile / equal interval, colour ramp), filter features, layer statistics, zoom to a layer.
-- Advanced: import GeoJSON, export visible layers / CSV / PNG, attribute table, distance & bearing.
+Press **Esc** to cancel a drawing. The focus chip turns green while a focus area is active; tapping it
+again lets you change or clear it, and the same link appears in the Legend and Info panels.
 
-Colours, filters, classifications, labels and the panel order are kept in `localStorage`, so a reload
-does not lose the work. "Reset the work" in Tools clears it. With a mouse, hovering the map shows the
-name of the feature under the pointer.
+### Analysis tools
+- **Select by area** — tap a polygon of any layer and every feature inside it is listed, counted by
+  layer, and exportable as CSV. It uses the real boundary, so a state or LGA outline works as a rubber band.
+- **Area summary** — for every layer on the map: how many features (or raster cells) lie inside the
+  focus area, the share of the layer, the summed area of the polygons and the top raster classes.
+- **Chart a field** — histogram of any numeric column or a ranked count of any text column, limited to
+  the focus area when one is active.
+- **Layer statistics** — totals, averages, biggest features, and min/mean/max for numeric columns.
+- **Group into classes** — reclassify a numeric field (quantile or equal interval) to see its pattern.
+- **Filter features** — show only the rows that match a column.
+- **Attribute table** — browse, sort, search and export every row.
+- **Measure distance / area, distance & bearing, grid lines** for quick ground-truthing.
+- Hovering the map names the feature under the pointer; tapping gives area, perimeter, compactness,
+  rank ("54th largest of 1,485 polygons"), share of the layer and of Nigeria, centroid, UTM zone,
+  distance to Abuja and the nearest neighbours for points.
 
-For support, the console exposes `window.__nwg` (`map`, `L`, `stack`, `annotations`,
-`rasterClassAnchor`, `layerRank`).
+### Layers, legend, info
+**Layers** — every layer grouped by theme, and the layers currently on the map at the top (the one you
+switched on last is on top and is drawn on top). Drag the ⠿ handle to reorder. The layer tools live here:
+show all, hide all, fit visible, **clip**, grid, labels, clear filters.
+
+**Legend** — the legend of everything that is on the map. Tap an entry to zoom to it, **focus on it**,
+show only that class, or (in author mode) add it as a label. Raster classes work the same way: the
+extent of a class is read from the value grid, so zooming and focusing land on that class.
+
+**Info** — attributes and facts for whatever you tap, and a link back to the whole map when a focus
+area is active.
+
+**View** — reset the view, full screen, and a **back** button (bottom-right) that returns to the previous
+extent after you have zoomed around.
+
+### Author mode
+The owner's tools — import GeoJSON, symbology, class grouping, adding labels, label list, and the full
+reset — are hidden from visitors. Open the site with **`?author=1`** to get them, and *Leave author
+mode* to go back to the reader view. To hand them to every visitor, set `"authorMode": true` under
+`app` in `config/layers.config.json`.
+
+Colours, filters, classifications, labels, the focus area and the panel order are kept in
+`localStorage`, so a reload does not lose your view. "Reset the view" (everyone) clears filters and the
+focus; "Reset the work" (author mode) clears everything.
+
+For scripting and support the console exposes `window.__nwg` (`map`, `L`, `stack`, `annotations`,
+`setFocus`, `focusFromLonLat`, `stopFocus`, `focusAreaKm2`, `toolAoi`, `runQuery`, `rasterClassAnchor`,
+`layerRank`).
 
 ## Setup
 1. Create a GitHub repo and upload everything in this folder (keep the `.github` folder).

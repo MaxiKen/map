@@ -240,7 +240,7 @@ def build_raster(con, table, row, out, cfg):
     vgf = f'{row["id"]}.vals.gz'
     payload = vg.astype('<i2' if categorical and vals.max() < 32000 and vals.min() > -32000 else '<f4')
     if payload.dtype == np.int16: payload = np.where(vg == nodata, -32768, vg).astype('<i2')
-    with gzip.open(os.path.join(out, 'data', vgf), 'wb', 6) as f: f.write(payload.tobytes())
+    with gzip.GzipFile(os.path.join(out, 'data', vgf), 'wb', 6, mtime=0) as f: f.write(payload.tobytes())
     info['image'] = 'data/' + fn
     info['values'] = {'file': 'data/' + vgf, 'w': int(vg.shape[1]), 'h': int(vg.shape[0]), 'dtype': 'i2' if payload.dtype == np.int16 else 'f4'}
     info['size'] = [int(rgba.shape[1]), int(rgba.shape[0])]

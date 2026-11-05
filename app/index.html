@@ -22,6 +22,8 @@
   <button class="fab" id="btn-locate" aria-label="My location" data-i="locate"></button>
   <button class="fab" id="btn-share" aria-label="Copy link to this view" data-i="share"></button>
   <button class="fab" id="btn-home" aria-label="Zoom to Nigeria" data-i="home"></button>
+  <button class="fab" id="btn-back" aria-label="Previous view" data-i="undo" hidden></button>
+  <button class="fab" id="btn-full" aria-label="Full screen" data-i="expand"></button>
 </div>
 <div id="zoombtns">
   <button class="fab small" id="zin" aria-label="Zoom in" data-i="plus"></button>
@@ -30,6 +32,7 @@
 <div id="mapinfo"><span id="coords"></span><span id="scalebar"><i></i><b></b></span></div>
 <div id="attrib"></div>
 <div id="measurebar" hidden><span id="measuretext">Tap the map to measure</span><button id="measureclear">Clear</button><button id="measuredone">Done</button></div>
+<div id="drawbar" hidden><span id="drawtext">Draw an area</span><button id="drawclear">Clear</button><button id="drawdone">Done</button></div>
 
 <section id="sheet" class="closed" aria-live="polite">
   <div id="grab" aria-hidden="true"><i></i></div>
@@ -46,11 +49,15 @@
     <div class="panel" id="panel-tools">
       <h3>Basemap</h3><div id="basemaps" class="seg"></div>
       <p class="muted tiny" id="basemapnote"></p>
-      <h3>Starter tools</h3><div class="toolgrid" id="tools-beginner"></div>
-      <h3>Everyday GIS</h3><div class="toolgrid" id="tools-medium"></div>
-      <h3>Advanced</h3><div class="toolgrid" id="tools-advanced"></div>
-      <h3>Labels you placed</h3><div id="annotationlist"></div>
-      <h3>Project</h3><div class="toolgrid" id="tools-project"></div>
+      <h3>Focus &amp; analyse</h3><div class="toolgrid" id="tools-focus"></div>
+      <h3>Measure &amp; navigate</h3><div class="toolgrid" id="tools-navigate"></div>
+      <h3>Data &amp; display</h3><div class="toolgrid" id="tools-data"></div>
+      <div id="authorzone" hidden>
+        <h3>Author tools</h3><p class="hint">You are in author mode, so content, styling and labels can be changed — visitors never see these tools. <button class="btn" id="leave-author">Leave author mode</button></p>
+        <div class="toolgrid" id="tools-author"></div>
+        <h3>Labels you placed</h3><div id="annotationlist"></div>
+      </div>
+      <h3>View</h3><div class="toolgrid" id="tools-project"></div>
       <h3>About</h3><div id="about" class="muted"></div>
     </div>
   </div>

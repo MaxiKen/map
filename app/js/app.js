@@ -1,4 +1,4 @@
-import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm } from './engine.js';
+import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature } from './engine.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -46,6 +46,11 @@ const IC = {
   refresh: '<path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/>',
   copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>',
   pin: '<path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/>',
+  crop: '<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>',
+  query: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M8.5 11h5M11 8.5v5"/>',
+  undo: '<path d="M4 10h9a5 5 0 0 1 0 10H8"/><path d="m8 6-4 4 4 4"/>',
+  expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+  hist: '<path d="M4 20V8M9 20V4M14 20v-6M19 20v-9M2 20h20"/>',
 };
 const icon = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
 const KIND_LABEL = { point: 'Points', line: 'Lines', polygon: 'Polygons', raster: 'Raster', image: 'Picture', table: 'Table' };
@@ -59,6 +64,11 @@ let baseOrder = [];           // every layer id in list order
 const expanded = new Set();
 let annotations = [];         // labels placed on the map
 let activeTab = 'layers', measure = null, userLoc = null, gridOn = false, editing = null, booting = true;
+// Viewers get the read-only map: analysis and viewing only. Content/styling work lives behind ?author=1.
+let AUTHOR = new URLSearchParams(location.search).get('author') === '1';
+let draw = null;              // {kind:'rect'|'poly'|'pick', pts:[]} while the user is drawing a focus area
+let clip = null;              // active focus area (mirrors map.clip)
+const viewHist = [];          // previous views, for the back button
 const RAMPS = {
   viridis: ['#440154', '#3b528b', '#21918c', '#5ec962', '#fde725'],
   blues: ['#deebf7', '#9ecae1', '#4292c6', '#2171b5', '#08306b'],
@@ -84,6 +94,7 @@ async function start() {
     $('#layerlist').innerHTML = '<p class="empty">Could not load catalog.json. Run the build (scripts/build_site.py) and deploy the public folder.</p>';
     openSheet('layers'); return;
   }
+  if (catalog.authorMode === true) AUTHOR = true;
   document.title = catalog.title; $('#title').textContent = catalog.title;
   catalog.layers.forEach((m, i) => L.set(m.id, {
     meta: m, on: false, opacity: m.opacity ?? (m.kind === 'polygon' ? 0.85 : 1), loading: false, obj: null,
@@ -120,6 +131,19 @@ async function start() {
   });
 
   map.on('view', onView); map.on('click', onClick);
+  bindDrawPointer();
+  $('#drawdone').onclick = () => { if (draw?.kind === 'poly') { const pts = draw.pts.slice(); endDraw(); focusFromLonLat(pts); } else endDraw(); };
+  $('#drawclear').onclick = () => { endDraw(); toast('Focus drawing cancelled'); };
+  $('#btn-full').onclick = toggleFullscreen;
+  $('#leave-author')?.addEventListener('click', () => {
+    const u = new URL(location.href); u.searchParams.delete('author');
+    location.href = u.pathname + (u.search ? u.search : '') + u.hash;
+  });
+  $('#btn-back').onclick = goBack;
+  addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && draw) { endDraw(); toast('Focus drawing cancelled'); }
+  });
+  if (saved && saved.clip) restoreFocus(saved.clip);
   map.on('hover', (x, y) => { const [lo, la] = map.lonlatAt(x, y); $('#coords').textContent = fmtLL(la, lo); });
   map.on('tileerror', onTileError);
   onView();
@@ -372,6 +396,7 @@ function renderLayerTools() {
     <button data-x="showall">${icon('eye')}Show all</button>
     <button data-x="hideall">${icon('eyeoff')}Hide all</button>
     <button data-x="fitall">${icon('zoom')}Fit visible</button>
+    <button data-x="focus" class="${clip ? 'on' : ''}">${icon('crop')}${clip ? 'Focused' : 'Clip'}</button>
     <button data-x="grid" class="${gridOn ? 'on' : ''}">${icon('grid')}Grid</button>
     <button data-x="labels">${icon('tag')}Labels</button>
     <button data-x="clearfilter">${icon('filter')}Clear filters</button>`;
@@ -523,7 +548,9 @@ async function refreshLegend() {
   const box = $('#legend');
   const active = [...stack].reverse().map((id) => L.get(id)).filter((st) => st.obj);
   if (!active.length) { box.innerHTML = '<p class="empty">Turn on a layer to see its legend.<br>Tap any legend entry to zoom to it, filter to it or add it to the map as a label.</p>'; return; }
-  const out = ['<p class="hint">Tap a legend entry to zoom to it, show only that class, or add it to the map as a label.</p>'];
+  const out = [clip
+    ? `<div class="lgnote">Focus area active (${fmtNum(focusAreaKm2())} km²). Counts below still describe whole layers. <button class="btn" data-x="unfocus">Show the whole map</button></div>`
+    : '<p class="hint">Tap a legend entry to zoom to it, focus on it, show only that class, or add it to the map as a label.</p>'];
   for (const st of active) {
     const m = st.meta;
     let rows = '';
@@ -635,19 +662,29 @@ async function legendEntryActions(layerId, kind, key, field) {
       ${anchor ? `<div class="lgnote">${anchor.count.toLocaleString()} ${m.kind === 'raster' ? 'cells' : 'features'} at ${fmtLL(anchor.lat, anchor.lon)}</div>` : '<div class="lgnote">No feature of this class is on the map.</div>'}
       <h4>Use this entry</h4>
       <div class="frow act" style="justify-content:stretch">
-        <button class="btn primary" id="le-label">${icon('tag')} Add label to the map</button>
+        <button class="btn primary" id="le-zoom">${icon('zoom')} Zoom to it</button>
+        ${anchor ? `<button class="btn" id="le-focus">${icon('crop')} Focus on it</button>` : ''}
       </div>
       <div class="frow act" style="justify-content:stretch">
-        <button class="btn" id="le-zoom">${icon('zoom')} Zoom to it</button>
         <button class="btn" id="le-filter">${icon('filter')} Show only this</button>
+        ${AUTHOR ? `<button class="btn" id="le-label">${icon('tag')} Add label to the map</button>` : ''}
       </div>`;
-    body.querySelector('#le-label').onclick = () => {
+    body.querySelector('#le-focus')?.addEventListener('click', () => {
+      if (!anchor) return;
+      closeModal();
+      const bb = anchor.bbox;
+      setFocus({ type: 'rect', wb: [mercX(bb[0]), mercY(bb[1]), mercX(bb[2]), mercY(bb[3])] });
+      focusLabel = label;
+      openSheet('layers');
+      map.fitBounds(bb, 60);
+    });
+    body.querySelector('#le-label')?.addEventListener('click', () => {
       const [lo, la] = anchor ? [anchor.lon, anchor.lat] : map.center();
       const a = addAnnotation({ text: label, lon: lo, lat: la, size: 15, bold: true });
       closeModal();
       if (anchor) map.setView(lo, la, Math.max(map.zoom, 7));
       openLabelEditor(a);
-    };
+    });
     body.querySelector('#le-zoom').onclick = () => {
       if (!anchor) { toast('This entry has no features on the map'); return; }
       closeModal(); openSheet('layers');
@@ -725,6 +762,7 @@ async function showResults(res, lonlat) {
   const box = $('#info'); const parts = [];
   const spot = lonlat || map.center();
   if (lonlat) parts.push(`<div class="muted" style="margin:4px 0 6px">${esc(fmtLL(lonlat[1], lonlat[0]))}</div>`);
+  if (clip) parts.push(`<div class="lgnote">Showing only inside the focus area (${fmtNum(focusAreaKm2())} km²). <button class="btn" data-x="unfocus">Show the whole map</button></div>`);
   for (const r of res.slice(0, 30)) {
     const st = L.get(r.layer.id); if (!st) continue;
     const m = st.meta;
@@ -736,7 +774,7 @@ async function showResults(res, lonlat) {
         <div class="rastv">${esc(label)} <span class="muted">(code ${esc(r.value)}${m.uom ? ' ' + esc(m.uom) : ''})</span></div>
         ${attrRows.length ? `<div class="kv">${attrRows.map(([k, v]) => `<div>${esc(k.replace(/_/g, ' '))}</div><div>${esc(typeof v === 'number' ? fmtNum(v) : v)}</div>`).join('')}</div>` : ''}
         <div class="actions"><button class="btn" data-x="rast-table" data-id="${esc(m.id)}">${icon('table')}Class table</button>
-        <button class="btn" data-x="rast-label" data-id="${esc(m.id)}" data-text="${esc(label)}">${icon('tag')}Add label</button></div></div>`);
+        ${AUTHOR ? `<button class="btn" data-x="rast-label" data-id="${esc(m.id)}" data-text="${esc(label)}">${icon('tag')}Add label</button>` : ''}</div></div>`);
       continue;
     }
     if (!r.feature) { parts.push(`<div class="card"><header>${icon(m.kind)}${esc(m.label)}<small>picture</small></header><div class="rastv muted">Scanned map picture</div></div>`); continue; }
@@ -747,7 +785,7 @@ async function showResults(res, lonlat) {
       ${factsHtml(st, f)}
       <div class="actions">
         <button class="btn" data-x="zoom">${icon('zoom')}Zoom</button>
-        <button class="btn" data-x="label">${icon('tag')}Label</button>
+        ${AUTHOR ? `<button class="btn" data-x="label">${icon('tag')}Label</button>` : ''}
         <button class="btn" data-x="copy">${icon('copy')}Copy</button>
         <button class="btn" data-x="json">${icon('down')}JSON</button>
       </div></div>`);
@@ -781,12 +819,38 @@ function toGeoJSON(f) {
 }
 function onClick(x, y) {
   const [lo, la] = map.lonlatAt(x, y);
+  if (draw?.kind === 'pick') {
+    const res = map.identify(x, y);
+    const hit = res.find((r) => r.feature && r.layer.kind === 'polygon');
+    if (!hit) { toast('Tap inside a polygon'); return; }
+    const st = L.get(hit.layer.id), mode = draw.mode, pid = draw.pid, lid = draw.lid;
+    endDraw();
+    const poly = { layer: hit.layer.id, kind: 'poly', f: hit.feature };
+    if (mode === 'focus') { focusFromFeature(poly.f, st?.meta.label); toast(`Focused on ${st?.meta.label || 'the polygon'}`); }
+    else runQuery(poly, lid || pid);
+    return;
+  }
+  if (draw?.kind === 'poly') {
+    draw.pts.push([lo, la]);
+    drawPreview();
+    $('#drawtext').textContent = `${draw.pts.length} corner${draw.pts.length === 1 ? '' : 's'} — tap Done to close`;
+    return;
+  }
   if (measure) { measure.pts.push([lo, la]); updateMeasure(); return; }
   if (!stack.length) { toast('Turn a layer on, then tap the map'); return; }
   const res = map.identify(x, y);
   const feat = res.find((r) => r.feature);
   map.selection = feat ? { feature: feat.feature, layer: feat.layer } : null; map.render();
-  if (!res.length) { toast('Nothing found at this spot'); $('#info').innerHTML = '<p class="empty">Nothing found there. Try another spot.</p>'; return; }
+  if (!res.length) {
+    if (clip) {
+      toast('That spot is outside the focus area');
+      $('#info').innerHTML = `<p class="empty">That point is outside the focus area, so nothing is shown there.</p><div class="aoi"><button class="btn" data-x="unfocus">Clear the focus area</button></div>`;
+    } else {
+      toast('Nothing found at this spot');
+      $('#info').innerHTML = '<p class="empty">Nothing found there. Try another spot.</p>';
+    }
+    return;
+  }
   showResults(res, [lo, la]); openSheet('info', true);
 }
 
@@ -910,36 +974,48 @@ $('#sheetclose').onclick = closeSheet;
 
 // ---------------------------------------------------------------- tools panel
 const TOOL_GROUPS = {
-  beginner: [
-    ['addlabel', 'tag', 'Add a label', 'Place text anywhere on the map'],
+  focus: [
+    ['clip', 'crop', 'Clip to an area', 'Fade everything outside a shape you draw'],
+    ['query', 'query', 'Select by area', 'List what lies inside a polygon'],
+    ['aoi', 'hist', 'Area summary', 'Counts, classes and area inside the focus'],
+    ['filter', 'filter', 'Filter features', 'Show only the rows that match'],
+    ['reclass', 'sliders', 'Group into classes', 'Reclassify and recolour a numeric field'],
+  ],
+  navigate: [
     ['measure-dist', 'ruler', 'Measure distance', 'Tap along a line to total the km'],
     ['measure-area', 'area', 'Measure area', 'Tap a shape to get km² and edge'],
     ['goto', 'target', 'Go to coordinates', 'Type a latitude and longitude'],
-    ['shot', 'camera', 'Save map picture', 'Download the screen as a PNG'],
+    ['bearing', 'compass', 'Distance & bearing', 'Between two coordinates'],
     ['grid', 'grid', 'Grid lines', 'Latitude / longitude graticule'],
   ],
-  medium: [
-    ['symbology', 'palette', 'Symbology', 'Fill, stroke, size and labels'],
+  data: [
+    ['stats', 'chart', 'Layer statistics', 'Totals, averages and a chart'],
+    ['chart', 'hist', 'Compare fields', 'Histogram of any numeric column'],
+    ['table', 'table', 'Attribute table', 'Browse, sort and search rows'],
     ['labels', 'tag', 'Feature labels', 'Write a field on the map'],
-    ['reclass', 'sliders', 'Reclassify', 'Group a numeric field into classes'],
-    ['filter', 'filter', 'Filter features', 'Show only the rows that match'],
-    ['stats', 'chart', 'Layer statistics', 'Totals, averages, biggest features'],
     ['zoomlayer', 'zoom', 'Zoom to a layer', 'Fit a whole layer on screen'],
-  ],
-  advanced: [
-    ['import', 'upload', 'Import GeoJSON', 'Bring your own file onto the map'],
+    ['shot', 'camera', 'Save map picture', 'Download the screen as a PNG'],
     ['export', 'down', 'Export data', 'Download layers as GeoJSON / CSV'],
-    ['table', 'table', 'Attribute table', 'Browse every row of a layer'],
-    ['bearing', 'compass', 'Distance & bearing', 'Between two coordinates'],
+  ],
+  author: [
+    ['symbology', 'palette', 'Symbology', 'Fill, stroke, size and labels'],
+    ['addlabel', 'tag', 'Add a label', 'Place text anywhere on the map'],
+    ['savelabels', 'pin', 'Label list', 'Manage the labels you placed'],
+    ['import', 'upload', 'Import GeoJSON', 'Bring your own file onto the map'],
+    ['reset', 'refresh', 'Reset the work', 'Forget styles, filters, labels and focus'],
   ],
   project: [
-    ['savelabels', 'pin', 'Label list', 'Manage the labels you placed'],
-    ['reset', 'refresh', 'Reset the work', 'Forget styles, filters and labels'],
+    ['resetview', 'refresh', 'Reset the view', 'Back to the opening extent and no filters'],
+    ['fullscreen', 'expand', 'Full screen', 'Use the whole screen, no browser chrome'],
   ],
 };
+
 function buildTools() {
+  const authorZone = $('#authorzone');
+  if (authorZone) authorZone.hidden = !AUTHOR;
   for (const [group, list] of Object.entries(TOOL_GROUPS)) {
-    const box = $('#tools-' + (group === 'project' ? 'project' : group));
+    if (group === 'author' && !AUTHOR) continue;
+    const box = $('#tools-' + group);
     if (!box) continue;
     box.innerHTML = list.map(([id, ic, label, desc]) => `<button class="tool" data-tool="${id}">${icon(ic)}${esc(label)}<small>${esc(desc)}</small></button>`).join('');
   }
@@ -952,11 +1028,15 @@ function buildTools() {
 function updateToolState() {
   for (const b of $$('[data-tool]')) {
     const t = b.dataset.tool;
-    b.classList.toggle('on', (t === 'grid' && gridOn) || (t === 'measure-dist' && measure?.mode === 'line') || (t === 'measure-area' && measure?.mode === 'area'));
+    b.classList.toggle('on', (t === 'grid' && gridOn)
+      || (t === 'measure-dist' && measure?.mode === 'line') || (t === 'measure-area' && measure?.mode === 'area')
+      || (t === 'clip' && !!clip) || (t === 'query' && draw?.mode === 'query'));
   }
   const g = $('#lyrtools [data-x="grid"]'); if (g) g.classList.toggle('on', gridOn);
 }
+const AUTHOR_ONLY = new Set(['symbology', 'addlabel', 'savelabels', 'import', 'reset']);
 function runTool(t) {
+  if (AUTHOR_ONLY.has(t) && !AUTHOR) return;
   switch (t) {
     case 'addlabel': {
       const [lo, la] = map.center();
@@ -980,14 +1060,381 @@ function runTool(t) {
     case 'bearing': toolBearing(); break;
     case 'savelabels': openSheet('tools'); renderAnnotations(); toast('Labels are listed under “Labels you placed”'); break;
     case 'reset': resetWork(); break;
+    case 'clip': toolClip(); break;
+    case 'query': toolQuery(); break;
+    case 'aoi': toolAoi(); break;
+    case 'chart': toolChart(); break;
+    case 'resetview': resetView(); break;
+    case 'fullscreen': toggleFullscreen(); break;
   }
 }
+
+// ---------------------------------------------------------------- focus area (clip)
+const FOCUS_KINDS = { rect: 'Rectangle', poly: 'Polygon' };
+
+function setFocus(obj, announce = true) {
+  clip = obj || null;
+  map.setClip(clip);
+  if (clip) focusLabel = focusLabel || '';
+  updateFocusUI();
+  saveProjectSoon();
+  if (announce) toast(clip ? `Focused on ${fmtNum(focusAreaKm2())} km²` : 'Focus cleared — the whole map is shown');
+}
+function stopFocus() { focusLabel = ''; setFocus(null); }
+function focusAreaKm2() {
+  if (!clip) return 0;
+  if (clip.type === 'rect') {
+    const [w, yb, e, yt] = clip.wb;
+    return ringAreaKm2([[unX(w), unY(yt)], [unX(e), unY(yt)], [unX(e), unY(yb)], [unX(w), unY(yb)]]);
+  }
+  if (clip.type === 'poly') {
+    let a = 0;
+    clip.rings.forEach((r, i) => {
+      const o = [];
+      for (let k = 0; k + 1 < r.length; k += 2) o.push([unX(r[k]), unY(r[k + 1])]);
+      const v = ringAreaKm2(o);
+      a += i === 0 ? v : -v;
+    });
+    return Math.max(0, a);
+  }
+  return 0;
+}
+function focusPerimeterKm() {
+  if (clip?.type !== 'poly') return 0;
+  const r = clip.rings[0], o = [];
+  for (let i = 0; i + 1 < r.length; i += 2) o.push([unX(r[i]), unY(r[i + 1])]);
+  return ringPerimeterKm(o);
+}
+function focusFromLonLat(pts) {
+  if (!pts || pts.length < 3) { toast('Tap at least three corners'); return; }
+  const ring = [];
+  for (const [lo, la] of pts) ring.push(mercX(lo), mercY(la));
+  setFocus({ type: 'poly', rings: [ring] });
+}
+function focusFromRect(a, b) {
+  const w = mercX(Math.min(a[0], b[0])), e = mercX(Math.max(a[0], b[0]));
+  const n = mercY(Math.max(a[1], b[1])), s_ = mercY(Math.min(a[1], b[1]));
+  if (Math.abs(e - w) < 1e-7 || Math.abs(n - s_) < 1e-7) { toast('Drag a bigger box'); return; }
+  setFocus({ type: 'rect', wb: [w, s_, e, n] });
+}
+function focusFromFeature(f, label) {
+  if (!f) return;
+  if (f.type === 'poly') {
+    const rings = [];
+    for (const poly of f.parts) for (const ring of poly) rings.push(Array.from(ring));
+    focusLabel = label || '';
+    setFocus({ type: 'poly', rings });
+    map.fitBounds([unX(f.bb[0]), unY(f.bb[3]), unX(f.bb[2]), unY(f.bb[1])], 40);
+  } else if (f.type === 'point') {
+    const pad = 0.02 / Math.max(1, Math.pow(1.6, map.zoom - 4));
+    const x = f.parts[0], y = f.parts[1];
+    setFocus({ type: 'rect', wb: [x - pad, y - pad, x + pad, y + pad] });
+  } else toast('Only a polygon or a point can be used as a focus area');
+}
+let focusLabel = '';
+
+function updateFocusUI() {
+  const chip = $('#lyrtools [data-x="focus"]');
+  if (chip) {
+    chip.classList.toggle('on', !!clip);
+    chip.innerHTML = icon('crop') + (clip ? 'Focused' : 'Clip');
+    chip.title = clip ? 'A focus area is active — tap to change or clear it' : 'Clip the map to an area';
+  }
+  updateToolState();
+  const b = $('#btn-back'); if (b) b.hidden = !viewHist.length;
+}
+
+// drawing a focus area ---------------------------------------------------
+function startDraw(kind) {
+  if (measure) { measure = null; $('#measurebar').hidden = true; }
+  draw = { kind, pts: [] };
+  map.cv.style.cursor = 'crosshair';
+  const bar = $('#drawbar'); bar.hidden = false;
+  $('#drawtext').textContent = kind === 'rect' ? 'Drag a box on the map' : kind === 'poly' ? 'Tap the corners of the area' : 'Tap a polygon to use as the focus';
+  $('#drawdone').hidden = kind !== 'poly';
+  $('#drawclear').textContent = kind === 'rect' ? 'Cancel' : 'Cancel';
+  if (kind === 'poly') { drawPreview(); }
+  updateToolState();
+}
+function startPick(mode, extra = {}) {
+  if (measure) { measure = null; $('#measurebar').hidden = true; }
+  if (mode === 'focus') setFocus(null, false);
+  draw = { kind: 'pick', mode, ...extra };
+  map.cv.style.cursor = 'crosshair';
+  const bar = $('#drawbar'); bar.hidden = false;
+  $('#drawtext').textContent = mode === 'focus' ? 'Tap a polygon to use as the focus' : 'Tap a polygon to select inside it';
+  $('#drawdone').hidden = true;
+  $('#drawclear').textContent = 'Cancel';
+  updateToolState();
+}
+function endDraw() {
+  draw = null;
+  map.cv.style.cursor = '';
+  map.overlay = null;
+  $('#drawbar').hidden = true;
+  map.render();
+  updateToolState();
+}
+function drawPreview() {
+  map.overlay = (ctx, m) => {
+    if (!draw || draw.kind !== 'poly' || !draw.pts.length) return;
+    ctx.save();
+    ctx.beginPath();
+    draw.pts.forEach(([lo, la], i) => { const [x, y] = m.screenOf(lo, la); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.setLineDash([7, 5]); ctx.lineWidth = 2.5; ctx.strokeStyle = '#0b6b45'; ctx.stroke();
+    if (draw.pts.length > 2) { ctx.setLineDash([]); ctx.fillStyle = 'rgba(11,107,69,.14)'; ctx.fill(); }
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#0b6b45';
+    for (const [lo, la] of draw.pts) { const [x, y] = m.screenOf(lo, la); ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore();
+  };
+  map.render();
+}
+// drag-to-draw a rectangle: capture phase so the map never pans while drawing
+function bindDrawPointer() {
+  const cv = map.cv;
+  let origin = null;
+  const rectAt = (e) => unproject(e);
+  cv.addEventListener('pointerdown', (e) => {
+    if (draw?.kind !== 'rect') return;
+    e.stopPropagation(); e.preventDefault();
+    origin = rectAt(e);
+    let last = origin;
+    cv.setPointerCapture?.(e.pointerId);
+    map.overlay = (ctx, m) => {
+      const [x0, y0] = m.screenOf(Math.min(origin[0], last[0]), Math.max(origin[1], last[1]));
+      const [x1, y1] = m.screenOf(Math.max(origin[0], last[0]), Math.min(origin[1], last[1]));
+      ctx.save();
+      ctx.fillStyle = 'rgba(11,107,69,.16)'; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+      ctx.setLineDash([7, 5]); ctx.lineWidth = 2.5; ctx.strokeStyle = '#0b6b45'; ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+      ctx.restore();
+    };
+    map.render();
+    const move = (ev) => { last = rectAt(ev); map.render(); };
+    const up = (ev) => {
+      cv.removeEventListener('pointermove', move);
+      cv.removeEventListener('pointerup', up);
+      cv.removeEventListener('pointercancel', up);
+      const b = rectAt(ev), a = origin; origin = null;
+      map.overlay = null;
+      endDraw();
+      focusFromRect(a, b);
+    };
+    cv.addEventListener('pointermove', move);
+    cv.addEventListener('pointerup', up);
+    cv.addEventListener('pointercancel', up);
+  }, true);
+}
+function unproject(e) {
+  const r = map.cv.getBoundingClientRect();
+  return map.fromScreen((e.clientX - r.left) * (map.W / r.width), (e.clientY - r.top) * (map.H / r.height)).map((v, i) => i === 0 ? unX(v) : unY(v));
+}
+
+function toolClip() {
+  const kind = clip ? (FOCUS_KINDS[clip.type] || 'area') : '';
+  const cur = clip
+    ? `Active focus: ${kind} · <b>${fmtNum(focusAreaKm2())} km²</b>${focusPerimeterKm() ? ` · edge ${fmtNum(focusPerimeterKm())} km` : ''}${focusLabel ? ` · from ${esc(focusLabel)}` : ''}`
+    : 'No focus area — the whole map is shown.';
+  openModal('Clip to an area', (body) => {
+    body.innerHTML = `<p class="hint">${cur}</p>
+      <p>Everything outside the shape fades back, and only features inside it are drawn and picked. Use it to study one state, one local government, one basin or one site without the national picture in the way.</p>
+      <div class="aoi">
+        <button class="btn" data-act="rect">${icon('crop')} Drag a box</button>
+        <button class="btn" data-act="poly">${icon('area')} Draw a polygon</button>
+        <button class="btn" data-act="pick">${icon('query')} Use a polygon from a layer</button>
+        <button class="btn" data-act="view">${icon('expand')} Use the current view</button>
+      </div>
+      <p class="hint" style="margin-top:10px">Esc cancels a drawing. The focus area is remembered with your view and in the share link.</p>
+      ${clip ? `<div class="aoi" style="margin-top:10px">
+        <button class="btn" data-act="summary">${icon('hist')} Area summary</button>
+        <button class="btn" data-act="zoom">${icon('zoom')} Zoom to it</button>
+        <button class="btn" data-act="clear">Clear focus</button></div>` : ''}`;
+    body.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-act]'); if (!b) return;
+      const act = b.dataset.act; closeModal();
+      if (act === 'rect' || act === 'poly') startDraw(act);
+      else if (act === 'pick') startPick('focus');
+      else if (act === 'view') {
+        const [x0, y0] = map.fromScreen(0, 0), [x1, y1] = map.fromScreen(map.W, map.H);
+        setFocus({ type: 'rect', wb: [x0, y1, x1, y0] });
+      } else if (act === 'clear') stopFocus();
+      else if (act === 'summary') toolAoi();
+      else if (act === 'zoom') { const bb = map.clipBounds(); if (bb) map.fitBounds(bb, 24); }
+    });
+  });
+}
+
+// what is inside the focus area ------------------------------------------
+function visibleLayerIds() { return stack.filter((id) => isOn(id) && L.get(id)?.obj); }
+function valueFor(st, f) {
+  const rk = layerRank(st);
+  if (rk && Number.isFinite(rk.byIdx?.get?.(f.idx))) return fmtNum(rk.byIdx.get(f.idx));
+  for (const fld of (st.meta.fields || [])) {
+    const v = f.props?.[fld.name];
+    if (v != null && v !== '') return String(v).slice(0, 40);
+  }
+  return '';
+}
+
+function toolAoi() {
+  openModal('Area summary', (body) => {
+    body.innerHTML = '<p class="hint">Counting features inside the focus area…</p>';
+    setTimeout(() => {
+      const area = focusAreaKm2();
+      const rows = [];
+      for (const id of visibleLayerIds()) {
+        const st = L.get(id), obj = st.obj, m = st.meta;
+        if (m.kind === 'table') continue;
+        if (obj.features) {
+          let n = 0, tot = 0, ar = 0, arIn = 0;
+          for (const f of obj.features) {
+            if (f.hidden) continue;
+            tot++;
+            const [wx, wy] = labelAnchor(f);
+            const inside = clip ? map.containsClip(wx, wy) : true;
+            if (m.kind === 'polygon') ar += featureMetrics(f).area || 0;
+            if (inside) { n++; if (m.kind === 'polygon') arIn += featureMetrics(f).area || 0; }
+          }
+          rows.push({ label: m.label, kind: m.kind, n, tot, ar: arIn });
+        } else if (obj.vals) {
+          const o = obj.vals, { w, h, data, dtype } = o;
+          const step = Math.max(1, Math.floor(Math.sqrt((w * h) / 45000)));
+          const counts = new Map(); let inside = 0, cells = 0;
+          for (let j = 0; j < h; j += step) {
+            const wy = o.wb[1] + (j + step / 2) / h * (o.wb[3] - o.wb[1]);
+            for (let i = 0; i < w; i += step) {
+              const v = data[j * w + i];
+              if (dtype === 'i2' ? v === -32768 : !isFinite(v)) continue;
+              cells++;
+              const wx = o.wb[0] + (i + step / 2) / w * (o.wb[2] - o.wb[0]);
+              if (clip && !map.containsClip(wx, wy)) continue;
+              inside++;
+              counts.set(v, (counts.get(v) || 0) + 1);
+            }
+          }
+          const top = [...counts.entries()].sort((x, y) => y[1] - x[1]).slice(0, 5);
+          rows.push({ label: m.label, kind: 'raster', n: inside * step * step, tot: cells * step * step, classes: top, weight: step * step });
+        }
+      }
+      const max = Math.max(1, ...rows.map((r) => r.n));
+      const bars = rows.map((r) => `<div class="brow"><span>${esc(r.label)}</span><span class="barwrap"><i style="width:${Math.max(1, 100 * r.n / max)}%"></i></span><b>${fmtNum(r.n)}</b></div>`).join('');
+      body.innerHTML = `<p class="hint">${clip
+        ? `Focus area: <b>${fmtNum(area)} km²</b>${focusPerimeterKm() ? ` · edge ${fmtNum(focusPerimeterKm())} km` : ''}. Only what lies inside it is counted.`
+        : 'No focus area set — the totals below cover every visible layer. Use <b>Clip to an area</b> to narrow them.'}</p>
+        <div class="chart">${bars || '<p class="hint">Nothing visible.</p>'}</div>
+        <table class="mini"><tr><th>Layer</th><th>${clip ? 'Inside' : 'Count'}</th><th>of</th><th>Detail</th></tr>
+        ${rows.map((r) => `<tr><td>${esc(r.label)}</td><td><b>${fmtNum(r.n)}</b></td><td>${fmtNum(r.tot)}</td><td>${
+          r.classes ? r.classes.map(([v, c]) => `${esc(v)}: ${fmtNum(c * r.weight)} cells`).join('<br>')
+            : r.kind === 'polygon' ? `Σ ${fmtNum(r.ar)} km²` : r.kind === 'point' ? 'points' : 'lines'}</td></tr>`).join('')}</table>
+        ${rows.some((r) => r.kind === 'polygon') ? '<p class="hint">Area sums use the feature\'s own size, so polygons that straddle the edge of the focus count in full.</p>' : ''}
+        <div class="aoi" style="margin-top:10px">${clip
+          ? '<button class="btn" data-act="clear">Clear focus</button><button class="btn" data-act="zoom">Zoom to area</button><button class="btn" data-act="csv">Export summary (CSV)</button>'
+          : '<button class="btn primary" data-act="clip">Clip to an area</button>'}</div>`;
+      body.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-act]'); if (!b) return;
+        const act = b.dataset.act; closeModal();
+        if (act === 'clear') stopFocus();
+        else if (act === 'zoom') { const bb = map.clipBounds(); if (bb) map.fitBounds(bb, 24); }
+        else if (act === 'clip') toolClip();
+        else if (act === 'csv') {
+          const head = 'layer,inside,total,detail';
+          const lines = [head, ...rows.map((r) => [r.label, r.n, r.tot, r.classes ? r.classes.map(([v, c]) => `${v}=${c * r.weight}`).join(' ') : r.kind === 'polygon' ? `${Math.round(r.ar)} km2` : r.kind].map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))];
+          download('area-summary.csv', lines.join(String.fromCharCode(10)), 'text/csv');
+        }
+      });
+    }, 40);
+  });
+}
+
+// select by area: list features inside a polygon feature -------------------
+function toolQuery() {
+  const polys = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'polygon') polys.push([id, st]); }
+  openModal('Select by area', (body) => {
+    if (!polys.length) {
+      body.innerHTML = `<p class="hint">No polygon layer is switched on, so there is no boundary to select against.${clip ? ' Your focus area still works — use <b>Area summary</b> to count inside it.' : ''}</p>`;
+      return;
+    }
+    body.innerHTML = `<p>Tap a polygon on the map, then everything inside it is listed, counted and can be exported. Uses the polygon's own boundary, so a state or LGA border works as a rubber band.</p>
+      <label>Boundary layer<select id="qpoly">${polys.map(([id, st]) => `<option value="${esc(id)}">${esc(st.meta.label)}</option>`).join('')}</select></label>
+      <label>List features from<select id="qlayer"><option value="">all switched-on layers</option>${visibleLayerIds().map((id) => `<option value="${esc(id)}">${esc(L.get(id).meta.label)}</option>`).join('')}</select></label>
+      <div class="frow act"><button class="btn primary" data-act="run">Next: tap a polygon</button></div>
+      ${clip ? '<p class="hint">Rows are also limited to the current focus area.</p>' : ''}`;
+    body.addEventListener('click', (e) => {
+      if (!e.target.closest('[data-act="run"]')) return;
+      const pid = body.querySelector('#qpoly').value, lid = body.querySelector('#qlayer').value || '';
+      closeModal();
+      startPick('query', { pid, lid });
+      toast('Tap a polygon to select inside it');
+    });
+  });
+}
+function runQuery(poly, onlyLayer) {
+  const ids = onlyLayer ? [onlyLayer] : visibleLayerIds();
+  const out = [];
+  for (const id of ids) {
+    const st = L.get(id); if (!st?.obj?.features) continue;
+    if (id === poly.layer && !onlyLayer) continue;
+    for (const f of st.obj.features) {
+      if (f.hidden) continue;
+      const [wx, wy] = labelAnchor(f);
+      if (clip && !map.containsClip(wx, wy)) continue;
+      if (!pointInFeature(wx, wy, poly.f)) continue;
+      out.push({ id, st, f });
+    }
+  }
+  const label = L.get(poly.layer)?.meta.label || 'polygon';
+  const area = poly.f.type === 'poly' ? (featureMetrics(poly.f).area || 0) : 0;
+  const name = titleOf(L.get(poly.layer)?.obj, poly.f);
+  const byLayer = new Map();
+  for (const r of out) byLayer.set(r.st.meta.label, (byLayer.get(r.st.meta.label) || 0) + 1);
+  const sample = out.slice(0, 150);
+  const maxN = Math.max(1, ...byLayer.values());
+  openModal('Selection result', (body) => {
+    body.innerHTML = `<p class="hint">Inside <b>${esc(name || label)}</b> (${esc(label)})${area ? ` · ${fmtNum(area)} km²` : ''} · <b>${fmtNum(out.length)}</b> feature${out.length === 1 ? '' : 's'} found.</p>
+      ${byLayer.size ? `<div class="chart">${[...byLayer.entries()].sort((a, b) => b[1] - a[1]).map(([l, n]) => `<div class="brow"><span>${esc(l)}</span><span class="barwrap"><i style="width:${Math.max(2, 100 * n / maxN)}%"></i></span><b>${fmtNum(n)}</b></div>`).join('')}</div>`
+        : '<p>Nothing falls inside this polygon.</p>'}
+      ${sample.length ? `<table class="mini"><tr><th>Layer</th><th>Feature</th><th>Value</th></tr>${sample.map((r) => `<tr><td>${esc(r.st.meta.label)}</td><td>${esc(titleOf(r.st.obj, r.f))}</td><td>${esc(valueFor(r.st, r.f))}</td></tr>`).join('')}</table>
+        ${out.length > sample.length ? `<p class="hint">Showing the first ${sample.length} of ${fmtNum(out.length)}.</p>` : ''}` : ''}
+      <div class="aoi" style="margin-top:10px">
+        <button class="btn" data-act="focus">${icon('crop')} Focus on this polygon</button>
+        <button class="btn" data-act="zoom">${icon('zoom')} Zoom to it</button>
+        ${out.length ? '<button class="btn" data-act="csv">Export selection (CSV)</button>' : ''}
+      </div>`;
+    body.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-act]'); if (!b) return;
+      const act = b.dataset.act; closeModal();
+      if (act === 'focus') focusFromFeature(poly.f, label);
+      else if (act === 'zoom') focusThenZoom(poly.f);
+      else if (act === 'csv') {
+        const lines = ['layer,name,value,lat,lon'];
+        for (const r of out) {
+          const [wx, wy] = labelAnchor(r.f);
+          lines.push([r.st.meta.label, titleOf(r.st.obj, r.f), valueFor(r.st, r.f), unY(wy).toFixed(5), unX(wx).toFixed(5)].map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','));
+        }
+        download('selection.csv', lines.join(String.fromCharCode(10)), 'text/csv');
+      }
+    });
+  });
+}
+function focusThenZoom(f) {
+  const bb = f.bb;
+  map.fitBounds([unX(bb[0]), unY(bb[3]), unX(bb[2]), unY(bb[1])], 24);
+}
+
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-x="unfocus"]');
+  if (!b) return;
+  stopFocus();
+  toast('Focus cleared');
+});
 $('#lyrtools').addEventListener('click', (e) => {
   const b = e.target.closest('[data-x]'); if (!b) return;
   const x = b.dataset.x;
   if (x === 'showall') { for (const id of baseOrder) if (!isOn(id) && L.get(id).meta.kind !== 'table') setLayer(id, true); }
   else if (x === 'hideall') { for (const id of [...stack]) setLayer(id, false); }
   else if (x === 'fitall') fitVisible();
+  else if (x === 'focus') toolClip();
   else if (x === 'grid') { gridOn = !gridOn; map.setGrid(gridOn); updateToolState(); saveProject(); }
   else if (x === 'labels') toolLabels(stack[stack.length - 1]);
   else if (x === 'clearfilter') { let n = 0; for (const st of L.values()) if (st.filter) { st.filter = null; applyFilter(st); n++; } renderLayerLists(); toast(n ? 'Filters cleared' : 'No filters to clear'); saveProject(); }
@@ -1308,6 +1755,107 @@ function toolStats(preferred) {
   });
 }
 
+// ------------------------------------------------ tool: compare fields / histogram
+function toolChart(preferred) {
+  openModal('Chart a field', (body) => {
+    body.innerHTML = `<p class="hint">Pick any column: numeric columns are binned into a histogram, text columns are ranked by how often each value occurs.</p>
+      <div id="c-picker"></div><div id="c-field"></div>
+      <div class="hint" id="c-note"></div>
+      <div id="c-out" class="chart"></div>`;
+    const picker = body.querySelector('#c-picker'), fieldHolder = body.querySelector('#c-field'), out = body.querySelector('#c-out');
+    layerPicker(picker, () => drawField(), (st) => (st.meta.fields || []).length > 0, preferred);
+    drawField();
+
+    function drawField() {
+      const lid = picker.querySelector('select')?.value;
+      const st = L.get(lid); if (!st) { out.innerHTML = '<p class="empty">No layer with columns is switched on.</p>'; return; }
+      if (!st.obj) { out.innerHTML = '<p class="empty">Loading…</p>'; loadLayer(st).then(drawField); return; }
+      const nums = (st.meta.fields || []).filter((f) => f.type === 'number');
+      fieldHolder.innerHTML = '';
+      fieldSelect(fieldHolder, st, () => render(), 'any', nums[0]?.name);
+      render();
+      function render() {
+        const field = fieldHolder.querySelector('select')?.value;
+        if (!field) { out.innerHTML = '<p class="hint">This layer has no attribute columns to chart.</p>'; return; }
+        const vals = [];
+        for (const f of st.obj.features) {
+          if (f.hidden) continue;
+          const [wx, wy] = labelAnchor(f);
+          if (clip && !map.containsClip(wx, wy)) continue;
+          const v = f.props?.[field];
+          if (v == null || v === '') continue;
+          vals.push(v);
+        }
+        const numeric = vals.length > 0 && vals.every((v) => isFinite(+v));
+        let bars;
+        if (numeric) {
+          const nums2 = vals.map(Number).sort((a, b) => a - b);
+          const lo = nums2[0], hi = nums2[nums2.length - 1];
+          const K = Math.min(12, Math.max(3, Math.round(Math.sqrt(nums2.length))));
+          const w = (hi - lo) || 1, bins = new Array(K).fill(0);
+          for (const v of nums2) bins[Math.min(K - 1, Math.floor((v - lo) / w * K))]++;
+          bars = bins.map((n, k) => [`${fmtNum(lo + (k / K) * w)} – ${fmtNum(lo + ((k + 1) / K) * w)}`, n]);
+        } else {
+          const m = new Map();
+          for (const v of vals) m.set(String(v), (m.get(String(v)) || 0) + 1);
+          bars = [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
+        }
+        const max = Math.max(1, ...bars.map((b) => b[1]));
+        const total = bars.reduce((a, b) => a + b[1], 0);
+        const fieldMeta = (st.meta.fields || []).find((f) => f.name === field);
+        body.querySelector('#c-note').textContent = clip
+          ? 'Counting only features inside the focus area.'
+          : 'Counting every visible feature of this layer.';
+        out.innerHTML = bars.length
+          ? bars.map(([l, n]) => `<div class="brow"><span title="${esc(String(l))}">${esc(String(l).slice(0, 28))}</span><span class="barwrap"><i style="width:${Math.max(1, 100 * n / max)}%"></i></span><b>${fmtNum(n)}</b></div>`).join('')
+            + `<p class="hint">${fmtNum(total)} feature${total === 1 ? '' : 's'} with a value · ${numeric ? K2(bars.length) + ' equal-width bins' : 'top ' + bars.length + ' values'}</p>`
+            + (fieldMeta?.uom ? `<p class="hint">Unit: ${esc(fieldMeta.uom)}</p>` : '')
+          : '<p class="hint">No values to count here' + (clip ? ' — the focus area may not contain any feature of this layer.' : '.') + '</p>';
+      }
+    }
+  });
+}
+const K2 = (n) => n + '';
+
+// ------------------------------------------------ view: reset, full screen, back
+function resetView() {
+  stopFocus();
+  for (const st of L.values()) if (st.filter) { st.filter = null; applyFilter(st, false); }
+  map.selection = null;
+  home();
+  renderLayerLists(); refreshLegend(); map.render();
+  saveProject();
+  toast('View reset');
+}
+function toggleFullscreen() {
+  const d = document;
+  if (d.fullscreenElement || d.webkitFullscreenElement) {
+    (d.exitFullscreen || d.webkitExitFullscreen)?.call(d);
+  } else {
+    const el = d.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!req) { toast('This browser cannot go full screen'); return; }
+    Promise.resolve(req.call(el)).catch(() => toast('Full screen was blocked by the browser'));
+  }
+}
+dashFullscreen();
+function dashFullscreen() {
+  const onChange = () => {
+    const on = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    $('#btn-full')?.classList.toggle('on', on);
+    setTimeout(() => map.resize?.(), 120);
+  };
+  document.addEventListener('fullscreenchange', onChange);
+  document.addEventListener('webkitfullscreenchange', onChange);
+}
+function goBack() {
+  const prev = viewHist.pop();
+  if (!prev) { toast('No earlier view'); return; }
+  map.setView(prev.c[0], prev.c[1], prev.c[2]);
+  if (prev.stack) { for (const id of [...stack]) if (!prev.stack.includes(id)) setLayer(id, false, { quiet: true }); for (const id of prev.stack) if (!stack.includes(id)) setLayer(id, true, { quiet: true }); }
+  updateFocusUI();
+}
+
 // ------------------------------------------------ tool: zoom to layer
 function toolZoomLayer() {
   openModal('Zoom to a layer', (body) => {
@@ -1568,7 +2116,19 @@ $('#tm-close').onclick = () => { $('#tablemodal').hidden = true; };
 
 // ---------------------------------------------------------------- view, hash, project
 let hashT;
+let histTimer = null, lastView = null;
+function recordView() {
+  clearTimeout(histTimer);
+  histTimer = setTimeout(() => {
+    const c = map.center(), key = `${c[0].toFixed(3)},${c[1].toFixed(3)},${map.zoom.toFixed(1)}`;
+    if (lastView && lastView.key === key) return;
+    if (lastView) { viewHist.push(lastView); if (viewHist.length > 25) viewHist.shift(); }
+    lastView = { key, c: [c[0], c[1], map.zoom], stack: [...stack] };
+    updateFocusUI();
+  }, 700);
+}
 function onView() {
+  recordView();
   const [lo, la] = map.center(); $('#coords').textContent = fmtLL(la, lo); drawScale(la);
   clearTimeout(hashT); hashT = setTimeout(pushHash, 500);
 }
@@ -1607,7 +2167,10 @@ function saveProject() {
     if (st.reclass) rec.reclass = st.reclass;
     layers[id] = rec;
   }
-  try { localStorage.setItem(PKEY, JSON.stringify({ v: 1, layers, stack, annotations, grid: gridOn })); } catch { }
+  try {
+    const f = clip ? (clip.type === 'rect' ? { type: 'rect', wb: clip.wb, label: focusLabel } : { type: 'poly', rings: clip.rings.map((r) => Array.from(r)), label: focusLabel }) : null;
+    localStorage.setItem(PKEY, JSON.stringify({ v: 1, layers, stack, annotations, grid: gridOn, clip: f }));
+  } catch { }
 }
 let projTimer;
 function saveProjectSoon() { clearTimeout(projTimer); projTimer = setTimeout(saveProject, 400); }
@@ -1624,6 +2187,14 @@ function restoreProject(p) {
     if (rec.reclass) st.reclass = rec.reclass;
   }
 }
+function restoreFocus(f) {
+  if (!f || (f.type !== 'rect' && f.type !== 'poly')) return;
+  focusLabel = f.label || '';
+  clip = f.type === 'rect' ? { type: 'rect', wb: f.wb } : { type: 'poly', rings: f.rings };
+  map.setClip(clip);
+  updateFocusUI();
+}
+
 function resetWork() {
   if (!confirm('Reset colours, filters, labels and panel state? The data itself is not touched.')) return;
   try { localStorage.removeItem(PKEY); } catch { }
@@ -1657,6 +2228,7 @@ $('#btn-locate').onclick = () => {
 function buildAbout() {
   $('#about').innerHTML = `<p>${catalog.layers.length} layers in ${catalog.groups.length} groups.<br>Built from the GeoPackages on ${esc(catalog.built)} · build <code>${esc(BUILD)}</code>.</p>
     <p>Every legend now lives inside the attribute table of its own layer, so class names, colours and extra columns show up when you tap a feature. Basemaps need no API key.</p>
+    <p>Readers get the viewing and analysis tools; the owner's content tools appear with <code>?author=1</code>. <b>Clip to an area</b> fades everything outside a box, a polygon or a borrowed boundary, and the analysis tools then count only what is inside it.</p>
     <p>Deploys arrive by themselves: the page checks for a new build when it loads, when you come back to the tab, and every 15 minutes, then reloads once the new version is ready.</p>`;
   console.info(`${catalog.title} · build ${BUILD}`);
 }
@@ -1670,6 +2242,14 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'g' || e.key === 'G') { gridOn = !gridOn; map.setGrid(gridOn); updateToolState(); saveProject(); }
 });
 // handy when something needs a closer look from the browser console
-window.__nwg = { map, L, build: BUILD, get stack() { return stack; }, get annotations() { return annotations; }, rasterClassAnchor, layerRank, showResults };
+window.__nwg = {
+  map, L, build: BUILD, get stack() { return stack; }, get annotations() { return annotations; },
+  rasterClassAnchor, layerRank, showResults,
+  // focus / analysis surface (also handy for scripting the map from the console)
+  get clip() { return clip; }, get draw() { return draw; }, get author() { return AUTHOR; },
+  setFocus, stopFocus, focusFromLonLat, focusFromRect, focusFromFeature, focusAreaKm2, focusPerimeterKm,
+  startDraw, endDraw, startPick, toolClip, toolAoi, toolQuery, runQuery, toolChart, resetView, toggleFullscreen,
+  get viewHist() { return viewHist; }, goBack, onView,
+};
 
 start();

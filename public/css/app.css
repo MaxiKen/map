@@ -29,8 +29,9 @@ svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-l
 #scalebar i{display:block;height:5px;border:2px solid #111;border-top:0}
 #scalebar b{font-weight:600}
 #attrib{position:fixed;right:6px;bottom:calc(var(--tabh) + var(--safeb) + 48px);font-size:10px;color:#222;text-shadow:0 0 3px #fff;z-index:4;pointer-events:none;max-width:60vw;text-align:right}
-#measurebar{position:fixed;left:50%;transform:translateX(-50%);top:calc(var(--safet) + 66px);display:flex;gap:8px;align-items:center;background:var(--brand2);color:#fff;border-radius:12px;padding:8px 10px;box-shadow:var(--shadow);z-index:6;font-weight:600}
-#measurebar button{background:rgba(255,255,255,.18);border:0;color:#fff;border-radius:8px;padding:4px 10px}
+#measurebar,#drawbar{position:fixed;left:50%;transform:translateX(-50%);top:calc(var(--safet) + 66px);display:flex;gap:8px;align-items:center;background:var(--brand2);color:#fff;border-radius:12px;padding:8px 10px;box-shadow:var(--shadow);z-index:6;font-weight:600;max-width:94vw}
+#drawbar{background:#7a4b00}
+#measurebar button,#drawbar button{background:rgba(255,255,255,.18);border:0;color:#fff;border-radius:8px;padding:4px 10px}
 
 /* bottom sheet + tab bar */
 #tabbar{position:fixed;left:0;right:0;bottom:0;height:calc(var(--tabh) + var(--safeb));padding-bottom:var(--safeb);background:var(--brand2);display:flex;z-index:20;box-shadow:0 -2px 10px rgba(0,0,0,.25)}
@@ -119,6 +120,16 @@ input[type=range]{accent-color:var(--brand);flex:1;min-width:0}
 .bar{height:12px;border-radius:6px;margin:4px 0}
 .barlab{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
 .lgnote{font-size:12px;color:var(--muted);padding:2px 4px 4px}
+
+/* charts + analysis */
+.chart{display:flex;flex-direction:column;gap:5px;margin:8px 0 4px}
+.chart .brow{display:grid;grid-template-columns:minmax(80px,34%) 1fr auto;gap:8px;align-items:center;font-size:12px}
+.chart .barwrap{background:var(--panel2);border-radius:5px;height:16px;overflow:hidden}
+.chart .barwrap i{display:block;height:100%;background:var(--brand);border-radius:5px}
+.chart .brow b{font-weight:600;font-variant-numeric:tabular-nums}
+.aoi{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.aoi .chip{background:var(--brand);border-color:var(--brand);color:#fff}
+code{background:var(--panel2);padding:1px 5px;border-radius:5px;font-size:12px}
 
 /* info */
 .card{border:1px solid var(--line);border-radius:14px;margin:8px 0 12px;overflow:hidden}

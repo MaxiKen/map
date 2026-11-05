@@ -1,7 +1,8 @@
 {
-  "_help": "Optional. Everything here overrides what build_site.py guesses. Keys under 'layers' are the table names found in the GeoPackages; they can change at any time. A '*_legend_*' table is never published as a layer: its rows are folded into the attributes of the layer named in 'legendOf' (set it explicitly when the name does not match).",
+  "_help": "Optional. Everything here overrides what build_site.py guesses. Keys under 'layers' are the table names found in the GeoPackages; they can change at any time. Set app.authorMode to true to give every visitor the content tools (?author=1 turns them on for you only). A '*_legend_*' table is never published as a layer: its rows are folded into the attributes of the layer named in 'legendOf' (set it explicitly when the name does not match).",
   "app": {
     "title": "Nigeria WebGIS",
+    "authorMode": false,
     "center": [
       8.7,
       9.1
