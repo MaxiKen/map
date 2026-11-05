@@ -596,10 +596,29 @@ def main():
            'layers': sorted(layers, key=lambda l: (l.get('order', 100), l['group'], l['label']))}
     blob = json.dumps(cat, separators=(',', ':'), ensure_ascii=False)
     with open(os.path.join(a.out, 'catalog.json'), 'w', encoding='utf8') as f: f.write(blob)
-    ver = hashlib.md5(blob.encode()).hexdigest()[:10]
+    # the build id covers the data *and* the app shell, so any change gets fresh URLs
+    hsh = hashlib.md5(blob.encode())
+    for rel in ('index.html', 'css/app.css', 'js/app.js', 'js/engine.js', 'sw.js', 'manifest.webmanifest'):
+        p = os.path.join(a.out, rel)
+        if os.path.exists(p): hsh.update(open(p, 'rb').read())
+    ver = hsh.hexdigest()[:10]
     sw = os.path.join(a.out, 'sw.js')
     if os.path.exists(sw):
         s = open(sw, encoding='utf8').read().replace('__BUILD__', ver); open(sw, 'w', encoding='utf8').write(s)
+    # stamp every shell URL with the build id so a new build can never be mixed with cached files
+    idx = os.path.join(a.out, 'index.html')
+    if os.path.exists(idx):
+        h = open(idx, encoding='utf8').read()
+        for before, after in (('href="css/app.css"', f'href="css/app.css?v={ver}"'),
+                              ('src="js/app.js"', f'src="js/app.js?v={ver}"'),
+                              ('href="manifest.webmanifest"', f'href="manifest.webmanifest?v={ver}"')):
+            h = h.replace(before, after)
+        h = h.replace('content="dev"', f'content="{ver}"')
+        open(idx, 'w', encoding='utf8').write(h)
+    app = os.path.join(a.out, 'js', 'app.js')
+    if os.path.exists(app):
+        t = open(app, encoding='utf8').read().replace("from './engine.js'", f"from './engine.js?v={ver}'")
+        open(app, 'w', encoding='utf8').write(t)
     print(f'built {len(layers)} layers from {len(files)} files in {time.time() - t0:.1f}s -> {a.out}/ (version {ver})')
 
 

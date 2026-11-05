@@ -1,10 +1,18 @@
 // Service worker: app shell works offline; data and catalog are network-first (so GitHub refreshes show up),
 // with the last good copy used when offline. Map tiles are cached as you browse.
-const BUILD = '70784228dc';
+const BUILD = 'a0f01b9d58';
+const V = '?v=' + BUILD;                       // the build stamps the same version on every shell URL
 const SHELL = `nwg-shell-${BUILD}`, DATA = `nwg-data-${BUILD}`, TILES = 'nwg-tiles-v1';
-const SHELL_FILES = ['./', 'index.html', 'css/app.css', 'js/app.js', 'js/engine.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
+const SHELL_FILES = ['./', 'index.html', 'css/app.css' + V, 'js/app.js' + V, 'js/engine.js' + V,
+                     'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 
-self.addEventListener('install', (e) => { e.waitUntil(caches.open(SHELL).then((c) => c.addAll(SHELL_FILES)).then(() => self.skipWaiting())); });
+self.addEventListener('install', (e) => {
+  e.waitUntil(caches.open(SHELL).then((c) => c.addAll(SHELL_FILES)).catch(() => {}).then(() => self.skipWaiting()));
+});
+self.addEventListener('message', (e) => {
+  if (e.data === 'skip-waiting') self.skipWaiting();
+  if (e.data === 'version') e.source && e.source.postMessage({ type: 'version', build: BUILD });
+});
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== SHELL && k !== DATA && k !== TILES).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
 });

@@ -69,6 +69,25 @@ For support, the console exposes `window.__nwg` (`map`, `L`, `stack`, `annotatio
 - Names and columns are not fixed. Optional labels, groups, order, default-visible layers, label field and colours go in `config/layers.config.json`.
 - GitHub rejects files over 100 MB; keep each gpkg below that.
 
+## Updates on the deployed site (no hard refresh)
+A deploy is picked up by itself:
+
+- `sw.js` is served `no-store` and registered with `updateViaCache: 'none'`, so the worker script is
+  never read from an HTTP cache.
+- The build stamps the shell with a build id (`css/app.css?v=…`, `js/app.js?v=…`, and the `engine.js`
+  import), so a new deploy can never be mixed with cached files. `index.html`, `sw.js`, `catalog.json`
+  and the manifest are sent `no-cache`; JS/CSS/data are sent `must-revalidate` (see `netlify.toml`).
+- The app requests an update check when it loads, whenever the tab becomes visible again, when the
+  device comes back online, and every 15 minutes.
+- When a new worker takes over, the page saves the project to `localStorage` and reloads once by
+  itself (`controllerchange`). A first-ever install never reloads.
+- The current build id is shown in **Tools → About** (and in `window.__nwg.build`), so you can tell
+  which version a phone is running.
+
+The only exception is a device that still has a worker from before this mechanism existed: the old
+worker serves its cached page first, and that old code cannot update itself, so it needs one last
+normal reload. From then on deploys arrive without anyone clearing anything.
+
 ## Netlify's "Powered by Netlify" badge
 That button is not part of this code — Netlify injects an iframe (`#nl-badge-frame`) at the bottom
 right of sites on the free plan. `app/css/app.css` hides it, so it no longer blocks the bottom

@@ -1,4 +1,4 @@
-import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm } from './engine.js';
+import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm } from './engine.js?v=a0f01b9d58';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -7,6 +7,7 @@ const NIGERIA = [2.6, 4.2, 14.7, 13.95];
 const NIGERIA_KM2 = 923769;
 const ABUJA = [7.3986, 9.0765];
 const PKEY = 'nwg.project.v1';
+const BUILD = document.querySelector('meta[name="build"]')?.content || 'dev';
 
 // ---------------------------------------------------------------- icons
 const IC = {
@@ -123,7 +124,33 @@ async function start() {
   map.on('tileerror', onTileError);
   onView();
   if (matchMedia('(min-width:900px)').matches) openSheet('layers');
-  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
+  setupServiceWorker();
+}
+
+// ---------------------------------------------------------------- updates
+// A deploy is picked up with no cache clearing: the worker script is never taken from the HTTP cache,
+// the app shell is fetched network-first, an update is checked on load / on every return to the tab /
+// every 15 minutes, and when a new worker takes over the page reloads itself (work is saved first).
+function setupServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  if (!(location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) return;
+  const hadController = !!navigator.serviceWorker.controller;   // false on the very first visit
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;                    // a first install must not reload the page
+    reloading = true;
+    saveProject();
+    toast('New version — reloading…', 1600);
+    setTimeout(() => location.reload(), 450);
+  });
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+    const check = () => reg.update().catch(() => { });
+    check();
+    setTimeout(check, 6000);
+    setInterval(check, 15 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+    window.addEventListener('online', check);
+  }).catch(() => { });
 }
 
 // hover read-out: name of the feature under the mouse (desktop only)
@@ -1628,8 +1655,10 @@ $('#btn-locate').onclick = () => {
   }, () => toast('Could not get your location'), { enableHighAccuracy: true, timeout: 12000 });
 };
 function buildAbout() {
-  $('#about').innerHTML = `<p>${catalog.layers.length} layers in ${catalog.groups.length} groups.<br>Built from the GeoPackages on ${esc(catalog.built)}.</p>
-    <p>Every legend now lives inside the attribute table of its own layer, so class names, colours and extra columns show up when you tap a feature. Basemaps need no API key.</p>`;
+  $('#about').innerHTML = `<p>${catalog.layers.length} layers in ${catalog.groups.length} groups.<br>Built from the GeoPackages on ${esc(catalog.built)} · build <code>${esc(BUILD)}</code>.</p>
+    <p>Every legend now lives inside the attribute table of its own layer, so class names, colours and extra columns show up when you tap a feature. Basemaps need no API key.</p>
+    <p>Deploys arrive by themselves: the page checks for a new build when it loads, when you come back to the tab, and every 15 minutes, then reloads once the new version is ready.</p>`;
+  console.info(`${catalog.title} · build ${BUILD}`);
 }
 window.addEventListener('unhandledrejection', (e) => {
   console.error('unhandled', e.reason);
@@ -1641,6 +1670,6 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'g' || e.key === 'G') { gridOn = !gridOn; map.setGrid(gridOn); updateToolState(); saveProject(); }
 });
 // handy when something needs a closer look from the browser console
-window.__nwg = { map, L, get stack() { return stack; }, get annotations() { return annotations; }, rasterClassAnchor, layerRank, showResults };
+window.__nwg = { map, L, build: BUILD, get stack() { return stack; }, get annotations() { return annotations; }, rasterClassAnchor, layerRank, showResults };
 
 start();
