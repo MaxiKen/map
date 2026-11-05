@@ -1,6 +1,6 @@
 // Service worker: app shell works offline; data and catalog are network-first (so GitHub refreshes show up),
 // with the last good copy used when offline. Map tiles are cached as you browse.
-const BUILD = '40056d33e5';
+const BUILD = '81dd13e393';
 const SHELL = `nwg-shell-${BUILD}`, DATA = `nwg-data-${BUILD}`, TILES = 'nwg-tiles-v1';
 const SHELL_FILES = ['./', 'index.html', 'css/app.css', 'js/app.js', 'js/engine.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 
@@ -12,7 +12,7 @@ self.addEventListener('fetch', (e) => {
   const req = e.request; if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== location.origin) {
-    if (/basemaps\.cartocdn\.com|tile\.openstreetmap\.org/.test(url.hostname)) {
+    if (/arcgisonline\.com|tile\.openstreetmap\.org|opentopomap\.org/.test(url.hostname)) {
       e.respondWith(caches.open(TILES).then(async (c) => { const hit = await c.match(req); if (hit) return hit; try { const r = await fetch(req); if (r.ok) { c.put(req, r.clone()); trim(c, 600); } return r; } catch { return hit || Response.error(); } }));
     }
     return;
@@ -21,6 +21,7 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(fetch(req).then((r) => { if (r.ok) { const cp = r.clone(); caches.open(DATA).then((c) => c.put(req, cp)); } return r; }).catch(() => caches.match(req)));
     return;
   }
-  e.respondWith(caches.match(req).then((hit) => { const net = fetch(req).then((r) => { if (r.ok) { const cp = r.clone(); caches.open(SHELL).then((c) => c.put(req, cp)); } return r; }).catch(() => hit); return hit || net; }));
+  // app shell: network first (so a deploy shows up at once), cache when offline
+  e.respondWith(fetch(req).then((r) => { if (r.ok) { const cp = r.clone(); caches.open(SHELL).then((c) => c.put(req, cp)); } return r; }).catch(() => caches.match(req).then((hit) => hit || caches.match('index.html'))));
 });
 async function trim(c, n) { const ks = await c.keys(); if (ks.length > n) for (const k of ks.slice(0, ks.length - n)) await c.delete(k); }
