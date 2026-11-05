@@ -1075,7 +1075,6 @@ const FOCUS_KINDS = { rect: 'Rectangle', poly: 'Polygon' };
 function setFocus(obj, announce = true) {
   clip = obj || null;
   map.setClip(clip);
-  if (clip) focusLabel = focusLabel || '';
   updateFocusUI();
   saveProjectSoon();
   if (announce) toast(clip ? `Focused on ${fmtNum(focusAreaKm2())} km²` : 'Focus cleared — the whole map is shown');
@@ -1808,14 +1807,13 @@ function toolChart(preferred) {
           : 'Counting every visible feature of this layer.';
         out.innerHTML = bars.length
           ? bars.map(([l, n]) => `<div class="brow"><span title="${esc(String(l))}">${esc(String(l).slice(0, 28))}</span><span class="barwrap"><i style="width:${Math.max(1, 100 * n / max)}%"></i></span><b>${fmtNum(n)}</b></div>`).join('')
-            + `<p class="hint">${fmtNum(total)} feature${total === 1 ? '' : 's'} with a value · ${numeric ? K2(bars.length) + ' equal-width bins' : 'top ' + bars.length + ' values'}</p>`
+            + `<p class="hint">${fmtNum(total)} feature${total === 1 ? '' : 's'} with a value · ${numeric ? bars.length + ' equal-width bins' : 'top ' + bars.length + ' values'}</p>`
             + (fieldMeta?.uom ? `<p class="hint">Unit: ${esc(fieldMeta.uom)}</p>` : '')
           : '<p class="hint">No values to count here' + (clip ? ' — the focus area may not contain any feature of this layer.' : '.') + '</p>';
       }
     }
   });
 }
-const K2 = (n) => n + '';
 
 // ------------------------------------------------ view: reset, full screen, back
 function resetView() {
