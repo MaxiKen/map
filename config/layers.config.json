@@ -1,14 +1,56 @@
 {
-  "_help": "Optional. Everything here overrides what build_site.py guesses. Keys under 'layers' are the table names found in the GeoPackages; they can change at any time.",
-  "app": { "title": "Nigeria WebGIS", "center": [8.7, 9.1], "zoom": 5.4, "basemap": "light" },
+  "_help": "Optional. Everything here overrides what build_site.py guesses. Keys under 'layers' are the table names found in the GeoPackages; they can change at any time. Set app.authorMode to true to give every visitor the content tools (?author=1 turns them on for you only). A '*_legend_*' table is never published as a layer: its rows are folded into the attributes of the layer named in 'legendOf' (set it explicitly when the name does not match).",
+  "app": {
+    "title": "Nigeria WebGIS",
+    "authorMode": false,
+    "center": [
+      8.7,
+      9.1
+    ],
+    "zoom": 5.4,
+    "basemap": "light"
+  },
   "groups": {
-    "geology": { "label": "Geology", "order": 1 },
-    "minerals": { "label": "Mineral resources", "order": 2 }
+    "geology": {
+      "label": "Geology",
+      "order": 1
+    },
+    "minerals": {
+      "label": "Mineral resources",
+      "order": 2
+    }
   },
   "layers": {
-    "geology_units_map2011_pg": { "label": "Geological units (2011 map)", "visible": true, "order": 1 },
-    "minerals_occurrences_map2023_pt": { "label": "Mineral occurrences (2023 map)", "visible": true, "order": 2, "labelField": "mineral" },
-    "geology_map2011_img": { "label": "Geology map picture (2011)", "order": 50 },
-    "minerals_map2023_img": { "label": "Mineral map picture (2023)", "order": 51 }
+    "geology_units_map2011_pg": {
+      "label": "Geological units (2011 map)",
+      "visible": true,
+      "order": 1
+    },
+    "minerals_occurrences_map2023_pt": {
+      "label": "Mineral occurrences (2023 map)",
+      "visible": true,
+      "order": 2,
+      "labelField": "mineral"
+    },
+    "geology_map2011_img": {
+      "label": "Geology map picture (2011)",
+      "order": 50
+    },
+    "minerals_map2023_img": {
+      "label": "Mineral map picture (2023)",
+      "order": 51
+    },
+    "geology_legend_map2011_tbl": {
+      "legendOf": "geology_units_map2011_pg",
+      "legendKey": "unit_code"
+    },
+    "geology_surficial_usgs_legend_tbl": {
+      "legendOf": "geology_surficial_usgs_code_rst",
+      "legendKey": "raster_value"
+    },
+    "minerals_legend_map2023_tbl": {
+      "legendOf": "minerals_occurrences_map2023_pt",
+      "legendKey": "legend_no"
+    }
   }
 }

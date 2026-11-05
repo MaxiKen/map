@@ -1,6 +1,6 @@
 # Nigeria WebGIS (geology and minerals)
 
-A mobile-friendly, installable map app. No backend. Everything is static files.
+A mobile-friendly, installable map app. No backend, no API keys. Everything is static files.
 
 ## How it works
 - `data/` holds one GeoPackage per layer (vector, raster, image or table).
@@ -8,6 +8,92 @@ A mobile-friendly, installable map app. No backend. Everything is static files.
   (GeoJSON, images, value grids, `catalog.json`). Layer names, fields, colours and legends are detected automatically.
 - A GitHub Action runs the build whenever you push changes to `data/`, `app/`, `scripts/` or `config/`, and commits `public/`.
 - Netlify serves `public/` (no build command needed).
+
+## Legends live inside their layer
+There is no separate legend layer and no legend widget to keep in sync. A `*_legend_*` table is never
+published as a layer: the build folds its rows into the layer it describes.
+
+- Vector layers: legend columns become attributes of every feature (joined on the key column), so
+  the class name, description, colour and any extra column (e.g. `points_detected`) are in the
+  attribute table and in the Info panel. The Legend tab reads the same rows.
+- Raster layers: every class code gets its legend label and the legend columns, shown when you tap
+  the raster, in "Attributes" and in the Legend tab.
+
+The owner of a legend table is guessed from the table names and the key column. Override it in
+`config/layers.config.json`:
+
+```json
+"geology_legend_map2011_tbl": { "legendOf": "geology_units_map2011_pg", "legendKey": "unit_code" }
+```
+
+## Basemaps
+Basemaps need no API key: Esri light/dark canvas and imagery, OpenStreetMap streets, OpenTopoMap.
+CARTO tiles are deliberately not used — since August 2026 the free CARTO tiles are stamped with an
+"API KEY REQUIRED" watermark when no key is supplied.
+
+## The app
+The map is built for **readers**. Whoever uploads the GeoPackages owns the content; everyone else opens
+the site to look at it. So the tools are about *seeing and analysing*, not authoring: nothing a visitor
+touches changes the data, and no visitor is asked to import, style or label anything.
+
+### Focus on an area (the main viewing tool)
+Nigeria-wide layers are noisy. **Clip to an area** (Tools -> *Clip to an area*, or the **Clip** button
+in Layers) restricts the map to one shape:
+
+- **drag a box**, **draw a polygon** (tap corners, *Done* to close), **borrow a polygon from any layer**
+  (tap a state, an LGA, a geological unit), **use the current view**, or **tap "Focus on it"** on any
+  legend entry;
+- everything outside fades back, and only features inside are drawn and picked;
+- the status bar shows the area in km² and the edge length, and **Area summary** counts what is inside;
+- the focus area is remembered on the device and travels with the saved view.
+
+Press **Esc** to cancel a drawing. The focus chip turns green while a focus area is active; tapping it
+again lets you change or clear it, and the same link appears in the Legend and Info panels.
+
+### Analysis tools
+- **Select by area** — tap a polygon of any layer and every feature inside it is listed, counted by
+  layer, and exportable as CSV. It uses the real boundary, so a state or LGA outline works as a rubber band.
+- **Area summary** — for every layer on the map: how many features (or raster cells) lie inside the
+  focus area, the share of the layer, the summed area of the polygons and the top raster classes.
+- **Chart a field** — histogram of any numeric column or a ranked count of any text column, limited to
+  the focus area when one is active.
+- **Layer statistics** — totals, averages, biggest features, and min/mean/max for numeric columns.
+- **Group into classes** — reclassify a numeric field (quantile or equal interval) to see its pattern.
+- **Filter features** — show only the rows that match a column.
+- **Attribute table** — browse, sort, search and export every row.
+- **Measure distance / area, distance & bearing, grid lines** for quick ground-truthing.
+- Hovering the map names the feature under the pointer; tapping gives area, perimeter, compactness,
+  rank ("54th largest of 1,485 polygons"), share of the layer and of Nigeria, centroid, UTM zone,
+  distance to Abuja and the nearest neighbours for points.
+
+### Layers, legend, info
+**Layers** — every layer grouped by theme, and the layers currently on the map at the top (the one you
+switched on last is on top and is drawn on top). Drag the ⠿ handle to reorder. The layer tools live here:
+show all, hide all, fit visible, **clip**, grid, labels, clear filters.
+
+**Legend** — the legend of everything that is on the map. Tap an entry to zoom to it, **focus on it**,
+show only that class, or (in author mode) add it as a label. Raster classes work the same way: the
+extent of a class is read from the value grid, so zooming and focusing land on that class.
+
+**Info** — attributes and facts for whatever you tap, and a link back to the whole map when a focus
+area is active.
+
+**View** — reset the view, full screen, and a **back** button (bottom-right) that returns to the previous
+extent after you have zoomed around.
+
+### Author mode
+The owner's tools — import GeoJSON, symbology, class grouping, adding labels, label list, and the full
+reset — are hidden from visitors. Open the site with **`?author=1`** to get them, and *Leave author
+mode* to go back to the reader view. To hand them to every visitor, set `"authorMode": true` under
+`app` in `config/layers.config.json`.
+
+Colours, filters, classifications, labels, the focus area and the panel order are kept in
+`localStorage`, so a reload does not lose your view. "Reset the view" (everyone) clears filters and the
+focus; "Reset the work" (author mode) clears everything.
+
+For scripting and support the console exposes `window.__nwg` (`map`, `L`, `stack`, `annotations`,
+`setFocus`, `focusFromLonLat`, `stopFocus`, `focusAreaKm2`, `toolAoi`, `runQuery`, `rasterClassAnchor`,
+`layerRank`).
 
 ## Setup
 1. Create a GitHub repo and upload everything in this folder (keep the `.github` folder).
@@ -18,6 +104,31 @@ A mobile-friendly, installable map app. No backend. Everything is static files.
 - Add, replace or edit a `.gpkg` in `data/` (any name; the prefix before the first `_` becomes the group) and push. The Action rebuilds and Netlify redeploys.
 - Names and columns are not fixed. Optional labels, groups, order, default-visible layers, label field and colours go in `config/layers.config.json`.
 - GitHub rejects files over 100 MB; keep each gpkg below that.
+
+## Updates on the deployed site (no hard refresh)
+A deploy is picked up by itself:
+
+- `sw.js` is served `no-store` and registered with `updateViaCache: 'none'`, so the worker script is
+  never read from an HTTP cache.
+- The build stamps the shell with a build id (`css/app.css?v=…`, `js/app.js?v=…`, and the `engine.js`
+  import), so a new deploy can never be mixed with cached files. `index.html`, `sw.js`, `catalog.json`
+  and the manifest are sent `no-cache`; JS/CSS/data are sent `must-revalidate` (see `netlify.toml`).
+- The app requests an update check when it loads, whenever the tab becomes visible again, when the
+  device comes back online, and every 15 minutes.
+- When a new worker takes over, the page saves the project to `localStorage` and reloads once by
+  itself (`controllerchange`). A first-ever install never reloads.
+- The current build id is shown in **Tools → About** (and in `window.__nwg.build`), so you can tell
+  which version a phone is running.
+
+The only exception is a device that still has a worker from before this mechanism existed: the old
+worker serves its cached page first, and that old code cannot update itself, so it needs one last
+normal reload. From then on deploys arrive without anyone clearing anything.
+
+## Netlify's "Powered by Netlify" badge
+That button is not part of this code — Netlify injects an iframe (`#nl-badge-frame`) at the bottom
+right of sites on the free plan. `app/css/app.css` hides it, so it no longer blocks the bottom
+toolbar. To remove it properly, open the Netlify dashboard: **Project configuration → General →
+Powered by Netlify badge** and switch it off (that setting needs a paid team on some accounts).
 
 ## Local build
     pip install -r scripts/requirements.txt

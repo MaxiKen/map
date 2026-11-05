@@ -240,7 +240,7 @@ def build_raster(con, table, row, out, cfg):
     vgf = f'{row["id"]}.vals.gz'
     payload = vg.astype('<i2' if categorical and vals.max() < 32000 and vals.min() > -32000 else '<f4')
     if payload.dtype == np.int16: payload = np.where(vg == nodata, -32768, vg).astype('<i2')
-    with gzip.open(os.path.join(out, 'data', vgf), 'wb', 6) as f: f.write(payload.tobytes())
+    with gzip.GzipFile(os.path.join(out, 'data', vgf), 'wb', 6, mtime=0) as f: f.write(payload.tobytes())
     info['image'] = 'data/' + fn
     info['values'] = {'file': 'data/' + vgf, 'w': int(vg.shape[1]), 'h': int(vg.shape[0]), 'dtype': 'i2' if payload.dtype == np.int16 else 'f4'}
     info['size'] = [int(rgba.shape[1]), int(rgba.shape[0])]
@@ -354,6 +354,188 @@ def build_table(con, table, row, out, cfg):
     return {'file': 'data/' + fn, 'count': n, 'fields': [{'name': c, 'type': k, 'label': cfg.get('fields', {}).get(c, {}).get('label', pretty(c))} for c, k in cols]}
 
 
+# ------------------------------------------------------------------ legends
+# Legend tables are never published as layers of their own: they describe another layer, so their
+# rows are folded into that layer (extra attributes on every feature for vector layers, class names
+# and attribute columns for rasters) and the table file is dropped.
+LEGEND_KEY_FIELDS = ['raster_value', 'unit_code', 'glg_code', 'legend_no', 'code', 'class', 'unit', 'class_name',
+                     'geology_unit', 'category', 'type', 'legend']
+LEGEND_LABEL_FIELDS = ['geology_unit', 'description', 'class_name', 'label', 'name', 'mineral', 'formation', 'unit',
+                       'legend', 'category', 'class', 'zone', 'series', 'era', 'type']
+
+
+def is_legend_table(layer):
+    if layer['kind'] != 'table':
+        return False
+    t = layer['table'].lower()
+    return bool(re.search(r'(^|_)legend(_|$)', t)) or 'legend' in (layer.get('label') or '').lower()
+
+
+def read_layer_json(out, layer):
+    try:
+        with open(os.path.join(out, layer['file']), encoding='utf8') as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def find_owner(legend, cols, layers, cfg):
+    """Pick the layer a legend table describes: explicit config first, then name prefix + key overlap."""
+    stem = re.sub(r'_?legend.*$', '', legend['table'])
+    best = None
+    for l in layers:
+        if l['kind'] == 'table' or l.get('_consumed') or l is legend:
+            continue
+        t = l['table']
+        if cfg.get('legendOf'):
+            if t != cfg['legendOf']:
+                continue
+            name_score = 100
+        elif t == stem or t.startswith(stem + '_'):
+            name_score = 60 + min(len(stem), 30)
+        elif stem.startswith(t):
+            name_score = 40
+        else:
+            continue
+        fnames = {f['name'] for f in l.get('fields', [])}
+        if l['kind'] == 'raster':
+            fnames.add('raster_value')
+        overlap = len([c for c in cols if c in fnames])
+        # a raster that owns a raster_value legend wins over vector layers sharing the prefix
+        if l['kind'] == 'raster' and cfg.get('legendKey', 'raster_value') in cols:
+            overlap += 3
+        score = name_score + overlap * 5
+        if l['kind'] == 'table':
+            score -= 100
+        if best is None or score > best[0]:
+            best = (score, l)
+    return best[1] if best and best[0] > 40 else None
+
+
+def pick_key(cols, owner, rows, props_by_key):
+    """Choose the legend column that keys into the owner layer, and how well it matches (0..1)."""
+    fnames = {f['name'] for f in owner.get('fields', [])}
+    cands = [c for c in cols if c in fnames]
+    if owner['kind'] == 'raster' and 'raster_value' in cols:
+        return 'raster_value', 1.0
+    order = sorted(cands, key=lambda c: LEGEND_KEY_FIELDS.index(c) if c in LEGEND_KEY_FIELDS else 99)
+    ci = cols.index
+    found = []
+    for c in order:
+        known = props_by_key.get(c)
+        if not known:
+            continue
+        vals = [r[ci(c)] for r in rows if len(r) > ci(c)]
+        cov = sum(1 for v in vals if v in known) / max(1, len(vals))
+        found.append((c, cov))
+        if cov >= 0.6:            # first preferred key that actually joins wins
+            return c, cov
+    return max(found, key=lambda t: t[1]) if found else (None, 0.0)
+
+
+def legend_field_meta(legend, cols):
+    types = {f['name']: f.get('type', 'text') for f in legend.get('fields', [])}
+    labels = {f['name']: f.get('label', pretty(f['name'])) for f in legend.get('fields', [])}
+    return [{'name': c, 'type': types.get(c, 'text'), 'label': labels.get(c, pretty(c))} for c in cols]
+
+
+def fold_legends(layers, out, lcfg):
+    """Fold every legend table into the layer it belongs to. Returns True when something changed."""
+    legends = [l for l in layers if is_legend_table(l)]
+    changed = False
+    for legend in legends:
+        cfg = lcfg.get(legend['table'], lcfg.get(legend['id'], {}))
+        if cfg.get('keepAsLayer'):
+            continue
+        data = read_layer_json(out, legend)
+        cols = data.get('columns') or [f['name'] for f in legend.get('fields', [])]
+        rows = data.get('rows') or []
+        if not cols or not rows:
+            continue
+        owner = find_owner(legend, cols, layers, cfg)
+        if owner is None:
+            print(f'  legend {legend["table"]}: no owner found, kept as a layer'); continue
+
+        label_field = next((c for c in LEGEND_LABEL_FIELDS if c in cols and c != cfg.get('legendKey')), None)
+        label_field = label_field or next((c for c in cols if c not in ('id',)), None)
+        colour_field = next((c for c in cols if re.search(r'colou?r', c, re.I)), None)
+        attrs = legend_field_meta(legend, cols)
+
+        if owner['kind'] == 'raster':
+            key = cfg.get('legendKey') or 'raster_value'
+            if key not in cols:
+                print(f'  legend {legend["table"]}: no raster_value column, kept as a layer'); continue
+            ki = cols.index(key)
+            by_val = {}
+            for r in rows:
+                try: by_val[int(float(r[ki]))] = r
+                except (TypeError, ValueError): continue
+            classes = owner.get('classes') or []
+            for c in classes:
+                r = by_val.get(int(c['value']))
+                if not r: continue
+                c['label'] = str(r[cols.index(label_field)]) if label_field else 'Class %s' % c['value']
+                c['props'] = {cols[i]: r[i] for i in range(len(cols))
+                              if cols[i] not in (key, 'id') and r[i] not in (None, '')}
+            owner['attributes'] = ([{'name': 'class', 'label': 'Class', 'type': 'text'}]
+                                   + [a for a in attrs if a['name'] != 'id'])
+            owner['legendTitle'] = legend.get('label') or pretty(legend['table'])
+            owner['legendFrom'] = legend['table']
+            owner['legendCount'] = len(by_val)
+        else:
+            gj = read_layer_json(out, owner)
+            feats = gj.get('features') or []
+            props_by_key = {}
+            for c in cols:
+                props_by_key[c] = {f.get('properties', {}).get(c) for f in feats[:6000]}
+            key, cov = pick_key(cols, owner, rows, props_by_key)
+            if not key or cov < 0.5:
+                print(f'  legend {legend["table"]}: no matching key in {owner["table"]} ({key}, {cov:.0%}), kept as a layer')
+                continue
+            ki = cols.index(key)
+            extra = [c for c in cols if c not in (key, 'id') and c not in {f['name'] for f in owner.get('fields', [])}]
+            classes = []
+            lut = {}
+            for r in rows:
+                k = r[ki]
+                if k is None: continue
+                lut[k] = r
+                classes.append({'key': k, 'label': str(r[cols.index(label_field)]) if label_field else str(k),
+                                'color': r[cols.index(colour_field)] if colour_field else None,
+                                'props': {c: r[cols.index(c)] for c in extra}})
+            if extra:
+                for f in feats:
+                    p = f.get('properties') or {}
+                    r = lut.get(p.get(key))
+                    if not r: continue
+                    for c in extra:
+                        v = r[cols.index(c)]
+                        if v not in (None, '') and p.get(c) in (None, ''):
+                            p[c] = v
+                with open(os.path.join(out, owner['file']), 'w', encoding='utf8') as fh:
+                    json.dump(gj, fh, separators=(',', ':'), ensure_ascii=False)
+                owner['fields'] = (owner.get('fields') or []) + [
+                    {'name': c, 'type': next((a['type'] for a in attrs if a['name'] == c), 'text'), 'label': pretty(c)}
+                    for c in extra]
+            owner['legendClasses'] = classes
+            owner['legendKey'] = key
+            owner['legendLabelField'] = label_field
+            owner['legendTitle'] = legend.get('label') or pretty(legend['table'])
+            owner['legendFrom'] = legend['table']
+            owner['legendAttributes'] = attrs
+
+        legend['_consumed'] = True
+        changed = True
+        print(f'  legend {legend["table"]} -> {owner["table"]} ({len(rows)} rows)')
+    if changed:
+        for legend in legends:
+            if legend.get('_consumed') and legend.get('file'):
+                p = os.path.join(out, legend['file'])
+                if os.path.exists(p):
+                    os.remove(p)
+    return [l for l in layers if not l.get('_consumed')]
+
+
 # ------------------------------------------------------------------ main
 def main():
     ap = argparse.ArgumentParser()
@@ -403,16 +585,8 @@ def main():
             layers.append(row)
             print(f'  {row["kind"]:8s} {table}')
         con.close()
-    # link legend tables to categorical rasters:  <stem>_rst  <->  <stem>_legend_tbl / *_legend_*
-    tables = {l['table']: l for l in layers if l['kind'] == 'table'}
-    for l in layers:
-        if l['kind'] == 'raster' and l.get('categorical'):
-            stem = re.sub(r'(_code)?_rst$', '', l['table'])
-            for tn, t in tables.items():
-                if tn.startswith(stem) and 'legend' in tn and any(f['name'] == 'raster_value' for f in t['fields']):
-                    l['legendTable'] = t['id']; l['legendKey'] = 'raster_value'
-                    l['legendLabel'] = next((f['name'] for f in t['fields'] if f['type'] == 'text' and f['name'] != 'raster_value'), None)
-                    break
+    # legend tables are folded into the layers they describe (never published as layers of their own)
+    layers = fold_legends(layers, a.out, lcfg)
     gl = config.get('groups', {})
     groups = {}
     for l in layers: groups.setdefault(l['group'], {'id': l['group'], 'label': gl.get(l['group'], {}).get('label') or pretty(l['group']), 'order': gl.get(l['group'], {}).get('order', 100)})
@@ -422,10 +596,29 @@ def main():
            'layers': sorted(layers, key=lambda l: (l.get('order', 100), l['group'], l['label']))}
     blob = json.dumps(cat, separators=(',', ':'), ensure_ascii=False)
     with open(os.path.join(a.out, 'catalog.json'), 'w', encoding='utf8') as f: f.write(blob)
-    ver = hashlib.md5(blob.encode()).hexdigest()[:10]
+    # the build id covers the data *and* the app shell, so any change gets fresh URLs
+    hsh = hashlib.md5(blob.encode())
+    for rel in ('index.html', 'css/app.css', 'js/app.js', 'js/engine.js', 'sw.js', 'manifest.webmanifest'):
+        p = os.path.join(a.out, rel)
+        if os.path.exists(p): hsh.update(open(p, 'rb').read())
+    ver = hsh.hexdigest()[:10]
     sw = os.path.join(a.out, 'sw.js')
     if os.path.exists(sw):
         s = open(sw, encoding='utf8').read().replace('__BUILD__', ver); open(sw, 'w', encoding='utf8').write(s)
+    # stamp every shell URL with the build id so a new build can never be mixed with cached files
+    idx = os.path.join(a.out, 'index.html')
+    if os.path.exists(idx):
+        h = open(idx, encoding='utf8').read()
+        for before, after in (('href="css/app.css"', f'href="css/app.css?v={ver}"'),
+                              ('src="js/app.js"', f'src="js/app.js?v={ver}"'),
+                              ('href="manifest.webmanifest"', f'href="manifest.webmanifest?v={ver}"')):
+            h = h.replace(before, after)
+        h = h.replace('content="dev"', f'content="{ver}"')
+        open(idx, 'w', encoding='utf8').write(h)
+    app = os.path.join(a.out, 'js', 'app.js')
+    if os.path.exists(app):
+        t = open(app, encoding='utf8').read().replace("from './engine.js'", f"from './engine.js?v={ver}'")
+        open(app, 'w', encoding='utf8').write(t)
     print(f'built {len(layers)} layers from {len(files)} files in {time.time() - t0:.1f}s -> {a.out}/ (version {ver})')
 
 

@@ -5,11 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b3d2e">
 <meta name="description" content="Interactive map of Nigeria: geology, minerals and more.">
+<meta name="build" content="fd0c2ebd95">
 <title>Nigeria WebGIS</title>
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="manifest" href="manifest.webmanifest?v=fd0c2ebd95">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/app.css?v=fd0c2ebd95">
 </head>
 <body>
 <canvas id="map" aria-label="Map"></canvas>
@@ -21,6 +22,8 @@
   <button class="fab" id="btn-locate" aria-label="My location" data-i="locate"></button>
   <button class="fab" id="btn-share" aria-label="Copy link to this view" data-i="share"></button>
   <button class="fab" id="btn-home" aria-label="Zoom to Nigeria" data-i="home"></button>
+  <button class="fab" id="btn-back" aria-label="Previous view" data-i="undo" hidden></button>
+  <button class="fab" id="btn-full" aria-label="Full screen" data-i="expand"></button>
 </div>
 <div id="zoombtns">
   <button class="fab small" id="zin" aria-label="Zoom in" data-i="plus"></button>
@@ -29,6 +32,7 @@
 <div id="mapinfo"><span id="coords"></span><span id="scalebar"><i></i><b></b></span></div>
 <div id="attrib"></div>
 <div id="measurebar" hidden><span id="measuretext">Tap the map to measure</span><button id="measureclear">Clear</button><button id="measuredone">Done</button></div>
+<div id="drawbar" hidden><span id="drawtext">Draw an area</span><button id="drawclear">Clear</button><button id="drawdone">Done</button></div>
 
 <section id="sheet" class="closed" aria-live="polite">
   <div id="grab" aria-hidden="true"><i></i></div>
@@ -36,19 +40,24 @@
   <div id="panels">
     <div class="panel" id="panel-layers">
       <div class="searchrow"><input id="layerfilter" type="search" placeholder="Filter layers" autocomplete="off"></div>
+      <div id="lyrtools" class="lyrtools"></div>
+      <div id="activelist"></div>
       <div id="layerlist"></div>
     </div>
     <div class="panel" id="panel-legend"><div id="legend"></div></div>
     <div class="panel" id="panel-info"><div id="info"></div></div>
     <div class="panel" id="panel-tools">
       <h3>Basemap</h3><div id="basemaps" class="seg"></div>
-      <h3>Tools</h3>
-      <div class="toolgrid">
-        <button id="tool-measure" class="tool"><span data-i="ruler"></span>Measure distance</button>
-        <button id="tool-clear" class="tool"><span data-i="close"></span>Clear selection</button>
-        <button id="tool-reset" class="tool"><span data-i="home"></span>Zoom to Nigeria</button>
-        <button id="tool-all-off" class="tool"><span data-i="layers"></span>Hide all layers</button>
+      <p class="muted tiny" id="basemapnote"></p>
+      <h3>Focus &amp; analyse</h3><div class="toolgrid" id="tools-focus"></div>
+      <h3>Measure &amp; navigate</h3><div class="toolgrid" id="tools-navigate"></div>
+      <h3>Data &amp; display</h3><div class="toolgrid" id="tools-data"></div>
+      <div id="authorzone" hidden>
+        <h3>Author tools</h3><p class="hint">You are in author mode, so content, styling and labels can be changed — visitors never see these tools. <button class="btn" id="leave-author">Leave author mode</button></p>
+        <div class="toolgrid" id="tools-author"></div>
+        <h3>Labels you placed</h3><div id="annotationlist"></div>
       </div>
+      <h3>View</h3><div class="toolgrid" id="tools-project"></div>
       <h3>About</h3><div id="about" class="muted"></div>
     </div>
   </div>
@@ -70,7 +79,25 @@
   <div class="tmhead"><button class="ghost" id="tm-close" aria-label="Close table" data-i="back"></button><h2 id="tm-title">Table</h2><input id="tm-filter" type="search" placeholder="Filter rows"></div>
   <div id="tm-body"></div>
 </div>
+
+<div id="modal" hidden>
+  <div class="tmhead"><button class="ghost" id="modal-close" aria-label="Close" data-i="back"></button><h2 id="modal-title">Tool</h2></div>
+  <div id="modal-body"></div>
+</div>
+
+<div id="labelpanel" hidden>
+  <div class="lphead"><b>Label</b><button class="ghost" id="lp-close" data-i="close" aria-label="Close label editor"></button></div>
+  <div class="lpbody">
+    <input id="lp-text" type="text" placeholder="Label text" autocomplete="off">
+    <div class="frow"><label>Size</label><input id="lp-size" type="range" min="8" max="40" step="1"><b id="lp-sizeout">14</b></div>
+    <div class="frow"><label>Colour</label><input id="lp-color" type="color"><label class="chk"><input id="lp-halo" type="checkbox"> Halo</label></div>
+    <div class="frow"><label>Style</label><label class="chk"><input id="lp-bold" type="checkbox"> Bold</label><label class="chk"><input id="lp-italic" type="checkbox"> Italic</label></div>
+    <div class="frow"><label>Rotate</label><input id="lp-rot" type="range" min="-45" max="45" step="1"><b id="lp-rotout">0°</b></div>
+    <div class="frow"><button class="btn danger" id="lp-del">Delete</button><button class="btn primary" id="lp-done">Done</button></div>
+  </div>
+</div>
+
 <div id="toast" role="status"></div>
-<script type="module" src="js/app.js"></script>
+<script type="module" src="js/app.js?v=fd0c2ebd95"></script>
 </body>
 </html>
