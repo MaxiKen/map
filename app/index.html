@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b3d2e">
+<meta name="description" content="Interactive map of Nigeria: geology, minerals and more.">
+<title>Nigeria WebGIS</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<canvas id="map" aria-label="Map"></canvas>
+
+<header id="brand"><img src="icons/icon-192.png" alt="" width="28" height="28"><span id="title">Nigeria WebGIS</span></header>
+
+<div id="mapbtns">
+  <button class="fab" id="btn-search" aria-label="Search" data-i="search"></button>
+  <button class="fab" id="btn-locate" aria-label="My location" data-i="locate"></button>
+  <button class="fab" id="btn-share" aria-label="Copy link to this view" data-i="share"></button>
+  <button class="fab" id="btn-home" aria-label="Zoom to Nigeria" data-i="home"></button>
+</div>
+<div id="zoombtns">
+  <button class="fab small" id="zin" aria-label="Zoom in" data-i="plus"></button>
+  <button class="fab small" id="zout" aria-label="Zoom out" data-i="minus"></button>
+</div>
+<div id="mapinfo"><span id="coords"></span><span id="scalebar"><i></i><b></b></span></div>
+<div id="attrib"></div>
+<div id="measurebar" hidden><span id="measuretext">Tap the map to measure</span><button id="measureclear">Clear</button><button id="measuredone">Done</button></div>
+
+<section id="sheet" class="closed" aria-live="polite">
+  <div id="grab" aria-hidden="true"><i></i></div>
+  <div id="sheethead"><h2 id="sheettitle">Layers</h2><button id="sheetclose" class="ghost" aria-label="Close panel" data-i="close"></button></div>
+  <div id="panels">
+    <div class="panel" id="panel-layers">
+      <div class="searchrow"><input id="layerfilter" type="search" placeholder="Filter layers" autocomplete="off"></div>
+      <div id="layerlist"></div>
+    </div>
+    <div class="panel" id="panel-legend"><div id="legend"></div></div>
+    <div class="panel" id="panel-info"><div id="info"></div></div>
+    <div class="panel" id="panel-tools">
+      <h3>Basemap</h3><div id="basemaps" class="seg"></div>
+      <h3>Tools</h3>
+      <div class="toolgrid">
+        <button id="tool-measure" class="tool"><span data-i="ruler"></span>Measure distance</button>
+        <button id="tool-clear" class="tool"><span data-i="close"></span>Clear selection</button>
+        <button id="tool-reset" class="tool"><span data-i="home"></span>Zoom to Nigeria</button>
+        <button id="tool-all-off" class="tool"><span data-i="layers"></span>Hide all layers</button>
+      </div>
+      <h3>About</h3><div id="about" class="muted"></div>
+    </div>
+  </div>
+</section>
+
+<nav id="tabbar">
+  <button class="tab" data-tab="layers" data-i="layers"><span>Layers</span></button>
+  <button class="tab" data-tab="legend" data-i="legend"><span>Legend</span></button>
+  <button class="tab" data-tab="info" data-i="info"><span>Info</span></button>
+  <button class="tab" data-tab="tools" data-i="tools"><span>Tools</span></button>
+</nav>
+
+<div id="search" hidden>
+  <div class="searchbar"><button class="ghost" id="search-close" aria-label="Close search" data-i="back"></button><input id="search-input" type="search" placeholder="Search places, units, minerals, layers" autocomplete="off"></div>
+  <div id="search-results"></div>
+</div>
+
+<div id="tablemodal" hidden>
+  <div class="tmhead"><button class="ghost" id="tm-close" aria-label="Close table" data-i="back"></button><h2 id="tm-title">Table</h2><input id="tm-filter" type="search" placeholder="Filter rows"></div>
+  <div id="tm-body"></div>
+</div>
+<div id="toast" role="status"></div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
