@@ -13,8 +13,17 @@ safely (dense clusters, partial matches) keep their as-digitized coordinates, pe
 
 | result | points |
 |---|---|
-| moved to symbol centre (`match_class = symbol-centered`) | **1 410** (91.1 %) |
-| left as digitized (`match_class = as-digitized`) | 137 (8.9 %) |
+| moved to symbol centre (`match_class = symbol-centered`) | **1 455** (94.1 %) |
+| left as digitized (`match_class = as-digitized`) | 92 (5.9 %) |
+
+**Second pass (wider window + cluster middles).** With the first pass frozen (the 1 410
+accepted points were never altered afterwards), the search window for the remaining points
+was widened 18 → 28 px and cluster blobs were split so each symbol's middle is calculated
+inside merged groups. Plausibility gates — symbol-sized ink mass, elongation (rejects red
+chains / road ink), per-mineral family rules from the audit (e.g. Kyanite = teal lettered
+square, Talc = purple circle, Tourmaline = dark glyph), template-correlation gate — keep the
+fits honest. 45 further points were centered this way (audited visually, see `samples/`);
+the rest stay as digitized. No two points share a symbol anywhere in the layer.
 
 One-to-one rule enforced throughout: no two points were assigned to the same symbol
 (*"don't match two"*); when several points competed for one symbol in a cluster, the best
@@ -74,3 +83,7 @@ Geometry sanity: all 1 547 points inside the sheet bounds; GPKG extent metadata 
 - `data/minerals_occurrences_map2023_pt.gpkg` — replaced (table name & schema unchanged).
 - `data/minerals_legend_map2023_tbl.gpkg` — `points_detected` refreshed.
 - `public/` — rebuilt via `scripts/build_site.py`.
+
+*Second-pass audit note:* the fixed 1 410 were verified byte-identical after the update
+program before any row was written; only the 45 newly-fitted geometries and the
+`match_class` flags changed.
