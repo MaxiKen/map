@@ -121,6 +121,83 @@ jobs:
           printf '\n=== INSPECTIONS ===\n' >> docs/source-probe.txt
           cat /tmp/inspect.txt >> docs/source-probe.txt
           tail -80 /tmp/inspect.txt
+      - name: Inspect large archives (members, fields, raster metadata)
+        run: |
+          pip install --quiet rasterio numpy
+          python - <<'PY' >> docs/source-probe.txt
+          import urllib.request, zipfile, os, glob, sqlite3, io, sys
+          import rasterio
+          UA={'User-Agent':'Mozilla/5.0'}
+          def dl(u, p):
+              req=urllib.request.Request(u, headers=UA)
+              with urllib.request.urlopen(req, timeout=600) as r, open(p,'wb') as f:
+                  while True:
+                      b=r.read(1<<20)
+                      if not b: break
+                      f.write(b)
+              print('   downloaded', os.path.getsize(p)/1e6, 'MB', u[:100], flush=True)
+          def members(zpath, label, limit=25):
+              print('\n=== ARCHIVE', label, flush=True)
+              with zipfile.ZipFile(zpath) as z:
+                  for i in z.infolist()[:limit]: print('   ', i.filename, i.file_size, flush=True)
+                  return [n for n in z.namelist() if n.lower().endswith(('.gpkg','.tif','.shp','.gdb'))][:10]
+          def raster_info(p, label):
+              print('\n=== RASTER', label, flush=True)
+              with rasterio.open(p) as ds:
+                  print('   ', ds.shape, ds.crs, ds.bounds, 'nodata', ds.nodata,
+                        'dtype', ds.dtypes, 'res', ds.res, flush=True)
+          # GHSL built-up 2020 30 arc-sec
+          try:
+              p='/tmp/ghsl.zip'; dl('https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/GHS_BUILT_S_GLOBE_R2023A/GHS_BUILT_S_E2020_GLOBE_R2023A_4326_30ss/V1-0/GHS_BUILT_S_E2020_GLOBE_R2023A_4326_30ss_V1_0.zip', p)
+              z=zipfile.ZipFile(p); names=[n for n in z.namelist() if n.lower().endswith('.tif')]
+              for i in z.infolist()[:40]: print('   GHSL member', i.filename, i.file_size, flush=True)
+              print('   GHSL tifs', names[:10], 'count', len(names), flush=True)
+              if names:
+                  z.extract(names[0], '/tmp/ghslx'); raster_info('/tmp/ghslx/'+names[0], 'GHSL first tif')
+          except Exception as e: print('   GHSL inspect failed', repr(e), flush=True)
+          # Aqueduct flood depth
+          try:
+              p='/tmp/flood.tif'; dl('https://aqueduct.wridata.org/AqueductFloods20/inunriver_historical_000000000WATCH_1980_rp00100.tif', p)
+              raster_info(p, 'Aqueduct 100y')
+          except Exception as e: print('   flood inspect failed', repr(e), flush=True)
+          # WorldPop gridded
+          try:
+              z=zipfile.ZipFile('/tmp/w.zip'); n=[x for x in z.namelist() if x.lower().endswith('.tif')][0]
+              z.extract(n, '/tmp/wx'); raster_info('/tmp/wx/'+n, 'WorldPop v3.0')
+          except Exception as e: print('   worldpop inspect failed', repr(e), flush=True)
+          # FAO basins shapefile fields
+          try:
+              import shapefile
+          except ImportError:
+              os.system('pip install --quiet pyshp'); import shapefile
+          try:
+              z=zipfile.ZipFile('/tmp/m.zip')
+          except Exception: pass
+          p='/tmp/fao.zip'; dl('https://storage.googleapis.com/fao-maps-catalog-data/geonetwork/aquamaps/hydrobasins_africa.zip', p)
+          z=zipfile.ZipFile(p); z.extractall('/tmp/faox')
+          r=shapefile.Reader('/tmp/faox/hydrobasins_africa.shp')
+          print('\n=== FAO BASINS fields', [f[0] for f in r.fields[1:]], 'shapes', len(r), flush=True)
+          print('   bbox', r.bbox, 'shapeType', r.shapeType, flush=True)
+          print('   first record', r.record(0)[:8], flush=True)
+          # GRID3 settlement extents GeoPackage (big)
+          try:
+              p='/tmp/grid3.zip'; dl('https://data.humdata.org/dataset/af838671-b9a6-4ae9-8ed5-eea750b05597/resource/0a22d6fc-7f1f-4f50-aead-09ef7be0455d/download/grid3_nga_settlement_extents_v3_1_gpkg.zip', p)
+              z=zipfile.ZipFile(p)
+              for i in z.infolist()[:20]: print('   GRID3 member', i.filename, i.file_size, flush=True)
+              gs=[n for n in z.namelist() if n.lower().endswith('.gpkg')]
+              print('   GRID3 gpkgs', gs, flush=True)
+              if gs:
+                  z.extract(gs[0], '/tmp/g3x')
+                  c=sqlite3.connect('/tmp/g3x/'+gs[0])
+                  print('   contents', c.execute('select table_name,data_type from gpkg_contents').fetchall(), flush=True)
+                  for (t,) in c.execute("select table_name from gpkg_contents where data_type='features'"):
+                      print('   cols', [x[1] for x in c.execute('pragma table_info("%s")'%t)], flush=True)
+                      print('   rows', c.execute('select count(*) from "%s"'%t).fetchone()[0], flush=True)
+                      print('   geomcols', c.execute('select * from gpkg_geometry_columns where table_name=?', (t,)).fetchall(), flush=True)
+                  c.close()
+          except Exception as e: print('   GRID3 inspect failed', repr(e), flush=True)
+          PY
+          tail -120 docs/source-probe.txt
       - name: Commit probe results
         run: |
           git config user.name "github-actions[bot]"
