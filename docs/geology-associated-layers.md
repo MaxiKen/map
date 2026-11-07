@@ -1,10 +1,15 @@
 # Geology-associated layers available online for Nigeria
 
-Surveyed 2026-11-07 against the **current** catalog: 49 layers in 17 groups
-(build `627de1bd83`). This is a **research-only** survey — nothing has been
-downloaded, imported into `data/`, registered in `config/layers.config.json`,
-or published. Source shortlists for the two earlier fetches are in
-`docs/raster-sources.md` and `docs/online-layers.md`.
+> **Status 2026-11-07 (updated):** seven of the sources surveyed below were
+> subsequently fetched, cropped to Nigeria, published as standalone GeoPackages
+> and added to the site (56 layers, 18 groups, build `f445969fc8`). See
+> **`docs/geology-layers.md`** for the exact picks, URLs, licences, method and
+> validation — including why the large/duplicate candidates were skipped.
+
+Originally surveyed 2026-11-07 against the then-current catalog: 49 layers in 17
+groups (build `627de1bd83`). It began as a **research-only** survey; no import was
+performed as part of the survey itself. Source shortlists for the two earlier
+fetches are in `docs/raster-sources.md` and `docs/online-layers.md`.
 
 ## What the project already has (so we don't duplicate it)
 

@@ -200,13 +200,14 @@ def transboundary_aquifers():
         geom = shape(f['geometry'])
         if not geom.intersects(box(WEST, SOUTH, EAST, NORTH)):
             continue
+        clean = lambda v: str(v or '').replace('\xa0', ' ').strip()
         rows.append({
-            'name': str(pr.get('name') or pr.get('code') or 'Unnamed')[:160],
-            'code': str(pr.get('code') or '')[:20],
-            'countries': str(pr.get('countries') or '')[:220],
-            'class_name': str(pr.get('aq_type') or 'Undefined')[:80],
-            'lithology': str(pr.get('litho_a') or '')[:160],
-            'aq_system': str(pr.get('aq_system') or '')[:80],
+            'name': (clean(pr.get('name')) or clean(pr.get('code')) or 'Unnamed')[:160],
+            'code': clean(pr.get('code'))[:20],
+            'countries': clean(pr.get('countries'))[:220],
+            'class_name': (clean(pr.get('aq_type')) or 'Undefined')[:80],
+            'lithology': clean(pr.get('litho_a'))[:160],
+            'aq_system': clean(pr.get('aq_system'))[:80],
             'info': str(pr.get('info') or '')[:40],
             'report_sdg': str(pr.get('report_sdg') or '')[:60],
             'source': 'IGRAC & UNESCO-IHP (2025), CC BY-SA 3.0 IGO',

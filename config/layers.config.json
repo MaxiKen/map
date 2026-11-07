@@ -78,6 +78,10 @@
     "infrastructure": {
       "label": "Infrastructure & services",
       "order": 17
+    },
+    "groundwater": {
+      "label": "Groundwater & hydrogeology",
+      "order": 18
     }
   },
   "layers": {
@@ -246,6 +250,40 @@
       "label": "Points of interest (OSM)",
       "labelField": "name",
       "order": 72
+    },
+    "groundwater_aquifers_bgs2019_pg": {
+      "label": "Aquifer units & productivity (BGS 2019)",
+      "labelField": "class_name",
+      "order": 73
+    },
+    "groundwater_units_ecowas2022_pg": {
+      "label": "Hydrogeological units, ECOWAS (WHYMAP 2022)",
+      "labelField": "class_name",
+      "order": 74
+    },
+    "groundwater_cover_ecowas2022_pg": {
+      "label": "Superficial cover aquifers, ECOWAS (WHYMAP 2022)",
+      "labelField": "class_name",
+      "order": 75
+    },
+    "groundwater_boreholes_wpdx_pt": {
+      "label": "Water points & boreholes (WPDx)",
+      "labelField": "type",
+      "order": 76
+    },
+    "groundwater_transboundary_igrac2025_pg": {
+      "label": "Transboundary aquifers (IGRAC 2025)",
+      "labelField": "name",
+      "order": 77
+    },
+    "groundwater_water_table_fan2017_rst": {
+      "label": "Water table depth (Fan et al. 2017)",
+      "order": 78
+    },
+    "geophysics_magnetic_emag2_rst": {
+      "label": "Magnetic anomaly (EMAG2 v2)",
+      "group": "geology",
+      "order": 79
     }
   }
 }

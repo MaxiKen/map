@@ -1,5 +1,10 @@
 # Six new online layers — sources and provenance
 
+> A third batch — seven geology-associated layers (five aquifer / borehole
+> vectors, a 1 km water-table raster and an EMAG2 magnetic-anomaly raster) — was
+> added later the same day. See `docs/geology-layers.md`. The catalog is now
+> 56 layers in 18 groups (build `f445969fc8`).
+
 Added 2026-11-07. These six concepts had **no layer of any kind** in the project
 (see the gap survey in `docs/other-online-layers.md`). They were fetched from
 public, key-free sources, cropped to Nigeria, written as standalone GeoPackages in
