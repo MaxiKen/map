@@ -11,7 +11,10 @@ Rules applied, in your words:
 
 ---
 
-## ⚠ Blocker before anything else: the rasters do not exist as files
+## ⚠ Blocker at the time: the rasters did not exist as files
+
+> **Update 2026-11-07:** the missing rasters were fetched from source and added — see
+> `docs/raster-sources.md`. The section below records the original state of the bundle.
 
 `all_maps.gpkg` contains **only** `features` and `attributes` — 0 tile tables, 0 gridded coverages.
 `meta_raster_info_tbl` *describes* 41 rasters, but there is not one `.tif` anywhere in the repo

@@ -1,4 +1,9 @@
-# What has no representative at all in the project now
+# What had no representative at all in the project
+
+> **Status 2026-11-07 — resolved.** All five gaps below are now filled: elevation/DEM,
+> temperature, precipitation, solar radiation and soil pH were fetched and added as
+> GeoPackage rasters. See `docs/raster-sources.md`. This document is kept as the record of
+> the gap analysis that led to them.
 
 Compared the **36 published layers** (`public/catalog.json`, built from `data/`) against the full
 source inventory: **64 layers** in `files/all_maps.gpkg`, **41 rasters** documented in

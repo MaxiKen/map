@@ -66,6 +66,10 @@ and mineral occurrences are on), so they do not cover the existing map.
 
 ## Still outstanding
 
+> **Update 2026-11-07:** the three rasters below are now in `data/`, together with temperature
+> and solar radiation — five in total, fetched from WorldClim 2.1, AWS Terrain Tiles and ISRIC
+> SoilGrids 2.0. See `docs/raster-sources.md`. The duplicate state polygons question remains open.
+
 The 3 rasters (`elevation_srtm247m_rst`, `soil_ph_0_5cm_isric_rst`,
 `climate_prec_annual_worldclim_rst`) are **not** in `data/`: no GeoTIFF exists anywhere in the repo.
 Supply the source files and they can be converted and added.
