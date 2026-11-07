@@ -1,0 +1,34 @@
+name: Fetch public raster sources
+# Re-fetch the five continuous rasters (WorldClim, AWS DEM, ISRIC SoilGrids) and
+# commit the resulting GeoPackages into data/.  Run manually with:
+#   gh workflow run fetch-rasters.yml
+# See docs/raster-sources.md for sources, licences and the method.
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install raster dependencies
+        run: pip install --quiet numpy Pillow tifffile rasterio imagecodecs
+      - name: Fetch and build the five rasters
+        run: python scripts/fetch_rasters.py
+      - name: Verify and commit
+        run: |
+          python - <<'PY'
+          import glob, sqlite3
+          for p in sorted(glob.glob('data/*_rst.gpkg')):
+              c = sqlite3.connect(p)
+              print(p, c.execute('select table_name,data_type from gpkg_contents').fetchall())
+              c.close()
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/*_rst.gpkg
+          git diff --cached --quiet || (git commit -m "Refresh fetched rasters [skip ci]" && git push)
