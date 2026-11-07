@@ -1,5 +1,5 @@
 {
-  "_help": "Optional. Everything here overrides what build_site.py guesses. Keys under 'layers' are the table names found in the GeoPackages; they can change at any time. Set app.authorMode to true to give every visitor the content tools (?author=1 turns them on for you only). A '*_legend_*' table is never published as a layer: its rows are folded into the attributes of the layer named in 'legendOf' (set it explicitly when the name does not match).",
+  "_help": "Optional. Top-level folders in data/ define layer groups and their exact display names; the 'groups' section only sets their order and is keyed by those exact folder names. A GeoPackage filename starting with hidden_ is skipped; remove that prefix to publish it. Attribute tables belong inside their owner's GeoPackage, not in standalone *_tbl.gpkg files. Keys under 'layers' are table names found in the GeoPackages. Set app.authorMode to true to give every visitor the content tools (?author=1 turns them on for you only). A '*_legend_*' table is never published as a layer: its rows are folded into the attributes of the layer named in 'legendOf' (set it explicitly when the name does not match).",
   "app": {
     "title": "Nigeria WebGIS",
     "authorMode": false,
@@ -11,76 +11,58 @@
     "basemap": "light"
   },
   "groups": {
-    "geology": {
-      "label": "Geology",
+    "Geology": {
       "order": 1
     },
-    "minerals": {
-      "label": "Mineral resources",
+    "Mineral resources": {
       "order": 2
     },
-    "admin": {
-      "label": "Administrative boundaries",
+    "Administrative boundaries": {
       "order": 3
     },
-    "settlements": {
-      "label": "Settlements",
+    "Settlements": {
       "order": 4
     },
-    "population": {
-      "label": "Population",
+    "Population": {
       "order": 5
     },
-    "transport": {
-      "label": "Transport",
+    "Transport": {
       "order": 6
     },
-    "water": {
-      "label": "Water",
+    "Water": {
       "order": 7
     },
-    "landcover": {
-      "label": "Land cover",
+    "Land cover": {
       "order": 8
     },
-    "soil": {
-      "label": "Soils",
+    "Soils": {
       "order": 9
     },
-    "ethnic": {
-      "label": "Ethnic groups",
+    "Ethnic groups": {
       "order": 10
     },
-    "forest": {
-      "label": "Forest",
+    "Forest": {
       "order": 11
     },
-    "protected": {
-      "label": "Protected areas",
+    "Protected areas": {
       "order": 12
     },
-    "reference": {
-      "label": "Reference",
+    "Reference": {
       "order": 13
     },
-    "climate": {
-      "label": "Climate",
+    "Climate": {
       "order": 14
     },
-    "elevation": {
-      "label": "Elevation / DEM",
+    "Elevation - DEM": {
       "order": 15
     },
-    "hazards": {
-      "label": "Natural hazards",
+    "Natural hazards": {
       "order": 16
     },
-    "infrastructure": {
-      "label": "Infrastructure & services",
+    "Infrastructure & services": {
       "order": 17
     },
-    "groundwater": {
-      "label": "Groundwater & hydrogeology",
+    "Groundwater & hydrogeology": {
       "order": 18
     }
   },
@@ -117,8 +99,7 @@
       "legendKey": "legend_no"
     },
     "admin_country_geoboundaries_pg": {
-      "label": "National boundary (geoBoundaries)",
-      "labelField": "name"
+      "label": "National boundary (geoBoundaries)"
     },
     "admin_states_gadm_pg": {
       "label": "States (GADM)",
@@ -282,7 +263,6 @@
     },
     "geophysics_magnetic_emag2_rst": {
       "label": "Magnetic anomaly (EMAG2 v2)",
-      "group": "geology",
       "order": 79
     },
     "hazards_landslide_rainfall_wb_rst": {

@@ -106,7 +106,7 @@ unshifted geometry**, exactly backwards from what the two reports describe.
    then rebuild — that closes the 3.2 km error still live on the site.
 2. Treat `data/` as the source of truth for everything already in it; treat the bundle as the supply
    for the 50 layers the site has never had, split per layer with `python scripts/split_gpkg.py
-   files/all_maps.gpkg data/ <prefix>`.
+   files/all_maps.gpkg "data/Group name" <prefix>`.
 3. Regenerate or drop the four stale `meta_*` tables, or ship them without the raster catalog.
 4. Decide whether the 122,537 extra features should be published — the two OSM/DIVA settlement
    layers alone are 94k points, far more than everything on the map today.

@@ -78,7 +78,7 @@ product at all.
 
 ## Practical notes before importing any of these
 
-- `data/*.gpkg` → `public/*.geojson` means **every feature is shipped to the browser**.
+- `data/<group>/*.gpkg` → `public/*.geojson` means **every feature is shipped to the browser**.
   Building footprints (millions of polygons) and 100 m population grids must be clipped,
   simplified or downsampled first; the project currently ships ~70 MB of generated site data.
 - HOT OSM and GRID3 v4.0 already publish **GeoPackage** — the project's native input format,

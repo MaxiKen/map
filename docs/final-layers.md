@@ -19,7 +19,7 @@ the heat-flow points join **Geology**.
 
 ## 1. What was picked
 
-| Layer (`data/*.gpkg`) | Kind | Content | Why |
+| Layer (`.gpkg` in its `data/` group folder) | Kind | Content | Why |
 |---|---|---|---|
 | `hazards_landslide_rainfall_wb_rst` | raster | 500 × 400, 0–0.0268 landslides/km²/yr | The only **quantitative** geohazard layer; complements the existing 100-year flood-depth raster with a rainfall-triggered slope-failure frequency. |
 | `hazards_landslide_classes_wb_pg` | polygon | 1,500 class regions, ranks 1–4 (Very low → High) | The same concept as a **vector**: combined rainfall + earthquake hazard simplified to four ThinkHazard classes. Concept variants kept together, per the project's grouping rule. |
@@ -97,12 +97,12 @@ All were HEAD/GET-probed from CI on 2026-11-07 before deciding.
 ```
 gh workflow run fetch-final-layers.yml        # on the default branch, or
 git push <branch> with a change to scripts/fetch_final_layers.py
-python scripts/build_site.py                  # data/*.gpkg -> public/
+python scripts/build_site.py                  # data/<group name>/**/*.gpkg -> public/
 ```
 
 The workflow installs `numpy Pillow tifffile rasterio imagecodecs geopandas
 pyogrio shapely pandas openpyxl`, runs the fetch script, validates all three
-GeoPackages and commits changed `data/*.gpkg` with `[skip ci]`. Successful run:
+GeoPackages and commits changed grouped `data/**/*.gpkg` files with `[skip ci]`. Successful run:
 `42364720588` (bot commit `7ae501a`).
 
 ## 7. Attribution

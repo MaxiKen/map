@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
 """Import the approved layers from files/all_maps.gpkg into data/.
 
-    python scripts/import_selected.py              # one standalone .gpkg per layer (default)
-    python scripts/import_selected.py --single     # one .gpkg holding all approved layers
+    python scripts/import_selected.py              # one grouped standalone .gpkg per layer
+    python scripts/import_selected.py --single --group Geology
+    python scripts/import_selected.py --group "My group"  # explicitly override all destinations
+
+Without --group, an existing layer stays in its current group folder. New layers use
+the maintenance defaults in data_paths.py. --single needs --group because all tables
+in that one GeoPackage will belong to the same display group.
+
+The original files/all_maps.gpkg was removed after import, so pass its external
+location with --master when using any of these commands again.
 
 Attribute / legend tables are never written as layers.  Each one in INTEGRATIONS is
 joined into the layer it describes, as extra columns on the features themselves, so
@@ -12,6 +20,8 @@ as they appear in all_maps.gpkg so build_site.py picks them up unchanged.
 import argparse
 import os
 import sqlite3
+
+from data_paths import layer_path
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MASTER = os.path.join(ROOT, 'files', 'all_maps.gpkg')
@@ -113,18 +123,30 @@ def build(out, layers, master=MASTER):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--single', action='store_true', help='write one .gpkg containing all approved layers')
+    ap.add_argument('--group', help='exact destination/display group folder for every output')
     ap.add_argument('--data', default=DATA)
+    ap.add_argument('--master', default=MASTER,
+                    help='external all_maps.gpkg (the original files/ master was removed after import)')
     a = ap.parse_args()
+    if not os.path.isfile(a.master):
+        ap.error(f'master GeoPackage not found: {a.master}; provide it with --master')
+    if a.single and not a.group:
+        ap.error('--single requires --group because every table in that GeoPackage needs one display group')
+    if a.group and (a.group in ('.', '..') or os.path.sep in a.group or
+                    (os.path.altsep and os.path.altsep in a.group)):
+        ap.error('--group must be one folder name, not a path')
     os.makedirs(a.data, exist_ok=True)
+    if a.group:
+        os.makedirs(os.path.join(a.data, a.group), exist_ok=True)
     folded = []
     if a.single:
-        out = os.path.join(a.data, 'selected_layers.gpkg')
-        folded = build(out, SELECTED)
+        out = os.path.join(a.data, a.group, 'selected_layers.gpkg')
+        folded = build(out, SELECTED, master=a.master)
         print('%-48s %8.2f MB  (%d layers)' % (os.path.basename(out), os.path.getsize(out) / 1e6, len(SELECTED)))
     else:
         for lay in SELECTED:
-            out = os.path.join(a.data, lay + '.gpkg')
-            folded.extend(build(out, [lay]))
+            out = os.path.join(a.data, a.group, lay + '.gpkg') if a.group else layer_path(a.data, lay)
+            folded.extend(build(out, [lay], master=a.master))
             print('%-48s %8.2f MB' % (os.path.basename(out), os.path.getsize(out) / 1e6))
     for tbl, owner, n in folded:
         print('  folded %-42s -> %-34s %d rows enriched' % (tbl, owner, n))

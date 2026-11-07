@@ -33,6 +33,7 @@ from shapely.geometry import shape as shapely_shape
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from make_raster_gpkg import write_raster  # noqa: E402
+from data_paths import layer_path  # noqa: E402
 from fetch_layers import (  # noqa: E402
     BBOX, WEST, SOUTH, EAST, NORTH, NODATA, TMP,
     download, unzip, to_grid, write_vec, nigeria_mask,
@@ -86,16 +87,15 @@ def landslide_frequency():
     valid = a != NODATA
     print(f'  grid valid {valid.mean():.1%}, range '
           f'[{a[valid].min():.6f}, {a[valid].max():.6f}] landslides/km2/yr', flush=True)
-    write_raster(os.path.join(DATA, 'hazards_landslide_rainfall_wb_rst.gpkg'),
-                 'hazards_landslide_rainfall_wb_rst', a, BBOX,
+    out = layer_path(DATA, 'hazards_landslide_rainfall_wb_rst')
+    write_raster(out, 'hazards_landslide_rainfall_wb_rst', a, BBOX,
                  uom='landslides per km2 per year', field='LandslideFrequency',
                  description='World Bank / GFDRR Global Landslide Hazard Map (Arup, 2020), '
                              'median annual frequency of significant rainfall-triggered '
                              'landslides per square kilometre, 1980-2018, 30 arc-second '
                              'COG averaged to 0.025 degree and masked to Nigeria. '
                              'CC BY 4.0. EPSG:4326.')
-    print('WROTE hazards_landslide_rainfall_wb_rst.gpkg  '
-          f'{os.path.getsize(os.path.join(DATA, "hazards_landslide_rainfall_wb_rst.gpkg"))/1e6:.2f} MB',
+    print(f'WROTE {out}  {os.path.getsize(out)/1e6:.2f} MB',
           flush=True)
 
 
@@ -206,7 +206,7 @@ def main():
     print('\n=== expected outputs ===', flush=True)
     missing = []
     for t in expected:
-        p = os.path.join(DATA, t + '.gpkg')
+        p = layer_path(DATA, t)
         ok = os.path.exists(p) and os.path.getsize(p) > 1024
         print(f'  {"OK " if ok else "MISS"} {t}', flush=True)
         if not ok:

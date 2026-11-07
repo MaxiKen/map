@@ -70,5 +70,5 @@ Precipitation and solar radiation have **no vector in the master at all** — th
 as the 26 documented WorldClim rasters.
 
 `meta_*` tables (4) and `meta_picture_value_legend_tbl` are catalog metadata, not map content, so
-their absence is intentional. The 3 `*_tbl.gpkg` still in `data/` are folded into geology/minerals
-at build time; the catalog has **zero table layers**.
+their absence is intentional. The 3 former `*_tbl.gpkg` files are now embedded in their geology/minerals
+owners and folded at build time; the catalog has **zero table layers**.

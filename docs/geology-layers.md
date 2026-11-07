@@ -20,7 +20,7 @@ water, not groundwater.
 **Seven layers were picked: five vectors + two rasters.** That keeps the standing
 "mostly vectors, few rasters" rule — the two rasters are continuous fields that
 cannot be faithfully represented as polygons (depth to water, magnetic anomaly).
-Every layer is a single standalone `.gpkg` in `data/`, cropped to
+Every layer is a single standalone `.gpkg` in its group folder under `data/`, cropped to
 `2.5–15.0°E, 4.0–14.0°N`; rasters are additionally masked to the geoBoundaries
 national outline. No table layers were published.
 
@@ -32,7 +32,7 @@ the magnetic-anomaly raster is filed under the existing `geology` group.
 
 ## 1. What was picked, and why
 
-| # | Layer (`data/*.gpkg`) | Kind | Why it is worth having |
+| # | Layer (`.gpkg` in its `data/` group folder) | Kind | Why it is worth having |
 |---|---|---|---|
 | 1 | `groundwater_aquifers_bgs2019_pg` | polygon | The single best Nigeria-specific aquifer layer: 196 polygons, each with both the hydrogeologically significant geology unit and the aquifer type/productivity class. Tiny (0.46 MB), national, authoritative. |
 | 2 | `groundwater_units_ecowas2022_pg` | polygon | The 2022 harmonised regional successor: 644 units inside Nigeria with stratigraphy, basin, lithology, flow type, expected borehole yield and productivity. Richer attributes than #1, Nigeria linework revised from Dessauvagie 1974. A legitimate second variant of the same concept, like the existing DIVA/geoBoundaries pairs. |
@@ -131,12 +131,12 @@ datasets — the WPDx link must be used directly.
 ```
 gh workflow run fetch-geology-layers.yml      # on the default branch, or
 git push <branch> with a change to scripts/fetch_geology_layers.py
-python scripts/build_site.py                  # data/*.gpkg -> public/
+python scripts/build_site.py                  # data/<group name>/**/*.gpkg -> public/
 ```
 
 The workflow installs `numpy Pillow tifffile rasterio imagecodecs netCDF4
 geopandas pyogrio shapely pandas`, runs the fetch script, validates all seven
-GeoPackages and commits changed `data/*.gpkg` with `[skip ci]`. Successful runs:
+GeoPackages and commits changed grouped `data/**/*.gpkg` files with `[skip ci]`. Successful runs:
 `42362739731` (bot commit `4b71519`). Every layer is independently re-fetchable;
 nothing depends on a previous batch's temporary files.
 

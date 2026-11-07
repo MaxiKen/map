@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Split a multi-layer GeoPackage into one GeoPackage per layer.
-usage: python scripts/split_gpkg.py master.gpkg data/ [prefix ...]
-Only layers whose name starts with one of the optional prefixes are written."""
+usage: python scripts/split_gpkg.py master.gpkg "data/Group name" [prefix ...]
+Only layers whose name starts with one of the optional prefixes are written.
+The destination must be a group folder: its name becomes every output layer's display group."""
 import sqlite3, sys, os
 
 SUPPORT = ['gpkg_tile_matrix_set', 'gpkg_tile_matrix', 'gpkg_2d_gridded_coverage_ancillary',

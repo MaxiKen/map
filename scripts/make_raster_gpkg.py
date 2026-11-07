@@ -6,7 +6,7 @@ copied from a raster GeoPackage that already ships in data/, so the output stays
 spec-clean without needing GDAL.
 
     from scripts.make_raster_gpkg import write_raster
-    write_raster('data/foo_rst.gpkg', 'foo_rst', arr, (west, south, east, north),
+    write_raster('data/My group/foo_rst.gpkg', 'foo_rst', arr, (west, south, east, north),
                  uom='metres', field='Elevation', description='...')
 """
 import io
@@ -26,11 +26,12 @@ def write_raster(out, table, arr, bounds, uom='', field='Value', description='',
                  nodata=-9999.0, template=None):
     """arr is float32 (H, W), first row = north. bounds = (west, south, east, north)."""
     template = template or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                                        'data', 'geology_general_picture_code_rst.gpkg')
+                                        'data', 'Geology', 'geology_general_picture_code_rst.gpkg')
     arr = np.asarray(arr, dtype='<f4')
     arr = np.where(np.isfinite(arr), arr, nodata).astype('<f4')
     h, w = arr.shape
     west, south, east, north = bounds
+    os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     if os.path.exists(out):
         os.remove(out)
     d = sqlite3.connect(out, uri=True)

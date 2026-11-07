@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch six new Nigeria concepts and write them into data/ as GeoPackages.
+"""Fetch six new Nigeria concepts and write them into group folders under data/.
 
 Run where outbound HTTPS is available (GitHub Actions).  Sources are all public,
 key-free and Nigeria-relevant; see docs/online-layers.md for citations/licences.
@@ -36,6 +36,7 @@ from rasterio.vrt import WarpedVRT
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from make_raster_gpkg import write_raster  # noqa: E402
 from build_site import read_gpkg_geom  # noqa: E402
+from data_paths import layer_path  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, 'data')
@@ -115,7 +116,7 @@ def asset(key: str, ext: str) -> str:
 
 def nigeria_mask(h: int, w: int) -> np.ndarray:
     """Rasterise the geoBoundaries national outline on an arbitrary grid."""
-    p = os.path.join(DATA, 'admin_country_geoboundaries_pg.gpkg')
+    p = layer_path(DATA, 'admin_country_geoboundaries_pg')
     con = sqlite3.connect('file:' + p + '?mode=ro', uri=True)
     blob = con.execute('select geom from admin_country_geoboundaries_pg limit 1').fetchone()[0]
     con.close()
@@ -174,7 +175,7 @@ def to_grid(src_path: str, w: int, h: int, resampling, src_nodata=None,
 
 
 def write_rst(table, arr, uom, field, desc):
-    out = os.path.join(DATA, table + '.gpkg')
+    out = layer_path(DATA, table)
     h, w = arr.shape
     write_raster(out, table, arr, BBOX, uom=uom, field=field, description=desc)
     print(f'WROTE {out}  {w}x{h}  {os.path.getsize(out)/1e6:.2f} MB', flush=True)
@@ -233,7 +234,7 @@ def _geo_stack():
 
 def write_vec(table: str, gdf, desc: str) -> None:
     import pyogrio
-    out = os.path.join(DATA, table + '.gpkg')
+    out = layer_path(DATA, table)
     if os.path.exists(out):
         os.remove(out)
     if gdf.crs is None:
@@ -419,10 +420,10 @@ def main() -> None:
                 'water_basins_fao_pg', 'hazards_flood_aqueduct_rst',
                 'population_worldpop2025_rst', 'infrastructure_airports_osm_pt',
                 'infrastructure_seaports_osm_pt', 'infrastructure_pois_osm_pt']
-    missing = [t for t in expected if not os.path.exists(os.path.join(DATA, t + '.gpkg'))]
+    missing = [t for t in expected if not os.path.exists(layer_path(DATA, t))]
     print('\n=== expected outputs ===', flush=True)
     for t in expected:
-        p = os.path.join(DATA, t + '.gpkg')
+        p = layer_path(DATA, t)
         print(f'  {"OK " if os.path.exists(p) else "MISS"} {t}', flush=True)
     if missing and len(only) == len(DOWNLOADS):
         raise RuntimeError('missing outputs: ' + ', '.join(missing))

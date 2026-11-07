@@ -1,7 +1,7 @@
 name: Fetch final non-groundwater layers
 # Final batch: World Bank / GFDRR landslide hazard (quantitative raster +
 # classified vector) and IHFC 2024 geothermal heat-flow points.  Commits the
-# three GeoPackages into data/.  Sources and licences: docs/final-layers.md
+# three GeoPackages into their group folders under data/. Sources and licences: docs/final-layers.md
 on:
   workflow_dispatch:
   push:
@@ -25,12 +25,14 @@ jobs:
       - name: Verify and commit
         run: |
           python - <<'PY'
-          import os, sqlite3
+          import os, sqlite3, sys
+          sys.path.insert(0, 'scripts')
+          from data_paths import layer_path
           names = ('hazards_landslide_rainfall_wb_rst',
                    'hazards_landslide_classes_wb_pg',
                    'geology_heatflow_ihfc2024_pt')
           for n in names:
-              p = 'data/' + n + '.gpkg'
+              p = layer_path('data', n)
               assert os.path.exists(p) and os.path.getsize(p) > 1024, p
               c = sqlite3.connect(p)
               rows = c.execute('select table_name,data_type,srs_id from gpkg_contents').fetchall()
@@ -42,5 +44,5 @@ jobs:
           PY
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/*.gpkg
+          git add data
           git diff --cached --quiet || (git commit -m "Add final non-groundwater Nigeria layers [skip ci]" && git push)
