@@ -1,0 +1,77 @@
+
+=== download bgs
+  fetched     1.99 MB  https://africagroundwateratlas.org/downloads/Nigeria.zip
+
+=== download ecowas
+  fetched    31.95 MB  https://download.bgr.de/bgr/grundwasser/gwr_ecowas/SHP/GWR_ECOWAS_SHP_v1.zip
+
+=== download wpdx
+  fetched    50.17 MB  https://data.humdata.org/dataset/29677a2d-1fb2-48a3-a06a-9c66800c418b/resource/1fdb9a0c-d145-49e5-a502-6a3bc63
+
+=== download wtd
+  fetched    63.39 MB  http://thredds-gfnl.usc.es/thredds/fileServer/GLOBALWTDFTP/annualmeans/AFRICA_WTD_annualmean.nc
+
+[BGS Africa Groundwater Atlas: Nigeria hydrogeology]
+  source rows=196 fields=['NigiaGLG', 'NigiaHGCom', 'geometry']
+  gpkg_contents: [('groundwater_aquifers_bgs2019_pg', 'features', 4326)]
+WROTE /home/runner/work/map/map/data/groundwater_aquifers_bgs2019_pg.gpkg  196 features  0.46 MB
+
+[WHYMAP ECOWAS 2022: GWR_ECOWAS_v1_HydrogeologicalUnit.shp]
+  source rows in window=644 fields=21
+  gpkg_contents: [('groundwater_units_ecowas2022_pg', 'features', 4326)]
+WROTE /home/runner/work/map/map/data/groundwater_units_ecowas2022_pg.gpkg  644 features  1.54 MB
+
+[WHYMAP ECOWAS 2022: GWR_ECOWAS_v1_CoverLayer.shp]
+  source rows in window=7 fields=19
+  gpkg_contents: [('groundwater_cover_ecowas2022_pg', 'features', 4326)]
+WROTE /home/runner/work/map/map/data/groundwater_cover_ecowas2022_pg.gpkg  7 features  0.32 MB
+
+[WPDx Nigeria water points]
+  rows inside Nigeria window=99245
+  gpkg_contents: [('groundwater_boreholes_wpdx_pt', 'features', 4326)]
+WROTE /home/runner/work/map/map/data/groundwater_boreholes_wpdx_pt.gpkg  99245 features  18.63 MB
+
+[IGRAC Transboundary Aquifers of the World 2025]
+  fetched     0.21 MB  https://ggis.un-igrac.org/geoserver/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=geonode%3Atba_ma
+  WFS returned 8 features
+  gpkg_contents: [('groundwater_transboundary_igrac2025_pg', 'features', 4326)]
+WROTE /home/runner/work/map/map/data/groundwater_transboundary_igrac2025_pg.gpkg  6 features  0.13 MB
+
+[Fan et al. revised water table depth, Africa annual mean]
+  lat[4674:5885] 3.9540..14.0456, lon[2574:4085] 2.4541..15.0457
+  source in-domain 93.2%, depth percentiles [  0.     3.89  17.72  29.28 126.7 ] m
+  [mask 1000x800] Nigeria outline covers 60.4% of the grid
+  grid 1000x800: valid 60.4%, range [0.000, 380.507]
+WROTE groundwater_water_table_fan2017_rst.gpkg  3.29 MB
+
+[EMAG2 v2 magnetic anomaly]
+  remote window (300, 375), nodata=-99999.0
+  [mask 500x400] Nigeria outline covers 60.6% of the grid
+  grid 500x400: valid 54.7%, range [-128.670, 104.052]
+  EMAG2 valid 54.7%, range [-128.7, 104.1] nT
+WROTE geophysics_magnetic_emag2_rst.gpkg  0.89 MB
+
+=== expected outputs ===
+  OK  groundwater_aquifers_bgs2019_pg
+  OK  groundwater_units_ecowas2022_pg
+  OK  groundwater_cover_ecowas2022_pg
+  OK  groundwater_boreholes_wpdx_pt
+  OK  groundwater_transboundary_igrac2025_pg
+  OK  groundwater_water_table_fan2017_rst
+  OK  geophysics_magnetic_emag2_rst
+=== git status ===
+?? data/geophysics_magnetic_emag2_rst.gpkg
+?? data/groundwater_aquifers_bgs2019_pg.gpkg
+?? data/groundwater_boreholes_wpdx_pt.gpkg
+?? data/groundwater_cover_ecowas2022_pg.gpkg
+?? data/groundwater_transboundary_igrac2025_pg.gpkg
+?? data/groundwater_units_ecowas2022_pg.gpkg
+?? data/groundwater_water_table_fan2017_rst.gpkg
+=== new gpkg sizes ===
+-rw-r--r-- 1 runner runner   888832 Nov  7 10:05 data/geophysics_magnetic_emag2_rst.gpkg
+-rw-r--r-- 1 runner runner   462848 Nov  7 10:05 data/groundwater_aquifers_bgs2019_pg.gpkg
+-rw-r--r-- 1 runner runner 18632704 Nov  7 10:05 data/groundwater_boreholes_wpdx_pt.gpkg
+-rw-r--r-- 1 runner runner   323584 Nov  7 10:05 data/groundwater_cover_ecowas2022_pg.gpkg
+-rw-r--r-- 1 runner runner   131072 Nov  7 10:05 data/groundwater_transboundary_igrac2025_pg.gpkg
+-rw-r--r-- 1 runner runner  1536000 Nov  7 10:05 data/groundwater_units_ecowas2022_pg.gpkg
+-rw-r--r-- 1 runner runner  3293184 Nov  7 10:05 data/groundwater_water_table_fan2017_rst.gpkg
