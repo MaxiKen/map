@@ -1,5 +1,11 @@
 # Geology-associated layers — sources and provenance
 
+> **Status 2026-11-07 (updated):** a final batch of three *non-groundwater*
+> layers (two landslide-hazard layers and IHFC geothermal heat-flow points) was
+> added afterwards because this batch was groundwater-heavy. See
+> **`docs/final-layers.md`**. The catalog is now 59 layers in 18 groups
+> (build `3add8addcb`).
+
 Added 2026-11-07. This is the **third** fetch batch. The survey that led to it is
 `docs/geology-associated-layers.md`; the earlier batches are `docs/raster-sources.md`
 (five climate/elevation/soil rasters) and `docs/online-layers.md` (six settlement /

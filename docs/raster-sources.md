@@ -4,7 +4,8 @@
 > depth, WorldPop population counts) plus five vector layers was added later the
 > same day; see `docs/online-layers.md`. A third batch added two more geology
 > rasters (water-table depth, magnetic anomaly) plus five vectors; see
-> `docs/geology-layers.md`.
+> `docs/geology-layers.md`. A final batch added one more hazard raster plus two
+> vectors; see `docs/final-layers.md`.
 
 Added 2026-11-07 to fill the five concepts with **zero representation** in the project
 (the gaps listed in `docs/missing-concepts.md`). Each is a proper `2d-gridded-coverage`

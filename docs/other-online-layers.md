@@ -4,8 +4,9 @@
 > extents, built-up areas, river basins, flood hazard, WorldPop gridded
 > population, and airports / seaports / POIs — have now been fetched and
 > published as eight new layers. See `docs/online-layers.md` for sources,
-> licences and method. A later geology-associated batch added seven more layers;
-> see `docs/geology-layers.md`. The catalog is now 56 layers in 18 groups. The
+> licences and method. A later geology-associated batch added seven more layers
+> (`docs/geology-layers.md`) and a final batch added three non-groundwater
+> layers (`docs/final-layers.md`). The catalog is now 59 layers in 18 groups. The
 > rest of this survey (health, education, buildings, power grid, conflict, etc.) remains
 > research-only and has **not** been imported.
 

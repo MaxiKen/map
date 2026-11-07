@@ -284,6 +284,20 @@
       "label": "Magnetic anomaly (EMAG2 v2)",
       "group": "geology",
       "order": 79
+    },
+    "hazards_landslide_rainfall_wb_rst": {
+      "label": "Landslide hazard: rainfall-triggered frequency (World Bank)",
+      "order": 80
+    },
+    "hazards_landslide_classes_wb_pg": {
+      "label": "Landslide hazard classes (World Bank / ThinkHazard)",
+      "labelField": "class_name",
+      "order": 81
+    },
+    "geology_heatflow_ihfc2024_pt": {
+      "label": "Geothermal heat flow measurements (IHFC 2024)",
+      "labelField": "name",
+      "order": 82
     }
   }
 }
