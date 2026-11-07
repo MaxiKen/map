@@ -59,6 +59,11 @@ WROTE geophysics_magnetic_emag2_rst.gpkg  0.89 MB
   OK  groundwater_transboundary_igrac2025_pg
   OK  groundwater_water_table_fan2017_rst
   OK  geophysics_magnetic_emag2_rst
++ python -
+groundwater_aquifers_bgs2019_pg 0.46 MB [('groundwater_aquifers_bgs2019_pg', 'features', 4326)]
+Traceback (most recent call last):
+  File "<stdin>", line 14, in <module>
+ValueError: too many values to unpack (expected 2)
 === git status ===
 ?? data/geophysics_magnetic_emag2_rst.gpkg
 ?? data/groundwater_aquifers_bgs2019_pg.gpkg
@@ -68,10 +73,10 @@ WROTE geophysics_magnetic_emag2_rst.gpkg  0.89 MB
 ?? data/groundwater_units_ecowas2022_pg.gpkg
 ?? data/groundwater_water_table_fan2017_rst.gpkg
 === new gpkg sizes ===
--rw-r--r-- 1 runner runner   888832 Nov  7 10:05 data/geophysics_magnetic_emag2_rst.gpkg
--rw-r--r-- 1 runner runner   462848 Nov  7 10:05 data/groundwater_aquifers_bgs2019_pg.gpkg
--rw-r--r-- 1 runner runner 18632704 Nov  7 10:05 data/groundwater_boreholes_wpdx_pt.gpkg
--rw-r--r-- 1 runner runner   323584 Nov  7 10:05 data/groundwater_cover_ecowas2022_pg.gpkg
--rw-r--r-- 1 runner runner   131072 Nov  7 10:05 data/groundwater_transboundary_igrac2025_pg.gpkg
--rw-r--r-- 1 runner runner  1536000 Nov  7 10:05 data/groundwater_units_ecowas2022_pg.gpkg
--rw-r--r-- 1 runner runner  3293184 Nov  7 10:05 data/groundwater_water_table_fan2017_rst.gpkg
+-rw-r--r-- 1 runner runner   888832 Nov  7 10:08 data/geophysics_magnetic_emag2_rst.gpkg
+-rw-r--r-- 1 runner runner   462848 Nov  7 10:08 data/groundwater_aquifers_bgs2019_pg.gpkg
+-rw-r--r-- 1 runner runner 18632704 Nov  7 10:08 data/groundwater_boreholes_wpdx_pt.gpkg
+-rw-r--r-- 1 runner runner   323584 Nov  7 10:08 data/groundwater_cover_ecowas2022_pg.gpkg
+-rw-r--r-- 1 runner runner   131072 Nov  7 10:08 data/groundwater_transboundary_igrac2025_pg.gpkg
+-rw-r--r-- 1 runner runner  1536000 Nov  7 10:08 data/groundwater_units_ecowas2022_pg.gpkg
+-rw-r--r-- 1 runner runner  3293184 Nov  7 10:08 data/groundwater_water_table_fan2017_rst.gpkg
