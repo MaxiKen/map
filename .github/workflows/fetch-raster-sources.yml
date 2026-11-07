@@ -1,0 +1,59 @@
+name: Fetch raster sources (relay)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: arena/69f2a938-map
+      - name: Download WorldClim 2.1 monthly 10m zips
+        run: |
+          set +e
+          mkdir -p /tmp/src
+          for v in prec srad tavg elev; do
+            u="https://geodata.ucdavis.edu/climate/worldclim/2_1/base/wc2.1_10m_${v}.zip"
+            curl -fsSL --max-time 180 -o "/tmp/src/wc2.1_10m_${v}.zip" "$u" \
+              && echo "OK   $v $(stat -c%s /tmp/src/wc2.1_10m_${v}.zip)" >> /tmp/src/probe.txt \
+              || echo "FAIL $v" >> /tmp/src/probe.txt
+          done
+          cat /tmp/src/probe.txt
+      - name: Probe ISRIC SoilGrids WCS + REST
+        run: |
+          set +e
+          curl -sS --max-time 60 -o /tmp/src/isric_caps.xml -w "wcs %{http_code} %{size_download}\n" \
+            "https://maps.isric.org/mapserv?map=/map/phh2o.map&service=WCS&version=2.0.1&request=GetCapabilities" >> /tmp/src/probe.txt 2>&1
+          curl -sS --max-time 60 -o /tmp/src/isric_point.json -w "rest %{http_code} %{size_download}\n" \
+            "https://rest.isric.org/soilgrids/v2.0/properties/query?lon=8.7&lat=9.1&prop=phh2o&depth=0-5cm&value=mean" >> /tmp/src/probe.txt 2>&1
+          head -c 400 /tmp/src/isric_point.json >> /tmp/src/probe.txt
+          echo >> /tmp/src/probe.txt
+          cat /tmp/src/probe.txt
+      - name: Probe AWS elevation tiles
+        run: |
+          set +e
+          curl -sS --max-time 60 -o /tmp/src/dem_tile.png -w "terrarium %{http_code} %{size_download}\n" \
+            "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/9/275/215.png" >> /tmp/src/probe.txt 2>&1
+          cat /tmp/src/probe.txt
+      - name: Probe NASA POWER regional CSV
+        run: |
+          set +e
+          curl -sS --max-time 60 -o /tmp/src/power_t2m.csv -w "power %{http_code} %{size_download}\n" \
+            "https://power.larc.nasa.gov/api/temporal/climatology/regional?parameters=T2M&community=AG&latitude-min=4&latitude-max=14&longitude-min=2&longitude-max=12&format=CSV" >> /tmp/src/probe.txt 2>&1
+          head -c 300 /tmp/src/power_t2m.csv >> /tmp/src/probe.txt
+          echo >> /tmp/src/probe.txt
+          cat /tmp/src/probe.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: raster-sources
+          path: /tmp/src/*
+          if-no-files-found: warn
+      - name: Commit probe report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          cp /tmp/src/probe.txt files/relay-probe.txt
+          git add files/relay-probe.txt
+          git diff --cached --quiet || (git commit -m "raster source probe [skip ci]" && git push)
