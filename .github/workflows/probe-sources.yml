@@ -41,6 +41,33 @@ jobs:
               | tail -8 >> docs/source-probe.txt || echo 'FAILED' >> docs/source-probe.txt
           done < /tmp/urls.txt
           cat docs/source-probe.txt
+      - name: GET test for HydroSHEDS and basin alternatives
+        run: |
+          cat > /tmp/urls2.txt <<'URLS'
+          https://data.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev01-12_v1c.zip
+          https://data.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev06_v1c.zip
+          https://www.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev01-12_v1c.zip
+          https://data.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev01-12_v1c.zip?download=1
+          https://data.hydrosheds.org/file/hydrobasins/customized_with_lakes/hybas_lake_af_lev01-12_v1c.zip
+          https://data.humdata.org/dataset/hotosm_nga_waterways
+          URLS
+          printf '\n=== GET with browser UA (range 0-1023) ===\n' >> docs/source-probe.txt
+          while IFS= read -r u; do
+            [ -z "$u" ] && continue
+            printf '=== %s\n' "$u" >> docs/source-probe.txt
+            curl -sL --max-time 40 -A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.36' \
+              -H 'Range: bytes=0-1023' -o /tmp/probe.bin -w 'HTTP %{http_code} bytes %{size_download} type %{content_type}\n' \
+              "$u" >> docs/source-probe.txt 2>/dev/null || echo 'FAILED' >> docs/source-probe.txt
+          done < /tmp/urls2.txt
+          tail -25 docs/source-probe.txt
+      - name: Check Python geo stack availability
+        run: |
+          python - <<'PY' >> docs/source-probe.txt
+          import importlib.util
+          print('\n=== python modules on runner ===')
+          for m in ('geopandas','pyogrio','fiona','shapely','rasterio','pyproj','imagecodecs','tifffile'):
+              print(m, bool(importlib.util.find_spec(m)))
+          PY
       - name: Commit probe results
         run: |
           git config user.name "github-actions[bot]"
