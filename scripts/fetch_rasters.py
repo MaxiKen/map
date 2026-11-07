@@ -145,7 +145,7 @@ def dem_terrarium(z: int = 9) -> np.ndarray:
             if tile is not None:
                 mosaic[(ty - ty0) * 256:(ty - ty0 + 1) * 256,
                        (tx - tx0) * 256:(tx - tx0 + 1) * 256] = tile
-    out = mosaic[yi - ty0 * 256, xi - tx0 * 256]
+    out = mosaic[(yi - ty0 * 256)[:, None], (xi - tx0 * 256)[None, :]]
     print(f'  elevation range [{np.nanmin(out):.1f}, {np.nanmax(out):.1f}] m', flush=True)
     return out
 

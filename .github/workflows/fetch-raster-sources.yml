@@ -19,7 +19,9 @@ jobs:
       - name: Install raster dependencies
         run: pip install --quiet numpy Pillow tifffile rasterio imagecodecs
       - name: Fetch and build the five rasters
-        run: python scripts/fetch_rasters.py 2>&1 | tee /tmp/fetch.log
+        run: |
+          set -o pipefail
+          python scripts/fetch_rasters.py 2>&1 | tee /tmp/fetch.log
       - name: Verify GeoPackages
         run: |
           python - <<'PY'
