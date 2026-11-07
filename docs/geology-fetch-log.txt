@@ -61,22 +61,48 @@ WROTE geophysics_magnetic_emag2_rst.gpkg  0.89 MB
   OK  geophysics_magnetic_emag2_rst
 + python -
 groundwater_aquifers_bgs2019_pg 0.46 MB [('groundwater_aquifers_bgs2019_pg', 'features', 4326)]
-Traceback (most recent call last):
-  File "<stdin>", line 14, in <module>
-ValueError: too many values to unpack (expected 2)
+   rows: 196
+groundwater_units_ecowas2022_pg 1.54 MB [('groundwater_units_ecowas2022_pg', 'features', 4326)]
+   rows: 644
+groundwater_cover_ecowas2022_pg 0.32 MB [('groundwater_cover_ecowas2022_pg', 'features', 4326)]
+   rows: 7
+groundwater_boreholes_wpdx_pt 18.63 MB [('groundwater_boreholes_wpdx_pt', 'features', 4326)]
+   rows: 99245
+groundwater_transboundary_igrac2025_pg 0.13 MB [('groundwater_transboundary_igrac2025_pg', 'features', 4326)]
+   rows: 6
+groundwater_water_table_fan2017_rst 3.29 MB [('groundwater_water_table_fan2017_rst', '2d-gridded-coverage', 4326)]
+geophysics_magnetic_emag2_rst 0.89 MB [('geophysics_magnetic_emag2_rst', '2d-gridded-coverage', 4326)]
++ git config user.name 'github-actions[bot]'
++ git config user.email 'github-actions[bot]@users.noreply.github.com'
++ git add data/admin_country_geoboundaries_pg.gpkg data/admin_lga_centroids_pt.gpkg data/admin_lgas_gadm_pg.gpkg data/admin_states_gadm_pg.gpkg data/admin_wards_pt.gpkg data/climate_prec_annual_worldclim_rst.gpkg data/climate_srad_annual_worldclim_rst.gpkg data/climate_tavg_annual_worldclim_rst.gpkg data/elevation_srtm_terrarium_rst.gpkg data/ethnic_areas_anthromapper_pg.gpkg data/forest_osm_pg.gpkg data/forest_reserves_water_picture_pg.gpkg data/geology_admin_boundaries_map2011_ln.gpkg data/geology_background_map2023_pg.gpkg data/geology_faults_map2011_ln.gpkg data/geology_general_picture_code_rst.gpkg data/geology_general_picture_img.gpkg data/geology_general_picture_pg.gpkg data/geology_legend_map2011_tbl.gpkg data/geology_map2011_img.gpkg data/geology_ridges_map2011_ln.gpkg data/geology_surficial_usgs_code_rst.gpkg data/geology_surficial_usgs_legend_tbl.gpkg data/geology_surficial_usgs_pg.gpkg data/geology_unit_boundaries_map2011_ln.gpkg data/geology_units_map2011_pg.gpkg data/geophysics_magnetic_emag2_rst.gpkg data/groundwater_aquifers_bgs2019_pg.gpkg data/groundwater_boreholes_wpdx_pt.gpkg data/groundwater_cover_ecowas2022_pg.gpkg data/groundwater_transboundary_igrac2025_pg.gpkg data/groundwater_units_ecowas2022_pg.gpkg data/groundwater_water_table_fan2017_rst.gpkg data/hazards_flood_aqueduct_rst.gpkg data/infrastructure_airports_osm_pt.gpkg data/infrastructure_pois_osm_pt.gpkg data/infrastructure_seaports_osm_pt.gpkg data/landcover_cgls2019_pg.gpkg data/minerals_division_lines_map2023_ln.gpkg data/minerals_legend_map2023_tbl.gpkg data/minerals_map2023_img.gpkg data/minerals_occurrences_map2023_pt.gpkg data/minerals_unresolved_symbols_map2023_pt.gpkg data/population_density2016_states_pg.gpkg data/population_worldpop2025_rst.gpkg data/protected_areas_wdpa_pg.gpkg data/reference_africa_countries_pg.gpkg data/reference_world_countries_pg.gpkg data/settlements_builtup_ghsl2020_rst.gpkg data/settlements_extents_grid3_pg.gpkg data/settlements_places_osm_pt.gpkg data/settlements_state_capitals_map2023_pt.gpkg data/soil_ph_0_5cm_isric_rst.gpkg data/soil_wrb2006_isric_pg.gpkg data/transport_railways_diva_ln.gpkg data/transport_roads_diva_ln.gpkg data/water_areas_diva_pg.gpkg data/water_basins_fao_pg.gpkg data/water_lines_diva_ln.gpkg
++ git status --short
+A  data/geophysics_magnetic_emag2_rst.gpkg
+A  data/groundwater_aquifers_bgs2019_pg.gpkg
+A  data/groundwater_boreholes_wpdx_pt.gpkg
+A  data/groundwater_cover_ecowas2022_pg.gpkg
+A  data/groundwater_transboundary_igrac2025_pg.gpkg
+A  data/groundwater_units_ecowas2022_pg.gpkg
+A  data/groundwater_water_table_fan2017_rst.gpkg
++ git diff --cached --quiet
++ git commit -m 'Add fetched Nigeria geology layers [skip ci]'
+[arena/69f2a938-map 4b71519] Add fetched Nigeria geology layers [skip ci]
+ 7 files changed, 0 insertions(+), 0 deletions(-)
+ create mode 100644 data/geophysics_magnetic_emag2_rst.gpkg
+ create mode 100644 data/groundwater_aquifers_bgs2019_pg.gpkg
+ create mode 100644 data/groundwater_boreholes_wpdx_pt.gpkg
+ create mode 100644 data/groundwater_cover_ecowas2022_pg.gpkg
+ create mode 100644 data/groundwater_transboundary_igrac2025_pg.gpkg
+ create mode 100644 data/groundwater_units_ecowas2022_pg.gpkg
+ create mode 100644 data/groundwater_water_table_fan2017_rst.gpkg
++ git push
+To https://github.com/MaxiKen/map
+   9d87c4b..4b71519  arena/69f2a938-map -> arena/69f2a938-map
 === git status ===
-?? data/geophysics_magnetic_emag2_rst.gpkg
-?? data/groundwater_aquifers_bgs2019_pg.gpkg
-?? data/groundwater_boreholes_wpdx_pt.gpkg
-?? data/groundwater_cover_ecowas2022_pg.gpkg
-?? data/groundwater_transboundary_igrac2025_pg.gpkg
-?? data/groundwater_units_ecowas2022_pg.gpkg
-?? data/groundwater_water_table_fan2017_rst.gpkg
 === new gpkg sizes ===
--rw-r--r-- 1 runner runner   888832 Nov  7 10:08 data/geophysics_magnetic_emag2_rst.gpkg
--rw-r--r-- 1 runner runner   462848 Nov  7 10:08 data/groundwater_aquifers_bgs2019_pg.gpkg
--rw-r--r-- 1 runner runner 18632704 Nov  7 10:08 data/groundwater_boreholes_wpdx_pt.gpkg
--rw-r--r-- 1 runner runner   323584 Nov  7 10:08 data/groundwater_cover_ecowas2022_pg.gpkg
--rw-r--r-- 1 runner runner   131072 Nov  7 10:08 data/groundwater_transboundary_igrac2025_pg.gpkg
--rw-r--r-- 1 runner runner  1536000 Nov  7 10:08 data/groundwater_units_ecowas2022_pg.gpkg
--rw-r--r-- 1 runner runner  3293184 Nov  7 10:08 data/groundwater_water_table_fan2017_rst.gpkg
+-rw-r--r-- 1 runner runner   888832 Nov  7 10:10 data/geophysics_magnetic_emag2_rst.gpkg
+-rw-r--r-- 1 runner runner   462848 Nov  7 10:10 data/groundwater_aquifers_bgs2019_pg.gpkg
+-rw-r--r-- 1 runner runner 18632704 Nov  7 10:10 data/groundwater_boreholes_wpdx_pt.gpkg
+-rw-r--r-- 1 runner runner   323584 Nov  7 10:10 data/groundwater_cover_ecowas2022_pg.gpkg
+-rw-r--r-- 1 runner runner   131072 Nov  7 10:10 data/groundwater_transboundary_igrac2025_pg.gpkg
+-rw-r--r-- 1 runner runner  1536000 Nov  7 10:10 data/groundwater_units_ecowas2022_pg.gpkg
+-rw-r--r-- 1 runner runner  3293184 Nov  7 10:10 data/groundwater_water_table_fan2017_rst.gpkg
