@@ -1,6 +1,6 @@
 name: Probe geology-associated source URLs
-# Temporary survey relay: check which publisher URLs are reachable from CI and
-# inspect the small ones.  Writes docs/geology-source-probe.txt and commits it.
+# Temporary survey relay phase 2: inspect the exact files that will be imported.
+# Writes docs/geology-source-probe.txt and commits it.
 on:
   workflow_dispatch:
   push:
@@ -16,162 +16,165 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install inspection dependencies
-        run: pip install --quiet geopandas pyogrio shapely netCDF4 h5py numpy pandas
-      - name: Probe
+        run: pip install --quiet geopandas pyogrio shapely netCDF4 rasterio numpy pandas
+      - name: Probe phase 2
         run: |
           set -o pipefail
           python - <<'PY' 2>&1 | tee /tmp/probe.log
-          import io, os, urllib.request, urllib.error, zipfile, glob, traceback
-          import numpy as np
-
+          import io, os, urllib.request, zipfile, glob, json
+          import numpy as np, geopandas as gpd
           UA = {'User-Agent': 'nigeria-webgis-source-probe/1.0'}
-          TMP = '/tmp/geoprobe'
+          TMP = '/tmp/geoprobe2'
           os.makedirs(TMP, exist_ok=True)
+          BBOX = (2.5, 4.0, 15.0, 14.0)
 
-          URLS = {
-            'bgs_nigeria': 'https://africagroundwateratlas.org/downloads/Nigeria.zip',
-            'whymap_ecowas': 'https://download.bgr.de/bgr/grundwasser/gwr_ecowas/SHP/GWR_ECOWAS_SHP_v1.zip',
-            'whymap_ecowas_pdf': 'https://download.bgr.de/bgr/grundwasser/gwr_ecowas/PDF/GWR_ECOWAS_PDF_v1.zip',
-            'wpdx_csv': 'https://data.humdata.org/dataset/29677a2d-1fb2-48a3-a06a-9c66800c418b/resource/1fdb9a0c-d145-49e5-a502-6a3bc63626e8/download/wpdx_enhanced.csv',
-            'glim_glhymps': 'https://storage.i-guide.io/datasets/fd345695-7dfd-4ba1-97b7-a3cc984b060d/GLiM_GLHYMPS.zip',
-            'bdticm': 'https://files.isric.org/soilgrids/former/2017-03-10/data/BDTICM_M_250m_ll.tif',
-            'wtd_africa_http': 'http://thredds-gfnl.usc.es/thredds/fileServer/GLOBALWTDFTP/annualmeans/AFRICA_WTD_annualmean.nc',
-            'wtd_africa_https': 'https://thredds-gfnl.usc.es/thredds/fileServer/GLOBALWTDFTP/annualmeans/AFRICA_WTD_annualmean.nc',
-            'emag2_http': 'http://geomag.colorado.edu/images/EMAG2/EMAG2_V2.tif',
-            'emag2_https': 'https://geomag.colorado.edu/images/EMAG2/EMAG2_V2.tif',
-            'igrac_wfs': 'https://ggis.un-igrac.org/geoserver/ows?service=WFS&version=2.0.0&request=GetFeature&typeName=BGS_groundwater:bgs_hydrogeol_nigeria&outputFormat=application/json&count=1',
-            'bgr_wms': 'https://services.bgr.de/wms/groundwater/ecowas?service=WMS&version=1.3.0&request=GetCapabilities',
-            'arsenic_doi': 'https://doi.org/10.25678/0001ZT',
-            'fluoride_doi': 'https://doi.org/10.25678/0006GQ',
-            'lhasa_layer': 'https://www.geonode-gfdrrlab.org/layers/hazard:ls_nasa_rc',
-            'tba_pdf': 'https://un-igrac.org/wp-content/uploads/2024/12/TBAMAP-2021__2023-update-1.pdf',
-            'nmis': 'https://energydata.info/dataset/nigeria-nmis-water-facility-data-2014',
+          def get(url, name):
+              p = os.path.join(TMP, name)
+              req = urllib.request.Request(url, headers=UA)
+              with urllib.request.urlopen(req, timeout=900) as r, open(p, 'wb') as f:
+                  shutil_copy(r, f)
+              print(f'  {name}: {os.path.getsize(p)/1e6:.2f} MB', flush=True)
+              return p
+          def shutil_copy(src, dst):
+              while True:
+                  b = src.read(1 << 20)
+                  if not b: break
+                  dst.write(b)
+
+          def head(url):
+              try:
+                  req = urllib.request.Request(url, headers=UA, method='HEAD')
+                  with urllib.request.urlopen(req, timeout=60) as r:
+                      return r.status, r.headers.get('Content-Length'), r.headers.get('Content-Type')
+              except Exception as e:
+                  return 'ERR', str(e)[:140], ''
+
+          # ---------- Eawag groundwater-quality probability rasters -------------
+          EAWAG = {
+            'arsenic_maps': 'https://opendata.eawag.ch/dataset/96c10d69-078b-4db9-88d7-6c169826d91a/resource/81801478-47ba-41fb-8bea-280632526053/download/maps.zip',
+            'arsenic_data': 'https://opendata.eawag.ch/dataset/96c10d69-078b-4db9-88d7-6c169826d91a/resource/f4d3a55b-018a-402b-9cda-7c5784828461/download/data.zip',
+            'arsenic_readme': 'https://opendata.eawag.ch/dataset/96c10d69-078b-4db9-88d7-6c169826d91a/resource/f2a9aa6a-1f2c-4e9b-865b-8996e02d8086/download/readme.txt',
+            'fluoride_maps': 'https://opendata.eawag.ch/dataset/2012f6f6-afb5-4c30-b032-89f28d0acd93/resource/840629ab-1899-4754-a2aa-827fe479a5ef/download/maps.zip',
+            'fluoride_readme': 'https://opendata.eawag.ch/dataset/2012f6f6-afb5-4c30-b032-89f28d0acd93/resource/25d6dc05-8d74-460a-ac0f-323ff3d070ce/download/readme.txt',
           }
-
-          results = {}
-          for key, url in URLS.items():
-              for method in ('HEAD', 'RANGE', 'GET1K'):
-                  try:
-                      h = dict(UA)
-                      if method == 'RANGE':
-                          h['Range'] = 'bytes=0-2047'
-                      req = urllib.request.Request(url, headers=h, method='HEAD' if method == 'HEAD' else 'GET')
-                      with urllib.request.urlopen(req, timeout=45) as r:
-                          if method == 'HEAD':
-                              print(f'{key:22s} HEAD  {r.status}  type={r.headers.get("Content-Type")}  '
-                                    f'len={r.headers.get("Content-Length")}  ranges={r.headers.get("Accept-Ranges")}  '
-                                    f'final={r.geturl()[:130]}', flush=True)
-                              break
-                          else:
-                              data = r.read(2048)
-                              print(f'{key:22s} {method:5s} {r.status}  type={r.headers.get("Content-Type")}  '
-                                    f'len={r.headers.get("Content-Length")}  first={data[:24]!r}  '
-                                    f'final={r.geturl()[:130]}', flush=True)
-                              break
-                  except Exception as e:
-                      if method == 'GET1K':
-                          print(f'{key:22s} FAILED  {type(e).__name__}: {str(e)[:160]}', flush=True)
-                      continue
-              else:
-                  pass
-
-          # ---- full inspection of the small assets --------------------------------
-          def fetch(key, url, cap=400_000_000):
-              p = os.path.join(TMP, key + os.path.splitext(url.split('?')[0])[1])
+          print('=== Eawag arsenic / fluoride ===', flush=True)
+          for k, u in EAWAG.items():
+              print(f'  {k:18s} HEAD {head(u)}', flush=True)
+          for k in ('arsenic_readme', 'fluoride_readme'):
               try:
-                  req = urllib.request.Request(url, headers=UA)
-                  with urllib.request.urlopen(req, timeout=600) as r, open(p, 'wb') as f:
-                      total = 0
-                      while True:
-                          b = r.read(1 << 20)
-                          if not b:
-                              break
-                          total += len(b)
-                          if total > cap:
-                              print(f'  {key}: exceeds cap, aborting at {total/1e6:.1f} MB', flush=True)
-                              break
-                          f.write(b)
-                  print(f'  {key}: downloaded {os.path.getsize(p)/1e6:.2f} MB -> {p}', flush=True)
-                  return p
+                  p = get(EAWAG[k], k + '.txt')
+                  print(open(p, errors='replace').read()[:2500], flush=True)
               except Exception as e:
-                  print(f'  {key}: download FAILED {type(e).__name__}: {str(e)[:200]}', flush=True)
-                  return None
+                  print(f'  {k} failed {e}', flush=True)
+          for k in ('arsenic_maps', 'fluoride_maps'):
+              try:
+                  p = get(EAWAG[k], k + '.zip')
+                  with zipfile.ZipFile(p) as z:
+                      for i in z.infolist()[:40]:
+                          print(f'     {i.file_size/1e6:9.2f} MB  {i.filename}', flush=True)
+                      z.extractall(os.path.join(TMP, k))
+                  for tif in glob.glob(os.path.join(TMP, k, '**', '*.tif'), recursive=True)[:10]:
+                      import rasterio
+                      with rasterio.open(tif) as ds:
+                          a = ds.read(1)
+                          print(f'  TIF {os.path.basename(tif)}: shape={a.shape} dtype={a.dtype} '
+                                f'crs={ds.crs} transform={ds.transform} nodata={ds.nodata} '
+                                f'min={np.nanmin(a)} max={np.nanmax(a)}', flush=True)
+              except Exception as e:
+                  print(f'  {k} failed {type(e).__name__}: {e}', flush=True)
 
-          print('\n=== ZIP / SHP inspection ===', flush=True)
-          for key in ('bgs_nigeria', 'whymap_ecowas', 'glim_glhymps'):
-              p = fetch(key, URLS[key])
-              if not p or not zipfile.is_zipfile(p):
-                  continue
+          # ---------- WTD NetCDF detail ----------------------------------------
+          print('\n=== WTD NetCDF Nigeria window ===', flush=True)
+          WTD_URL = 'http://thredds-gfnl.usc.es/thredds/fileServer/GLOBALWTDFTP/annualmeans/AFRICA_WTD_annualmean.nc'
+          try:
+              p = get(WTD_URL, 'wtd.nc')
+              import netCDF4
+              ds = netCDF4.Dataset(p)
+              lat = np.asarray(ds['lat'][:]); lon = np.asarray(ds['lon'][:])
+              print(f'  lat {lat.min()} .. {lat.max()} step {lat[1]-lat[0]}', flush=True)
+              print(f'  lon {lon.min()} .. {lon.max()} step {lon[1]-lon[0]}', flush=True)
+              print(f'  WTD attrs {dict(ds["WTD"].__dict__)}', flush=True)
+              iy = np.where((lat >= BBOX[1]-0.1) & (lat <= BBOX[3]+0.1))[0]
+              ix = np.where((lon >= BBOX[0]-0.1) & (lon <= BBOX[2]+0.1))[0]
+              print(f'  Nigeria window iy {iy[0]}..{iy[-1]} ({len(iy)}), ix {ix[0]}..{ix[-1]} ({len(ix)})', flush=True)
+              raw = ds['WTD'][0, iy[0]:iy[-1]+1, ix[0]:ix[-1]+1]
+              msk = ds['mask'][iy[0]:iy[-1]+1, ix[0]:ix[-1]+1]
+              print(f'  raw type {type(raw)} dtype {raw.dtype}', flush=True)
+              a = np.asarray(np.ma.filled(raw, np.nan), dtype=np.float64)
+              print(f'  scaled min/max {np.nanmin(a)} {np.nanmax(a)} percentiles '
+                    f'{np.nanpercentile(a, [1, 5, 25, 50, 75, 95, 99])}', flush=True)
+              print(f'  mask unique {np.unique(msk)[:10]} mean {msk.mean():.3f}', flush=True)
+              inside = np.asarray(msk) == 1
+              if inside.any():
+                  av = a[inside]
+                  print(f'  in-domain percentiles {np.nanpercentile(av, [1, 5, 25, 50, 75, 95, 99])}', flush=True)
+              ds.close()
+          except Exception as e:
+              import traceback; traceback.print_exc()
+
+          # ---------- EMAG2 remote window --------------------------------------
+          print('\n=== EMAG2 remote GeoTIFF ===', flush=True)
+          EMAG = 'https://geomag.colorado.edu/images/EMAG2/EMAG2_V2.tif'
+          try:
+              import rasterio
+              from rasterio.windows import from_bounds
+              os.environ['GDAL_DISABLE_READDIR_ON_OPEN'] = 'EMPTY_DIR'
+              with rasterio.open('/vsicurl/' + EMAG) as ds:
+                  print(f'  opened: shape={ds.shape} dtype={ds.dtypes} crs={ds.crs} '
+                        f'transform={ds.transform} nodata={ds.nodata} count={ds.count}', flush=True)
+                  win = from_bounds(*BBOX, transform=ds.transform)
+                  a = ds.read(1, window=win)
+                  print(f'  Nigeria window {a.shape} min={a.min()} max={a.max()} mean={a.mean():.2f}', flush=True)
+          except Exception as e:
+              print(f'  remote EMAG2 failed {type(e).__name__}: {str(e)[:300]}', flush=True)
+
+          # ---------- IGRAC WFS transboundary aquifers -------------------------
+          print('\n=== IGRAC WFS tba_map_2025 ===', flush=True)
+          for layer in ('geonode:tba_map_2025', 'tbamap2015:tbamap_2015'):
+              u = ('https://ggis.un-igrac.org/geoserver/ows?service=WFS&version=1.0.0&request=GetFeature'
+                   f'&typeName={layer}&outputFormat=application/json&bbox=2.0,3.5,15.5,14.5&maxFeatures=100')
+              try:
+                  req = urllib.request.Request(u, headers=UA)
+                  with urllib.request.urlopen(req, timeout=120) as r:
+                      txt = r.read().decode('utf-8', 'replace')
+                  j = json.loads(txt)
+                  print(f'  {layer}: {len(j.get("features", []))} features, '
+                        f'crs={j.get("crs")}', flush=True)
+                  for f in j.get('features', [])[:5]:
+                      print(f'     props={ {k: str(v)[:60] for k,v in f["properties"].items()} }', flush=True)
+              except Exception as e:
+                  print(f'  {layer} failed {type(e).__name__}: {str(e)[:200]}', flush=True)
+                  try:
+                      print('     body:', txt[:400], flush=True)
+                  except Exception:
+                      pass
+
+          # ---------- WPDx Nigeria subset --------------------------------------
+          print('\n=== WPDx Nigeria subset ===', flush=True)
+          try:
+              import pandas as pd
+              p = get('https://data.humdata.org/dataset/29677a2d-1fb2-48a3-a06a-9c66800c418b/resource/1fdb9a0c-d145-49e5-a502-6a3bc63626e8/download/wpdx_enhanced.csv', 'wpdx.csv')
+              d = pd.read_csv(p, skiprows=[1], low_memory=False)
+              d['lat_deg'] = pd.to_numeric(d['lat_deg'], errors='coerce')
+              d['lon_deg'] = pd.to_numeric(d['lon_deg'], errors='coerce')
+              m = (d.lon_deg >= 2.5) & (d.lon_deg <= 15) & (d.lat_deg >= 4) & (d.lat_deg <= 14)
+              print(f'  rows={len(d)} in-bbox={m.sum()} countries={d.clean_country_name.unique()[:8]}', flush=True)
+              for c in ('water_source_clean', 'water_tech_clean', 'status_clean', 'facility_type',
+                        'water_source_category', 'clean_adm1'):
+                  print(f'  {c}: {d.loc[m, c].value_counts().head(8).to_dict()}', flush=True)
+          except Exception as e:
+              import traceback; traceback.print_exc()
+
+          # ---------- BGS licence file ------------------------------------------
+          print('\n=== BGS licence ===', flush=True)
+          try:
+              p = get('https://africagroundwateratlas.org/downloads/Nigeria.zip', 'bgs.zip')
               with zipfile.ZipFile(p) as z:
-                  names = z.namelist()
-                  print(f'  {key}: {len(names)} entries, total uncompressed '
-                        f'{sum(i.file_size for i in z.infolist())/1e6:.1f} MB', flush=True)
-                  for i in z.infolist()[:60]:
-                      print(f'     {i.file_size/1e6:9.2f} MB  {i.filename}', flush=True)
-              out = os.path.join(TMP, key + '_x')
-              with zipfile.ZipFile(p) as z:
-                  z.extractall(out)
-              for shp in glob.glob(os.path.join(out, '**', '*.shp'), recursive=True)[:12]:
-                  try:
-                      import geopandas as gpd
-                      g = gpd.read_file(shp)
-                      print(f'  SHP {os.path.basename(shp)}: rows={len(g)} crs={g.crs} '
-                            f'bounds={tuple(round(v,3) for v in g.total_bounds)}', flush=True)
-                      print(f'     columns={list(g.columns)}', flush=True)
-                      for col in g.columns:
-                          if col != 'geometry':
-                              vals = g[col].dropna().astype(str).unique()[:8]
-                              print(f'       {col}: {list(vals)}', flush=True)
-                  except Exception as e:
-                      print(f'  SHP {os.path.basename(shp)}: read failed {e}', flush=True)
-              for gp in glob.glob(os.path.join(out, '**', '*.gpkg'), recursive=True)[:6]:
-                  try:
-                      import geopandas as gpd
-                      import pyogrio
-                      print(f'  GPKG {os.path.basename(gp)}: layers={pyogrio.list_layers(gp)}', flush=True)
-                      g = gpd.read_file(gp)
-                      print(f'     rows={len(g)} crs={g.crs} bounds={tuple(round(v,3) for v in g.total_bounds)} '
-                            f'columns={list(g.columns)}', flush=True)
-                  except Exception as e:
-                      print(f'  GPKG {os.path.basename(gp)}: read failed {e}', flush=True)
-
-          print('\n=== CSV inspection ===', flush=True)
-          p = fetch('wpdx_csv', URLS['wpdx_csv'], cap=200_000_000)
-          if p:
-              try:
-                  import pandas as pd
-                  d = pd.read_csv(p, low_memory=False)
-                  print(f'  wpdx: rows={len(d)} cols={list(d.columns)}', flush=True)
-                  print(d.head(3).to_string()[:1500], flush=True)
-              except Exception as e:
-                  print(f'  wpdx read failed {e}', flush=True)
-
-          print('\n=== NetCDF inspection ===', flush=True)
-          for key in ('wtd_africa_http', 'wtd_africa_https'):
-              p = fetch(key, URLS[key], cap=200_000_000)
-              if not p:
-                  continue
-              try:
-                  try:
-                      import netCDF4
-                      ds = netCDF4.Dataset(p)
-                      print(f'  {key} dims={ {k: len(v) for k,v in ds.dimensions.items()} }', flush=True)
-                      for name, var in ds.variables.items():
-                          arr = var[:]
-                          print(f'     var {name} shape={var.shape} dtype={var.dtype} '
-                                f'attrs={dict(var.__dict__)}', flush=True)
-                          if arr.ndim >= 2 and np.issubdtype(arr.dtype, np.number):
-                              a = np.asarray(arr)
-                              print(f'        min={np.nanmin(a)} max={np.nanmax(a)} '
-                                    f'finite={np.isfinite(a).mean():.3f}', flush=True)
-                      ds.close()
-                  except ImportError:
-                      import h5py
-                      with h5py.File(p) as f:
-                          print(f'  {key} HDF5 keys={list(f.keys())}', flush=True)
-                  break
-              except Exception as e:
-                  print(f'  {key}: netcdf inspect FAILED {type(e).__name__}: {e}', flush=True)
+                  for n in z.namelist():
+                      if 'Licence' in n or 'License' in n:
+                          print(z.read(n).decode('utf-8', 'replace')[:2500], flush=True)
+          except Exception as e:
+              print(f'  BGS licence failed {e}', flush=True)
 
           print('\n=== DONE ===', flush=True)
           PY
