@@ -68,6 +68,59 @@ jobs:
           for m in ('geopandas','pyogrio','fiona','shapely','rasterio','pyproj','imagecodecs','tifffile'):
               print(m, bool(importlib.util.find_spec(m)))
           PY
+      - name: Inspect basin mirrors and small vector sources
+        run: |
+          pip install --quiet pyshp
+          : > /tmp/inspect.txt
+          for u in \
+            'https://storage.googleapis.com/fao-maps-catalog-data/geonetwork/aquamaps/hydrobasins_africa.zip' \
+            'https://gis.ices.dk/geonetwork/srv/api/records/da165110-88fd-11da-a88f-000d939bc5d8/attachments/basins.zip' \
+            'https://hydrosheds.s3.amazonaws.com/file/hydrobasins/standard/hybas_af_lev01-12_v1c.zip' \
+            'https://data.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev01-12_v1c.zip' ; do
+            printf '=== MIRROR %s\n' "$u" >> /tmp/inspect.txt
+            curl -sL --max-time 60 -A 'Mozilla/5.0' -o /tmp/m.zip -w 'HTTP %{http_code} bytes %{size_download} type %{content_type}\n' "$u" >> /tmp/inspect.txt
+            python - <<'PY' >> /tmp/inspect.txt
+          import zipfile, os, glob
+          p='/tmp/m.zip'
+          try:
+              with zipfile.ZipFile(p) as z:
+                  for i in z.infolist()[:30]: print('   ', i.filename, i.file_size)
+          except Exception as e: print('    not a zip:', e)
+          PY
+          done
+          for t in airports sea_ports points_of_interest ; do
+            u="https://production-raw-data-api.s3.amazonaws.com/ISO3/NGA/$t/hotosm_nga_${t}_osm_gpkg.zip"
+            printf '=== HOT %s\n' "$t" >> /tmp/inspect.txt
+            curl -sL --max-time 60 -o /tmp/h.zip -w 'HTTP %{http_code} bytes %{size_download}\n' "$u" >> /tmp/inspect.txt
+            python - <<'PY' >> /tmp/inspect.txt
+          import zipfile, sqlite3, os, glob, shutil
+          shutil.rmtree('/tmp/hx', ignore_errors=True); os.makedirs('/tmp/hx')
+          try:
+              with zipfile.ZipFile('/tmp/h.zip') as z: z.extractall('/tmp/hx')
+              for g in glob.glob('/tmp/hx/**/*.gpkg', recursive=True):
+                  print('    gpkg:', os.path.basename(g))
+                  c=sqlite3.connect(g)
+                  print('    contents:', c.execute('select table_name,data_type from gpkg_contents').fetchall())
+                  for (t,) in c.execute("select table_name from gpkg_contents where data_type='features'"):
+                      print('    cols:', [r[1] for r in c.execute('pragma table_info("%s")'%t)])
+                      print('    rows:', c.execute('select count(*) from "%s"'%t).fetchone()[0])
+                  c.close()
+          except Exception as e: print('    error:', e)
+          PY
+          done
+          printf '=== WORLDPOP gridded.zip members\n' >> /tmp/inspect.txt
+          curl -sL --max-time 90 -o /tmp/w.zip -w 'HTTP %{http_code} bytes %{size_download}\n' \
+            'https://data.worldpop.org/repo/wopr/NGA/population/v3.0/NGA_population_v3_0_gridded.zip' >> /tmp/inspect.txt
+          python - <<'PY' >> /tmp/inspect.txt
+          import zipfile
+          try:
+              with zipfile.ZipFile('/tmp/w.zip') as z:
+                  for i in z.infolist()[:30]: print('   ', i.filename, i.file_size)
+          except Exception as e: print('    not a zip:', e)
+          PY
+          printf '\n=== INSPECTIONS ===\n' >> docs/source-probe.txt
+          cat /tmp/inspect.txt >> docs/source-probe.txt
+          tail -80 /tmp/inspect.txt
       - name: Commit probe results
         run: |
           git config user.name "github-actions[bot]"
