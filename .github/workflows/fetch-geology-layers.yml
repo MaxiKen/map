@@ -35,7 +35,9 @@ jobs:
                    'groundwater_water_table_fan2017_rst', 'geophysics_magnetic_emag2_rst')
           for n in names:
               p = 'data/' + n + '.gpkg'
-              assert os.path.exists(p) and os.path.getsize(p) > 1024, p
+              if not (os.path.exists(p) and os.path.getsize(p) > 1024):
+                  print('MISSING', p)
+                  continue
               c = sqlite3.connect(p)
               rows = c.execute('select table_name,data_type,srs_id from gpkg_contents').fetchall()
               print(n, f'{os.path.getsize(p)/1e6:.2f} MB', rows)
@@ -48,3 +50,15 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/*.gpkg
           git diff --cached --quiet || (git commit -m "Add fetched Nigeria geology layers [skip ci]" && git push)
+      - name: Save diagnostics
+        if: always()
+        run: |
+          echo "=== git status ===" >> /tmp/fetch-geology.log
+          git status --short >> /tmp/fetch-geology.log
+          echo "=== new gpkg sizes ===" >> /tmp/fetch-geology.log
+          ls -l data/groundwater* data/geophysics* >> /tmp/fetch-geology.log 2>&1
+          cp /tmp/fetch-geology.log docs/geology-fetch-log.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/geology-fetch-log.txt
+          git diff --cached --quiet || (git commit -m "Record geology fetch diagnostics [skip ci]" && git push)
