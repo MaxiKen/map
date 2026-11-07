@@ -1,147 +1,184 @@
-bgs_nigeria            HEAD  200  type=application/x-zip-compressed  len=1990098  ranges=bytes  final=https://africagroundwateratlas.org/downloads/Nigeria.zip
-whymap_ecowas          HEAD  200  type=application/x-zip-compressed  len=31949288  ranges=bytes  final=https://download.bgr.de/bgr/grundwasser/gwr_ecowas/SHP/GWR_ECOWAS_SHP_v1.zip
-whymap_ecowas_pdf      HEAD  200  type=application/x-zip-compressed  len=24723592  ranges=bytes  final=https://download.bgr.de/bgr/grundwasser/gwr_ecowas/PDF/GWR_ECOWAS_PDF_v1.zip
-wpdx_csv               RANGE 206  type=text/csv  len=2048  first=b'lat_deg,lon_deg,status_i'  final=https://s3.us-east-1.amazonaws.com/hdx-production-filestore/resources/1fdb9a0c-d145-49e5-a502-6a3bc63626e8/wpdx_enhanced.csv?AWSAc
-glim_glhymps           HEAD  200  type=application/zip  len=2290221550  ranges=bytes  final=https://storage.i-guide.io/datasets/fd345695-7dfd-4ba1-97b7-a3cc984b060d/GLiM_GLHYMPS.zip
-bdticm                 HEAD  200  type=image/tiff  len=8480439859  ranges=bytes  final=https://files.isric.org/soilgrids/former/2017-03-10/data/BDTICM_M_250m_ll.tif
-wtd_africa_http        HEAD  200  type=application/x-netcdf  len=63393722  ranges=bytes  final=http://thredds-gfnl.usc.es/thredds/fileServer/GLOBALWTDFTP/annualmeans/AFRICA_WTD_annualmean.nc
-wtd_africa_https       FAILED  URLError: <urlopen error timed out>
-emag2_http             HEAD  200  type=image/tiff  len=233388712  ranges=bytes  final=https://geomag.colorado.edu/images/EMAG2/EMAG2_V2.tif
-emag2_https            HEAD  200  type=image/tiff  len=233388712  ranges=bytes  final=https://geomag.colorado.edu/images/EMAG2/EMAG2_V2.tif
-igrac_wfs              FAILED  HTTPError: HTTP Error 400: 
-bgr_wms                FAILED  HTTPError: HTTP Error 404: 
-arsenic_doi            HEAD  200  type=text/html; charset=utf-8  len=None  ranges=None  final=https://opendata.eawag.ch/dataset/global-threat-of-arsenic-in-groundwater
-fluoride_doi           HEAD  200  type=text/html; charset=utf-8  len=None  ranges=None  final=https://opendata.eawag.ch/dataset/global-analysis-and-prediction-of-fluoride-in-groundwater
-lhasa_layer            HEAD  200  type=text/html  len=None  ranges=None  final=https://mvdmt.org/
-tba_pdf                HEAD  200  type=application/pdf  len=6082554  ranges=bytes  final=https://un-igrac.org/wp-content/uploads/2024/12/TBAMAP-2021__2023-update-1.pdf
-nmis                   FAILED  HTTPError: HTTP Error 403: Forbidden
+=== Eawag arsenic / fluoride ===
+  arsenic_maps       HEAD (200, '3975063669', 'application/zip')
+  arsenic_data       HEAD (200, '4123168', 'application/zip')
+  arsenic_readme     HEAD (200, '2304', 'text/plain')
+  fluoride_maps      HEAD (200, '2032052312', 'application/zip')
+  fluoride_readme    HEAD (200, '856', 'text/plain')
+  arsenic_readme.txt: 0.00 MB
+This is an outline to the code, data and maps provided here for the article "Global threat of arsenic in groundwater"
 
-=== ZIP / SHP inspection ===
-  bgs_nigeria: downloaded 1.99 MB -> /tmp/geoprobe/bgs_nigeria.zip
-  bgs_nigeria: 13 entries, total uncompressed 2.8 MB
-          0.00 MB  Nigeria/
-          0.00 MB  Nigeria/AfricaGroundwaterAtlasCountryMap-LicenceInformation_V1.2.txt
-          1.74 MB  Nigeria/AfricaGroundwaterAtlasCountryMapsUserGuide_OR21063.pdf
-          0.01 MB  Nigeria/Nigeria_Geology_Eng.lyr
-          0.00 MB  Nigeria/Nigeria_HG.cpg
-          0.02 MB  Nigeria/Nigeria_HG.dbf
-          0.00 MB  Nigeria/Nigeria_HG.prj
-          0.00 MB  Nigeria/Nigeria_HG.sbn
-          0.00 MB  Nigeria/Nigeria_HG.sbx
-          0.39 MB  Nigeria/Nigeria_HG.shp
-          0.64 MB  Nigeria/Nigeria_HG.shp.xml
-          0.00 MB  Nigeria/Nigeria_HG.shx
-          0.01 MB  Nigeria/Nigeria_Hydrogeology_Eng.lyr
-  SHP Nigeria_HG.shp: rows=196 crs=EPSG:4326 bounds=(np.float64(2.668), np.float64(4.319), np.float64(14.676), np.float64(13.892))
-     columns=['NigiaGLG', 'NigiaHGCom', 'geometry']
-       NigiaGLG: ['Chad Basin - Sedimentary - Tertiary-Quaternary', 'Sokoto Basin - Sedimentary - Tertiary', 'Surface water', 'Sokoto Basin - Sedimentary - Cretaceous', 'Igneous - Younger granite - Jurassic', 'Basement Complex', 'Unconsolidated sedimentary - Quaternary', 'Upper Benue Basin - Sedimentary - Tertiary']
-       NigiaHGCom: ['CSI-M/H', 'n/a', 'I-L/M', 'B-L/M', 'U-H', 'CSI-L/M', 'CSIF-M (H)', 'U-H/VH']
-  whymap_ecowas: downloaded 31.95 MB -> /tmp/geoprobe/whymap_ecowas.zip
-  whymap_ecowas: 38 entries, total uncompressed 56.0 MB
-          0.00 MB  GWR_ECOWAS_v1/
-          1.13 MB  GWR_ECOWAS_v1/GWR_ECOWAS.mxd
-          0.01 MB  GWR_ECOWAS_v1/GWR_ECOWAS.qgz
-          0.19 MB  GWR_ECOWAS_v1/GWR_ECOWAS_docu_v1.pdf
-          6.12 MB  GWR_ECOWAS_v1/GWR_ECOWAS_Note_Technique_fr.pdf
-          7.10 MB  GWR_ECOWAS_v1/GWR_ECOWAS_Technical_Note_en.pdf
-          0.00 MB  GWR_ECOWAS_v1/GWR_ECOWAS_v1.bib
-          0.00 MB  GWR_ECOWAS_v1/shp/
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_Aquiferproductivity.CPG
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_Aquiferproductivity.dbf
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_Aquiferproductivity.prj
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_Aquiferproductivity.sbn
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_Aquiferproductivity.sbx
-          4.59 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_Aquiferproductivity.shp
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_Aquiferproductivity.shp.xml
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_Aquiferproductivity.shx
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_CoverLayer.CPG
-          0.04 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_CoverLayer.dbf
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_CoverLayer.prj
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_CoverLayer.sbn
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_CoverLayer.sbx
-          2.38 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_CoverLayer.shp
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_CoverLayer.shx
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_HydrogeologicalUnit.CPG
-         17.68 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_HydrogeologicalUnit.dbf
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_HydrogeologicalUnit.prj
-          0.04 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_HydrogeologicalUnit.sbn
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_HydrogeologicalUnit.sbx
-         10.61 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_HydrogeologicalUnit.shp
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_HydrogeologicalUnit.shp.xml
-          0.03 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_HydrogeologicalUnit.shx
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_Lithology.CPG
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_Lithology.dbf
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_Lithology.prj
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_Lithology.sbn
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_Lithology.sbx
-          6.06 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_Lithology.shp
-          0.00 MB  GWR_ECOWAS_v1/shp/GWR_ECOWAS_v1_Lithology.shx
-  SHP GWR_ECOWAS_v1_Aquiferproductivity.shp: rows=14 crs=EPSG:4326 bounds=(np.float64(-25.362), np.float64(4.27), np.float64(15.996), np.float64(25.0))
-     columns=['Aq_prod', 'geometry']
-       Aq_prod: ['HK (karst, high: >10 l/s)', 'HM (mixed, high: >10 l/s)', 'HP (porous, high: >10 l/s)', 'LF (fractured, low: 0.5-2 l/s)', 'LM (mixed, low: 0.5-2 l/s)', 'MF (fractured, moderate: 2-10 l/s)', 'MK (karst, moderate: 2-10 l/s)', 'MM (mixed, moderate: 2-10 l/s)']
-  SHP GWR_ECOWAS_v1_HydrogeologicalUnit.shp: rows=3969 crs=EPSG:4326 bounds=(np.float64(-25.362), np.float64(4.27), np.float64(15.996), np.float64(25.0))
-     columns=['ID_Cover', 'ID_unique', 'ID_unit', 'ID_Strat', 'St_unit', 'Basin', 'CS_era', 'CS_system', 'CS_series', 'CS_stage', 'St_group', 'St_desc', 'Envirnmnt', 'Lithology', 'Carb_rock', 'Consoldtn', 'Aq_type', 'Yield', 'Aq_prod', 'Sources', 'geometry']
-       ID_Cover: ['Qa', 'Qe', 'Qs', 'no cover (omit)', 'Ql', 'Qa, S', 'Ql, BN', 'Ql, Kz']
-       ID_unique: ['A-cpx, KM - Qa', 'OC-Dj - Qe', 'CI-N - Qs', 'OC-Dj - Qs', 'C-Md - no cover (omit)', 'C-SH - no cover (omit)', 'C-SH - Qe', 'C-SH - Ql']
-       ID_unit: ['A-cpx, KM', 'OC-Dj', 'CI-N', 'C-Md', 'C-SH', 'C-Ta', 'C-Th', 'ꞒC-Td']
-       ID_Strat: ['A-cpx', 'OC-Dj', 'Ci-N', 'C-Md', 'C-SH', 'C-Ta', 'C-Th', 'ꞒC-Td']
-       St_unit: ['Kénéma-Man Domain: Plutonic and metamorphic complexes', 'Ordovician to Carboniferous (marine, continental), undiff', 'Grès de Nubie du Djado', 'Grès de Madama', 'Groupe de Taoudeni: Formation Safia & Haricha', 'Série de Tagora', 'Série de Talach (Grés de Farazakat & Argiles de Talach)', "Groupes de l'Azlaf, l'Erg Chech, Thérazza, Taoudeni"]
-       Basin: ['Craton ouest-africain', 'Bassin du Djado', 'Bassin de Taoudeni', 'Bassin des Iullemmeden', 'Bassin du Tchad', 'Bassin de la Bénoué', 'Bassin de Keta', 'Bassin de Tano']
-       CS_era: ['Archean', 'Paleozoic', 'Mesozoic', 'Cenozoic', 'Neoproterozoic', 'Neoproterozoic- Paleozoic', 'Neoproterozoic to Cambrian', 'Paleoproterozoic']
-       CS_system: ['Ordovician to Carboniferous', 'Cretaceous', 'Carboniferous', 'Cambrian to Carboniferous', 'Neogene', 'Jurrasic', 'Cambrian to Ordovician', 'Paleogene']
-       CS_series: ['Lower Cretaceous', 'Miocene to Pleistocene', 'Upper Cretaceous', 'Eocene to Oligocene', 'Eocene', 'Eocene to Pliocene', 'Palaeocene', 'Palaeocene to Eocene']
-       CS_stage: ['Westphalian', 'Visean to Namurian', 'Namurian', 'Visean', 'Senonian', 'Albian', 'Albian to Cenomanian', 'Turonian to Santonian']
-       St_group: ['Archean: Kénéma-Man Domain', 'Couverture tassilienne  (Transgression marine du Ordovicien-Silurien)', 'Continental Intercalaire (Terrestrial deposits of the Mesozoic/Lower Cretaceous)', 'Série post-Tassilien (Transgression marine du Dévonien supérieur et Carbonifère)', 'Continental Terminal (Post-Eocene, terrestrial deposits)', 'Continental Hamadien (Terrestrial deposits of the Upper Cretaceous', 'Serie Hamadien (Marine transgressions of the Upper Cretaceous/Paleocene)', 'Infracambrien tabulaire']
-       St_desc: ['Plutonic and metamorphic complexes of the Kénéma-Man Domain', 'Ordovician to Carboniferous undifferentiated: Silurian (clay), Devonian (sandstones & clays), Viséen (clays, calcareous sandstones), Namurien (clays & carbonates), Westphalien marine', 'Grès de Nubie du Djado (Nubian sandstone-type)', 'Westphalien continental (Grès de Madama)', 'Groupe de Taoudeni: Formation Safia & Haricha', 'Série de Tagora: Grès de Guezouman, argiles, Grès de Tarat, argiles', 'Série de Talach: Grés de Farazakat & Argiles de Talach', "Cambrian to Carboniferous:  Groupe de l'Azlaf (Fm du Greb En Naga, Cambrien), Groupe de l'Erg Chech (Ordovicien), Groupe de Thérazza (Fm des Sebkhas, Carbonifère), Groupe de Taoudeni (Fms de la Gara Hammou Salah & Gara Jakania,Carbonfère)"]
-       Envirnmnt: ['Archean basement (plutonic and metamorphic complexes)', 'sedimentary, continental & marine', 'sedimentary, continental', 'sedimentary, marine', 'sedimentary, marine & continental', 'metasedimentary, marine & continental', 'intrusive/plutonic rocks (mafic)', 'metasedimentary, continental']
-       Lithology: ['Granite, gneiss, and schist', 'Claystone and sand', 'Sandstone and clay', 'Limestone', 'Claystone', 'Sand and clay', 'Shale', 'Marl']
-       Carb_rock: ['basement', 'carbonate rocks', 'no mentioning of calcareous strata', 'calcareous rocks', 'carbonate rocks, karst', 'likely occurence of calcareous strata', 'no data']
-       Consoldtn: ['consolidated, metamorphic rocks', 'partly consolidated rocks', 'consolidated, sedimentary rocks', 'unconsolidated sediments', 'consolidated, metasedimentary rocks', 'consolidated, igneous rocks']
-       Aq_type: ['fractured', 'intergranular / fractured', 'fractured (karst)', 'intergranular (porous)']
-       Yield: ['0.5-2 l/s (low)', '<0.1 l/s (insignificant)', '2-10 l/s (moderate)', '0.1-0.5 l/s (limited)', '> 10 l/s (high)']
-       Aq_prod: ['LF (fractured, low: 0.5-2 l/s)', 'LM (mixed, low: 0.5-2 l/s)', 'NM (mixed, insignificant: <0.1 l/s)', 'MK (karst, moderate: 2-10 l/s)', 'MM (mixed, moderate: 2-10 l/s)', 'TF (fractured, limited: 0.1-0.5 l/s)', 'MP (porous, moderate: 2-10 l/s)', 'TM (mixed, limited: 0.1-0.5 l/s)']
-       Sources: ['Elster, 2014', 'Greigert (1968, 1979), Greigert & Pougnet (1965 & 1967) Dodo & Zuppi (1997)', 'Greigert et Pougnet (1967)', 'Bassot et al. (1980, 1981), Girard et al. (1998), DNHE (1990)', 'Greigert (1968), Boeckh (1979)', 'Greigert (1968)', 'Boeckh (1965), (BGS (2019)), Greigert (1968), Obaje (2009), Miller (1965) Onugba & Yaha (2008)', 'Greigert (1968), Carte de compilation géologique Mali, 200k (2005), (DNHE, 1990)']
-  SHP GWR_ECOWAS_v1_CoverLayer.shp: rows=9 crs=EPSG:4326 bounds=(np.float64(-17.492), np.float64(4.641), np.float64(15.87), np.float64(24.942))
-     columns=['ID_Cover', 'ID_Strat', 'St_unit', 'Basin', 'CS_era', 'CS_system', 'CS_series', 'CS_stage', 'St_group', 'St_desc', 'Envirnmnt', 'Lithology', 'Carb_rock', 'Consoldtn', 'Aq_type', 'Yield', 'Aq_prod', 'Sources', 'geometry']
-       ID_Cover: ['Qa', 'Qa, AD', 'Qa, DI', 'Qa, S', 'Qe', 'Ql', 'Ql, BN', 'Ql, Kz']
-       ID_Strat: ['Qa', 'Qa, AD', 'Qa, DI', 'Qa, S', 'Qe', 'Ql', 'Ql, BN', 'Ql, Kz']
-       St_unit: ['Alluvial and fluvial deposits', 'Alluvial and fluvial deposits (Adar Doutchi)', 'Alluvial and fluvial deposits, Inner Delta', 'Alluvial and fluvial deposits (Fossé de Gao)', 'Aeolian deposits (ergs, dune complexes)', 'Lacustrine deposits', 'Bama & Ngeiwa ridge: lacustrine deposits', 'Plaine de Kadzell: lacustrine deposits']
-       Basin: ['all regions', 'Bassin des Iullemmeden', 'Bassin du Tchad']
-       CS_era: ['Cenozoic']
-       CS_system: ['Quaternary', 'Neogene to Quaternary']
-       CS_series: ['Pleistocene to Holocene', 'Holocene', 'Pliocene to Holocene']
-       CS_stage: []
-       St_group: ['Quaternary continental sediments (Neogene to Quaternary, unconsolidated deposits)']
-       St_desc: ['Alluvial and fluvial deposits', 'Aeolian sand deposits & older alluvial deposits', 'Lacustrine deposits', 'Bama & Ngeiwa ridge: lacustrine deposits corresponding to Holocene highstands of the Lake Megachad', 'Plaine de Kadzell: lacustrine deposits']
-       Envirnmnt: ['sedimentary, alluvial', 'sedimentary, aeolian', 'sedimentary, lacustrine']
-       Lithology: ['Sand and clay', 'Clay', 'Sand']
-       Carb_rock: ['no data', 'likely occurence of calcareous strata']
-       Consoldtn: ['unconsolidated sediments']
-       Aq_type: ['intergranular (porous)']
-       Yield: ['> 10 l/s (high)', '0.5-2 l/s (low)', '0.1-0.5 l/s (limited)', 'assumed dry']
-       Aq_prod: ['HP (porous, high: >10 l/s)', 'LP (porous, low: 0.5-2 l/s)', 'TP (porous, limited: 0.1-0.5 l/s)', 'assumed dry']
-       Sources: ['Greigert (1968)', 'DNHE (1990)', 'no data']
-  SHP GWR_ECOWAS_v1_Lithology.shp: rows=16 crs=EPSG:4326 bounds=(np.float64(-25.362), np.float64(4.27), np.float64(15.996), np.float64(25.0))
-     columns=['Lithology', 'geometry']
-       Lithology: ['Claystone', 'Claystone and sand', 'Granite, gneiss, and schist', 'Limestone', 'Limestone and marlstone', 'Marl', 'Plutonic rock', 'Plutonic rock (acid)']
-  glim_glhymps: exceeds cap, aborting at 400.6 MB
-  glim_glhymps: downloaded 399.51 MB -> /tmp/geoprobe/glim_glhymps.zip
+REFERENCE:
+Podgorski, J., and M. Berg (2020), Global threat of arsenic in groundwater, Science, 368(6493), 845–850, doi:10.1126/science.aba1510.
 
-=== CSV inspection ===
-  wpdx_csv: downloaded 50.17 MB -> /tmp/geoprobe/wpdx_csv.csv
-  wpdx: rows=99246 cols=['lat_deg', 'lon_deg', 'status_id', 'report_date', 'source', 'water_source_clean', 'water_tech_clean', 'clean_country_id', 'clean_country_name', 'clean_adm1', 'clean_adm2', 'clean_adm3', 'clean_adm4', 'activity_id', 'scheme_id', 'wpdx_id', 'install_year', 'installer', 'rehab_year', 'rehabilitator', 'management_clean', 'pay_clean', 'status_clean', 'fecal_coliform_presence', 'fecal_coliform_value', 'subjective_quality', 'notes', 'local_population', 'assigned_population', 'facility_type', 'water_source_category', 'water_tech_category', 'created_timestamp', 'dataset_title', 'rehab_priority', 'would_gain_access', 'usage_cap', 'criticality', 'pressure', 'distance_to_primary', 'distance_to_secondary', 'distance_to_tertiary', 'distance_to_city', 'distance_to_town', 'is_urban', 'days_since_report', 'staleness', 'prediction_yes_0y', 'prediction_yes_2y', 'prediction_no_0y', 'prediction_no_2y', 'predicted_status_0y', 'predicted_status_2y', 'predicted_category']
-     lat_deg    lon_deg                    status_id     report_date                                        source       water_source_clean       water_tech_clean      clean_country_id clean_country_name  clean_adm1  clean_adm2  clean_adm3  clean_adm4          activity_id                scheme_id       wpdx_id        install_year       installer        rehab_year       rehabilitator       management_clean       pay_clean                   status_clean                  fecal_coliform_presence                 fecal_coliform_value             subjective_quality               notes               local_population    assigned_population             facility_type             water_source_category             water_tech_category       created_timestamp                                     dataset_title            rehab_priority          would_gain_access             usage_cap             criticality             pressure             distance_to_primary             distance_to_secondary             distance_to_tertiary             distance_to_city             distance_to_town             is_urban             days_since_report             staleness             prediction_yes_0y             prediction_yes_2y             prediction_no_0y             prediction_no_2y             predicted_status_0y             predicted_status_2y             predicted_category
-0   #geo+lat   #geo+lon  #indicator+water_avail+bool  #date+reported                                  #meta+source  #indicator+water
+Contact: joel.podgorski@eawag.ch, michael.berg@eawag.ch
 
-=== NetCDF inspection ===
-  wtd_africa_http: downloaded 63.39 MB -> /tmp/geoprobe/wtd_africa_http.nc
-  wtd_africa_http dims={'lat': 8760, 'lon': 8880, 'time': 1}
-     var lat shape=(8760,) dtype=float32 attrs={'long_name': 'latitude', 'units': 'degrees_N'}
-     var lon shape=(8880,) dtype=float32 attrs={'long_name': 'longitude', 'units': 'degrees_E'}
-     var time shape=(1,) dtype=int8 attrs={}
-     var mask shape=(8760, 8880) dtype=int8 attrs={'units': '0: out of domain points/no value, 1: domain points'}
-        min=0 max=1 finite=1.000
-     var WTD shape=(1, 8760, 8880) dtype=int16 attrs={'description': 'water table depth', 'units': 'm', 'scale_factor': np.float64(0.015259021896696421), 'add_offset': np.float64(-499.99237048905167), 'comment': 'annual mean'}
-        min=-1000.0 max=-5.684341886080802e-14 finite=1.000
+Code:
+random_forest_modeling.r
+    - main script for
+        (i) random forest variable selection, and
+        (ii) full random forest model
+    - calls functions.r and variables.r
+    - relies on the R libraries pROC, randomForest and varSelRF 
+functions.r
+    - contains functions used in random_forest_modeling.r
+variables.r
+    - specifies the variables to use in modeling, which are contained in arsenic_concentrations_predictor_data.csv
+    
+Data:
+arsenic_concentrations_predictor_data.csv
+    - contains the geographical coordinates and arsenic concentrations averaged to 1km2 pixels from the sources listed in the paper's table S1
+    - contains the values of the predictor variables as listed in table S2 corresponding to each arsenic point
+groundwater_utilization_by_country.csv
+    - contains the proportion of municipal water usage coming from unmanaged groundwater sources for rural and urban areas taken from the latest country-level reports provided by the UNICEF/WHO Joint Monitoring Program (JMP)
+    - where JMP data were not available, the country-level groundwater withdrawal rates provided in FAO's AQUASTAT database were used (no distinction between rural and urban areas)
+    
+Maps:
+    - probability_arsenic_gt_10ppb.tif
+        geoTiff of probability of arsenic in groundwater >10 ppb (Fig. 2, main result of paper)
+    - potentially_affected_population_0.57_threshold.tif
+        geoTiff of potentially affected population at the 0.57 probability level, based on the 10 ppb probability map (Fig. 4)
+    - potentially_affected_population_0.72_threshold.tif
+        geoTiff of potentially affected population at the 0.72 probability level, based on the 10 ppb probability map (Fig. 4)
+    - probability_arsenic_gt_5ppb.tif
+        geoTiff of probability of arsenic in groundwater >5 ppb (fig. S9)
+    - probability_arsenic_gt_50ppb.tif
+        geoTiff of probability of arsenic in groundwater >50 ppb (fig. S10)
+    
+
+  fluoride_readme.txt: 0.00 MB
+This is an outline to the code and maps provided here for the article "Global analysis and prediction of fluoride in groundwater"
+
+REFERENCE:
+Podgorski, and Berg, M. (2022) Global analysis and prediction of fluoride in groundwater. Nature Communications, 13(4232), https://doi.org/10.1038/s41467-022-31940-x
+
+Contact: joel.podgorski@eawag.ch, michael.berg@eawag.ch
+
+Code:
+global_F_vars.r
+mod_global_F.r
+statFunctions_F.r
+F_sample.rda
+a separate readme.txt with a detailed description of the code files
+ 
+Maps:
+    - global_F_hazard_model.tif
+        geoTiff of probability of fluoride in groundwater >1.5 ppm (Fig. 1, main result of paper)
+    - global_F_population_risk_model.tif
+        geoTiff of potentially affected population using hybrid approach (Fig. 4; see Methods in paper for description), based on the 1.5 ppm probability map
+  arsenic_maps.zip: 3975.06 MB
+        182.58 MB  maps/potentially_affected_population_0.57_threshold.tif
+        117.45 MB  maps/potentially_affected_population_0.72_threshold.tif
+       1897.39 MB  maps/probability_arsenic_gt_10ppb.tif
+        841.92 MB  maps/probability_arsenic_gt_50ppb.tif
+       1161.89 MB  maps/probability_arsenic_gt_5ppb.tif
+  TIF potentially_affected_population_0.72_threshold.tif: shape=(16730, 43200) dtype=float64 crs=EPSG:4326 transform=| 0.01, 0.00,-180.00|
+| 0.00,-0.01, 83.64|
+| 0.00, 0.00, 1.00| nodata=-9999.0 min=-9999.0 max=29760.86966967668
+  TIF probability_arsenic_gt_50ppb.tif: shape=(16755, 43200) dtype=float64 crs=EPSG:4326 transform=| 0.01, 0.00,-180.00|
+| 0.00,-0.01, 83.62|
+| 0.00, 0.00, 1.00| nodata=-1.7e+308 min=-1.7e+308 max=0.998001998001998
+  TIF potentially_affected_population_0.57_threshold.tif: shape=(16730, 43200) dtype=float64 crs=EPSG:4326 transform=| 0.01, 0.00,-180.00|
+| 0.00,-0.01, 83.64|
+| 0.00, 0.00, 1.00| nodata=-9999.0 min=-9999.0 max=35890.016639317306
+  TIF probability_arsenic_gt_5ppb.tif: shape=(16755, 43200) dtype=float64 crs=EPSG:4326 transform=| 0.01, 0.00,-180.00|
+| 0.00,-0.01, 83.62|
+| 0.00, 0.00, 1.00| nodata=-1.7e+308 min=-1.7e+308 max=1.0
+  TIF probability_arsenic_gt_10ppb.tif: shape=(16755, 43200) dtype=float64 crs=EPSG:4326 transform=| 0.01, 0.00,-180.00|
+| 0.00,-0.01, 83.62|
+| 0.00, 0.00, 1.00| nodata=-1.7e+308 min=-1.7e+308 max=0.9997000299970003
+  fluoride_maps.zip: 2032.05 MB
+       1610.94 MB  maps/global_F_hazard_model.tif
+        599.72 MB  maps/global_F_population_risk_model.tif
+  fluoride_maps failed MemoryError: Unable to allocate 43.3 GiB for an array with shape (1, 67204, 172800) and data type float32
+
+=== WTD NetCDF Nigeria window ===
+  wtd.nc: 63.39 MB
+  lat -34.99583435058594 .. 37.995540618896484 step 0.008335113525390625
+  lon -18.995832443237305 .. 54.995540618896484 step 0.008333206176757812
+  WTD attrs {'description': 'water table depth', 'units': 'm', 'scale_factor': np.float64(0.015259021896696421), 'add_offset': np.float64(-499.99237048905167), 'comment': 'annual mean'}
+  Nigeria window iy 4668..5891 (1224), ix 2568..4091 (1524)
+  raw type <class 'numpy.ma.MaskedArray'> dtype float64
+  scaled min/max -781.6128786144808 -5.684341886080802e-14 percentiles [-1.21156634e+02 -5.61226825e+01 -2.81528954e+01 -1.62203403e+01
+ -1.57167926e+00 -5.68434189e-14 -5.68434189e-14]
+  mask unique [0 1] mean 0.930
+  in-domain percentiles [-1.25953307e+02 -5.75570306e+01 -2.93430991e+01 -1.77615015e+01
+ -3.93682765e+00 -5.68434189e-14 -5.68434189e-14]
+
+=== EMAG2 remote GeoTIFF ===
+  opened: shape=(5401, 10801) dtype=('float32',) crs=EPSG:4326 transform=| 0.03, 0.00,-180.02|
+| 0.00,-0.03, 90.02|
+| 0.00, 0.00, 1.00| nodata=-99999.0 count=1
+  Nigeria window (300, 375) min=-99999.0 max=249.91531372070312 mean=-11478.30
+
+=== IGRAC WFS tba_map_2025 ===
+  geonode:tba_map_2025: 8 features, crs={'type': 'name', 'properties': {'name': 'urn:ogc:def:crs:EPSG::4326'}}
+     props={'ogc_fid': '56', 'code': 'AF052', 'name': 'Lake Chad sedimentary basin / Bassin sédimentaire du Lac Tch', 'name_eng': 'None', 'countries': 'Algeria; Cameroon; Central African Republic; Chad; Niger; Ni', 'region': 'Africa', 'edit_shape': 'Modify shape', 'ref_shape': 'Vaquero et al., 2021', 'basis': 'Topography / no-flow boundaries', 'subpart': 'No', 'comm_shape': 'None', 'aq_system': 'Aquifer system', 'alluvial': 'Groundwater in transboundary watershed', 'litho_a': 'Unconsolidated and semiconsolidated sand and gravel aquifers', 'litho_b': 'Sandstone aquifers\xa0', 'litho_c': 'None', 'aq_type': 'Partially confined/unconfined', 'ref_a': 'Vaquero et al., 2021', 'ref_b': 'None', 'ref_c': 'None', 'info': 'Moderate', 'comm_info': 'None', 'country _a': 'Algeria', 'report_a': 'The TBA was not reported', 'name_a': 'None', 'country _b': 'Cameroon', 'report_b': '3rd reporting 2023/24', 'name_b': 'Bassin sédimentaire du bassin du Lac Tchad', 'country _c': 'Central African Republic', 'report_c': '2nd reporting 2020/21', 'name_c': 'Bassin sédimentaire du Lac Tchad', 'country _d': 'Chad', 'report_d': '3rd reporting 2023/24', 'name_d': 'Aquifère du bassin du Lac Tchad', 'country _e': 'Niger', 'report_e': '2nd reporting 2020/21', 'name_e': 'Système aquifère du bassin du Tchad', 'country _f': 'Nigeria', 'report_f': '3rd reporting 2023/24', 'name_f': 'Chad Basin', 'report_sdg': 'Partially reported'}
+     props={'ogc_fid': '61', 'code': 'AF056', 'name': 'Système Aquifère des Iullemmeden / Iullemmeden Aquifer Syste', 'name_eng': 'None', 'countries': 'Algeria; Benin; Mali; Niger; Nigeria', 'region': 'Africa', 'edit_shape': 'Modify shape', 'ref_shape': 'OSS, 2017', 'basis': 'Lithology / geological structures', 'subpart': 'No', 'comm_shape': 'None', 'aq_system': 'Aquifer system', 'alluvial': 'No', 'litho_a': 'Sandstone aquifers\xa0', 'litho_b': 'Unconsolidated and semiconsolidated sand and gravel aquifers', 'litho_c': 'None', 'aq_type': 'Mostly unconfined', 'ref_a': 'OSS, 2017', 'ref_b': 'None', 'ref_c': 'None', 'info': 'Moderate', 'comm_info': 'None', 'country _a': 'Algeria', 'report_a': '2nd reporting 2020/21', 'name_a': 'Système Aquifère d’Iullemeden-Irhazer- SAI(Bassin deTinsérir', 'country _b': 'Benin', 'report_b': '3rd reporting 2023/24', 'name_b': 'Bassin sédimentaire de Kandi (Iullemeden)', 'country _c': 'Mali', 'report_c': 'The TBA was not reported', 'name_c': 'None', 'country _d': 'Niger', 'report_d': '2nd reporting 2020/21', 'name_d': 'Système aquifère des Illumenden', 'country _e': 'Nigeria', 'report_e': '3rd reporting 2023/24', 'name_e': 'Iullemeden, Taoudeni/Tanezrouft', 'country _f': 'None', 'report_f': 'None', 'name_f': 'None', 'report_sdg': 'Partially reported'}
+     props={'ogc_fid': '62', 'code': 'AF064', 'name': 'Taoudeni-Tanezrouft Aquifer System / Système Aquifère de Tao', 'name_eng': 'None', 'countries': 'Algeria; Burkina Faso; Mali; Mauritania', 'region': 'Africa', 'edit_shape': 'Modify shape', 'ref_shape': 'OSS, 2017', 'basis': 'Lithology / geological structures', 'subpart': 'No', 'comm_shape': 'None', 'aq_system': 'Aquifer system', 'alluvial': 'No', 'litho_a': 'Sandstone aquifers\xa0', 'litho_b': 'Unconsolidated and semiconsolidated sand and gravel aquifers', 'litho_c': 'None', 'aq_type': 'Mostly unconfined', 'ref_a': 'OSS, 2017', 'ref_b': 'None', 'ref_c': 'None', 'info': 'Moderate', 'comm_info': 'None', 'country _a': 'Algeria', 'report_a': '2nd reporting 2020/21', 'name_a': 'Bassin deTaoudéni-Tanezrouft', 'country _b': 'Burkina Faso', 'report_b': '3rd reporting 2023/24', 'name_b': 'Taoudéni/Tanezrouft', 'country _c': 'Mali', 'report_c': '3rd reporting 2023/24', 'name_c': 'Continental terminal; Continental intercalaire', 'country _d': 'Mauritania', 'report_d': '3rd reporting 2023/24', 'name_d': 'Bassin aquifère de Taoudenni', 'country _e': 'None', 'report_e': 'None', 'name_e': 'None', 'country _f': 'None', 'report_f': 'None', 'name_f': 'None', 'report_sdg': 'Reported'}
+     props={'ogc_fid': '250', 'code': 'AF051', 'name': 'Benue River sedimentary basin / Bassin sédimentaire de la Be', 'name_eng': 'None', 'countries': 'Cameroon; Nigeria', 'region': 'Africa', 'edit_shape': 'No edit', 'ref_shape': 'UNESCO-IHP, 2012', 'basis': 'Undefined', 'subpart': 'No', 'comm_shape': 'None', 'aq_system': 'Undefined', 'alluvial': 'No', 'litho_a': 'None', 'litho_b': 'None', 'litho_c': 'None', 'aq_type': 'None', 'ref_a': 'None', 'ref_b': 'None', 'ref_c': 'None', 'info': 'Limited', 'comm_info': 'None', 'country _a': 'Cameroon', 'report_a': '3rd reporting 2023/24', 'name_a': 'Bassin sédimentaire de la Benoué (Bassin du Niger)', 'country _b': 'Nigeria', 'report_b': '3rd reporting 2023/24', 'name_b': 'Benue Trough', 'country _c': 'None', 'report_c': 'None', 'name_c': 'None', 'country _d': 'None', 'report_d': 'None', 'name_d': 'None', 'country _e': 'None', 'report_e': 'None', 'name_e': 'None', 'country _f': 'None', 'report_f': 'None', 'name_f': 'None', 'report_sdg': 'Reported'}
+     props={'ogc_fid': '251', 'code': 'AF042', 'name': 'Rio del Rey', 'name_eng': 'None', 'countries': 'Cameroon; Nigeria', 'region': 'Africa', 'edit_shape': 'No edit', 'ref_shape': 'Bécaye Gaye, 2014', 'basis': 'Lithology / geological structures', 'subpart': 'No', 'comm_shape': 'None', 'aq_system': 'Aquifer system', 'alluvial': 'No', 'litho_a': 'Unconsolidated and semiconsolidated sand and gravel aquifers', 'litho_b': 'None', 'litho_c': 'None', 'aq_type': 'None', 'ref_a': 'Wotany et al., 2013', 'ref_b': 'None', 'ref_c': 'None', 'info': 'Limited', 'comm_info': 'None', 'country _a': 'Cameroon', 'report_a': '3rd reporting 2023/24', 'name_a': 'Le bassin sédimentaire de la région côtière (Rio del Rey)', 'country _b': 'Nigeria', 'report_b': '3rd reporting 2023/24', 'name_b': 'Rio Del Rey Aquifer System', 'country _c': 'None', 'report_c': 'None', 'name_c': 'None', 'country _d': 'None', 'report_d': 'None', 'name_d': 'None', 'country _e': 'None', 'report_e': 'None', 'name_e': 'None', 'country _f': 'None', 'report_f': 'None', 'name_f': 'None', 'report_sdg': 'Reported'}
+  tbamap2015:tbamap_2015 failed JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+     body: <?xml version="1.0" ?>
+<ServiceExceptionReport
+   version="1.2.0"
+   xmlns="http://www.opengis.net/ogc"
+   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:schemaLocation="http://www.opengis.net/ogc http://schemas.opengis.net/wfs/1.0.0/OGC-exception.xsd">
+   <ServiceException code="InvalidParameterValue" locator="typeName">
+      Feature type tbamap2015:tbamap_2015 unknown
+</ServiceExc
+
+=== WPDx Nigeria subset ===
+  wpdx.csv: 50.17 MB
+  rows=99245 in-bbox=99245 countries=<StringArray>
+['Nigeria']
+Length: 1, dtype: str
+  water_source_clean: {'Borehole/Tubewell': 87362, 'Protected Well': 5491, 'Protected Spring': 3338, 'Undefined Well': 3051, 'Piped Water': 3}
+  water_tech_clean: {'Hand Pump': 56078, 'Motorized Pump': 24891, 'Hand Pump - India Mark': 4060, 'Public Tapstand': 4018, 'Hand Pump - Tara': 520, 'Motorized Pump - Solar': 513, 'Hand Pump - Rope': 32, 'Hand Pump - Blue': 24}
+  status_clean: {'Functional, not in use': 52933, 'Non-Functional': 43396, 'Non-Functional, dry season': 2475, 'Abandoned/Decommissioned': 359, 'Functional': 57, 'Functional, needs repair': 25}
+  facility_type: {'Improved': 99245}
+  water_source_category: {'Well': 95904, 'Spring': 3338, 'Piped Water': 3}
+  clean_adm1: {'Jigawa': 9933, 'Kano': 7065, 'Osun': 5863, 'Katsina': 5584, 'Plateau': 5442, 'Kaduna': 5022, 'Oyo': 4904, 'Kwara': 3786}
+
+=== BGS licence ===
+  bgs.zip: 1.99 MB
+These maps are called Africa Groundwater Atlas country hydrogeology maps (Version 1.0, 2019/2021). 
+They are digital maps in shapefile format.
+
+The maps are the product of the Africa Groundwater Atlas project. 
+The Africa Groundwater Atlas is an online resource that provides a summary of the groundwater resources of 51 African countries, and a gateway to further information. 
+The Africa Groundwater Atlas is available at: https://www.bgs.ac.uk/africagroundwateratlas/index.cfm
+
+The Africa Groundwater Atlas project was jointly funded by DFID, NERC and ESRC; supported by the International Association of Hydrogeologists (IAH); and carried out by the British Geological Survey (BGS) in partnership with hydrogeologists across Africa. 
+It is a part of the Unlocking the Potential of Groundwater for the Poor (UPGro) Research Programme, which focused on improving the evidence base around groundwater availability and management in sub-Saharan Africa, to enable the sustainable use of groundwater that benefits the poor.
+
+More information on the Africa Groundwater Atlas country hydrogeology maps is available in this report:  
+� Dochartaigh, B. 2021. User Guide Version 1.2: Africa Groundwater Atlas Country Hydrogeology Maps. BGS Open Report OR/21/063.
+This report is provided as a pdf download with each of the maps. 
+It can also be downloaded from the web here: http://nora.nerc.ac.uk/id/eprint/531584/ 
+
+
+The Africa Groundwater Atlas country hydrogeology maps are released under a Creative Commons �Attribution/Share Alike� (CC BY SA) licence. 
+
+A summary of the terms of this licence is available at : https://creativecommons.org/licenses/by-sa/4.0/
+
+The full legal text of this licence is available at : https://creativecommons.org/licenses/by-sa/4.0/legalcode
+
+
+Under this licence, you are free to : 
+
+Share � copy and redistribute the material in any medium or format
+
+Adapt � remix, transform, and build upon the material for any purpose, even commercially.
+
+The licensor (the British Geological Survey) cannot revoke these freedoms as long as you follow the license terms.
+
+
+Under the following terms: 
+
+Attribution � You must give appropriate credit, provide a link to the license, and indicate if changes were made. 
+You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.
+
+Please give credit / cite the maps as: British Geological Survey. 2019/2021.  Africa Groundwater Atlas Country Hydrogeol
 
 === DONE ===
