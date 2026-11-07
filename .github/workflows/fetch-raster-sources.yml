@@ -1,5 +1,8 @@
 name: Fetch raster sources (relay)
 on:
+  push:
+    branches: [arena/69f2a938-map]
+    paths: ['.github/workflows/fetch-raster-sources.yml']
   workflow_dispatch:
 permissions:
   contents: write
