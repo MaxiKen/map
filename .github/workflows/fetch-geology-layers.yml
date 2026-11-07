@@ -44,7 +44,7 @@ jobs:
               c = sqlite3.connect(p)
               rows = c.execute('select table_name,data_type,srs_id from gpkg_contents').fetchall()
               print(n, f'{os.path.getsize(p)/1e6:.2f} MB', rows)
-              for (t, dt) in rows:
+              for (t, dt, _srs) in rows:
                   if dt == 'features':
                       print('   rows:', c.execute('select count(*) from "%s"' % t).fetchone()[0])
               c.close()
