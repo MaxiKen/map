@@ -1,0 +1,49 @@
+name: Probe candidate layer sources
+# Temporary: check which public download URLs are reachable from GitHub Actions,
+# and how big they are, before wiring them into fetch_layers.py.
+on:
+  push:
+    paths: ['.github/workflows/probe-sources.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: HEAD the candidate downloads
+        run: |
+          cat > /tmp/urls.txt <<'URLS'
+          https://production-raw-data-api.s3.amazonaws.com/ISO3/NGA/airports/hotosm_nga_airports_osm_gpkg.zip
+          https://production-raw-data-api.s3.amazonaws.com/ISO3/NGA/sea_ports/hotosm_nga_sea_ports_osm_gpkg.zip
+          https://production-raw-data-api.s3.amazonaws.com/ISO3/NGA/points_of_interest/hotosm_nga_points_of_interest_osm_gpkg.zip
+          https://data.worldpop.org/repo/wopr/NGA/population/v3.0/NGA_population_v3_0_gridded.zip
+          https://data.worldpop.org/repo/wopr/NGA/population/v3.0/NGA_population_v3_0_mastergrid.tif
+          https://data.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev01-12_v1c.zip
+          https://data.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev06_v1c.zip
+          https://data.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev01-06_v1c.zip
+          https://data.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev05_v1c.zip
+          https://data.humdata.org/dataset/af838671-b9a6-4ae9-8ed5-eea750b05597/resource/0a22d6fc-7f1f-4f50-aead-09ef7be0455d/download/grid3_nga_settlement_extents_v3_1_gpkg.zip
+          https://data.humdata.org/dataset/eed20f0d-4276-4915-a525-04a01d6f723f/resource/552fd6ee-9aec-400b-a49a-c1477769f629/download/grid3_nigeria_settlement_extents_version_02.zip
+          https://wri-projects.s3.amazonaws.com/AqueductFloodTool/download/v2/inunriver_historical_000000000WATCH_1980_rp00100.tif
+          https://aqueduct.wridata.org/AqueductFloods20/inunriver_historical_000000000WATCH_1980_rp00100.tif
+          https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/GHS_BUILT_S_GLOBE_R2023A/GHS_BUILT_S_E2020_GLOBE_R2023A_4326_30ss/V1-0/GHS_BUILT_S_E2020_GLOBE_R2023A_4326_30ss_V1_0.zip
+          https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/GHS_BUILT_LDSMT_GLOBE_R2018A/GHS_BUILT_LDS2014_GLOBE_R2018A_54009_1K/V2-0/GHS_BUILT_LDS2014_GLOBE_R2018A_54009_1K_V2_0.zip
+          https://academiccommons.columbia.edu/doi/10.7916/422v-x117/download
+          URLS
+          : > docs/source-probe.txt
+          while IFS= read -r u; do
+            [ -z "$u" ] && continue
+            printf '=== %s\n' "$u" >> docs/source-probe.txt
+            curl -sIL --max-time 40 "$u" 2>/dev/null \
+              | grep -Ei '^(HTTP/|content-length:|content-type:|location:)' \
+              | tail -8 >> docs/source-probe.txt || echo 'FAILED' >> docs/source-probe.txt
+          done < /tmp/urls.txt
+          cat docs/source-probe.txt
+      - name: Commit probe results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/source-probe.txt
+          git diff --cached --quiet || (git commit -m "Probe candidate layer sources [skip ci]" && git push)
