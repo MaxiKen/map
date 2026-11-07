@@ -17,6 +17,9 @@ Rasters (2) -- continuous fields that cannot be faithful vectors:
 
 Everything is cropped to 2.5-15.0 E, 4.0-14.0 N; rasters are also masked to the
 geoBoundaries national outline.  One standalone GeoPackage per layer, no tables.
+
+All download URLs were HEAD/GET-verified in GitHub Actions on 2026-11-07; see
+docs/geology-layers.md for the probe results and licences.
 """
 from __future__ import annotations
 
