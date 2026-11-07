@@ -38,7 +38,7 @@ content-length: 5457
 HTTP/2 302 
 content-type: text/html; charset=utf-8
 content-length: 1537
-location: https://s3.us-east-1.amazonaws.com/hdx-production-filestore/resources/0a22d6fc-7f1f-4f50-aead-09ef7be0455d/grid3_nga_settlement_extents_v3_1_gpkg.zip?AWSAccessKeyId=ASIAXYC32WNARCXAYH4V&Signature=zhYmvrNButMjLbils02Ryry99mM%3D&x-amz-security-token=FwoGZXIvYXdzEDkaDGXlxABmBrsllR4ghCLBAaJpZtq2LphK0Tp7H%2BC54e9Fj8mjW9V6d%2Fh7NCIc%2FJhCNMm5MzWwss6oDmYRDk5jQGHzYHPhgQguf4wmqDNs9PHAvGIc1Z9O6PsXz2i8x%2FoojXcXVEAUUffqV%2BZdXgUFC9Snz4hIkYfuW0NdyDfeb5iey%2FzTwzFZ1PpYKL%2FCAl8Uw8eFFQWtD0EnbxN6TDUD5PLCgwnvMxCdkpmrNClx6O8v0iyjPE6cM6ZkTSxO%2ByaED%2FyLdcK8170epCqoHfu%2F9Ggoq7S71wYyLVKO%2BX0ujewEwjT9glat3U3FnJu%2ButAxNVapxJdNEOIdJkk2cV3vdvG1Saro1A%3D%3D&Expires=1794040902
+location: https://s3.us-east-1.amazonaws.com/hdx-production-filestore/resources/0a22d6fc-7f1f-4f50-aead-09ef7be0455d/grid3_nga_settlement_extents_v3_1_gpkg.zip?AWSAccessKeyId=ASIAXYC32WNARCXAYH4V&Signature=u5oPHigUuJGrf5tv5SG9AY7YUGA%3D&x-amz-security-token=FwoGZXIvYXdzEDkaDGXlxABmBrsllR4ghCLBAaJpZtq2LphK0Tp7H%2BC54e9Fj8mjW9V6d%2Fh7NCIc%2FJhCNMm5MzWwss6oDmYRDk5jQGHzYHPhgQguf4wmqDNs9PHAvGIc1Z9O6PsXz2i8x%2FoojXcXVEAUUffqV%2BZdXgUFC9Snz4hIkYfuW0NdyDfeb5iey%2FzTwzFZ1PpYKL%2FCAl8Uw8eFFQWtD0EnbxN6TDUD5PLCgwnvMxCdkpmrNClx6O8v0iyjPE6cM6ZkTSxO%2ByaED%2FyLdcK8170epCqoHfu%2F9Ggoq7S71wYyLVKO%2BX0ujewEwjT9glat3U3FnJu%2ButAxNVapxJdNEOIdJkk2cV3vdvG1Saro1A%3D%3D&Expires=1794040990
 HTTP/1.1 200 OK
 Content-Length: 735773991
 Content-Type: application/x-zip-compressed
@@ -76,7 +76,7 @@ HTTP 404 bytes 10699 type text/html; charset=utf-8
 === https://data.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev01-12_v1c.zip?download=1
 HTTP 403 bytes 5685 type text/html; charset=UTF-8
 === https://data.hydrosheds.org/file/hydrobasins/customized_with_lakes/hybas_lake_af_lev01-12_v1c.zip
-HTTP 403 bytes 5712 type text/html; charset=UTF-8
+HTTP 403 bytes 5691 type text/html; charset=UTF-8
 === https://data.humdata.org/dataset/hotosm_nga_waterways
 HTTP 202 bytes 0 type text/html; charset=UTF-8
 
@@ -89,3 +89,46 @@ rasterio False
 pyproj False
 imagecodecs False
 tifffile False
+
+=== INSPECTIONS ===
+=== MIRROR https://storage.googleapis.com/fao-maps-catalog-data/geonetwork/aquamaps/hydrobasins_africa.zip
+HTTP 200 bytes 4255526 type application/zip
+    hydrobasins_africa.dbf 290290
+    hydrobasins_africa.lyr 13824
+    hydrobasins_africa.prj 145
+    hydrobasins_africa.sbn 14620
+    hydrobasins_africa.sbx 1148
+    hydrobasins_africa.shp 20575800
+    hydrobasins_africa.shp.xml 2710
+    hydrobasins_africa.shx 11700
+=== MIRROR https://gis.ices.dk/geonetwork/srv/api/records/da165110-88fd-11da-a88f-000d939bc5d8/attachments/basins.zip
+HTTP 200 bytes 109940 type application/zip
+    thumbnail.gif 109796
+=== MIRROR https://hydrosheds.s3.amazonaws.com/file/hydrobasins/standard/hybas_af_lev01-12_v1c.zip
+HTTP 403 bytes 243 type application/xml
+    not a zip: File is not a zip file
+=== MIRROR https://data.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev01-12_v1c.zip
+HTTP 403 bytes 5466 type text/html; charset=UTF-8
+    not a zip: File is not a zip file
+=== HOT airports
+HTTP 200 bytes 268767
+    gpkg: airports.gpkg
+    contents: [('airports', 'features')]
+    cols: ['fid', 'geom', 'id', 'name', 'name_en', 'name_yo', 'aeroway', 'building', 'emergency', 'emergency_helipad', 'operator_type', 'capacity_persons', 'addr_full', 'addr_city', 'source', 'adm0_pcode', 'adm0_name', 'adm1_pcode', 'adm1_name', 'adm2_pcode', 'adm2_name', 'adm3_pcode', 'adm3_name', 'adm4_pcode', 'adm4_name', 'name_latin']
+    rows: 1571
+=== HOT sea_ports
+HTTP 200 bytes 50641
+    gpkg: sea_ports.gpkg
+    contents: [('sea_ports', 'features')]
+    cols: ['fid', 'geom', 'id', 'name', 'name_en', 'name_yo', 'amenity', 'building', 'port', 'industrial', 'harbour', 'landuse', 'operator_type', 'addr_full', 'addr_city', 'source', 'adm0_pcode', 'adm0_name', 'adm1_pcode', 'adm1_name', 'adm2_pcode', 'adm2_name', 'adm3_pcode', 'adm3_name', 'adm4_pcode', 'adm4_name', 'name_latin']
+    rows: 451
+=== HOT points_of_interest
+HTTP 200 bytes 5671032
+    gpkg: points_of_interest.gpkg
+    contents: [('points_of_interest', 'features')]
+    cols: ['fid', 'geom', 'id', 'name', 'name_en', 'name_yo', 'amenity', 'man_made', 'shop', 'tourism', 'opening_hours', 'beds', 'rooms', 'addr_full', 'addr_housenumber', 'addr_street', 'addr_city', 'source', 'adm0_pcode', 'adm0_name', 'adm1_pcode', 'adm1_name', 'adm2_pcode', 'adm2_name', 'adm3_pcode', 'adm3_name', 'adm4_pcode', 'adm4_name', 'name_latin']
+    rows: 60490
+=== WORLDPOP gridded.zip members
+HTTP 200 bytes 45731850
+    NGA_population_v3_0_gridded/ 0
+    NGA_population_v3_0_gridded/NGA_population_v3_0_gridded.tif 50221869
