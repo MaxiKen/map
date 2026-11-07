@@ -18,6 +18,50 @@
     "minerals": {
       "label": "Mineral resources",
       "order": 2
+    },
+    "admin": {
+      "label": "Administrative boundaries",
+      "order": 3
+    },
+    "settlements": {
+      "label": "Settlements",
+      "order": 4
+    },
+    "population": {
+      "label": "Population",
+      "order": 5
+    },
+    "transport": {
+      "label": "Transport",
+      "order": 6
+    },
+    "water": {
+      "label": "Water",
+      "order": 7
+    },
+    "landcover": {
+      "label": "Land cover",
+      "order": 8
+    },
+    "soil": {
+      "label": "Soils",
+      "order": 9
+    },
+    "ethnic": {
+      "label": "Ethnic groups",
+      "order": 10
+    },
+    "forest": {
+      "label": "Forest",
+      "order": 11
+    },
+    "protected": {
+      "label": "Protected areas",
+      "order": 12
+    },
+    "reference": {
+      "label": "Reference",
+      "order": 13
     }
   },
   "layers": {
@@ -51,6 +95,84 @@
     "minerals_legend_map2023_tbl": {
       "legendOf": "minerals_occurrences_map2023_pt",
       "legendKey": "legend_no"
+    },
+    "admin_country_geoboundaries_pg": {
+      "label": "National boundary (geoBoundaries)",
+      "labelField": "name"
+    },
+    "admin_states_gadm_pg": {
+      "label": "States (GADM)",
+      "labelField": "state"
+    },
+    "admin_lgas_gadm_pg": {
+      "label": "Local government areas (GADM)",
+      "labelField": "lga"
+    },
+    "admin_lga_centroids_pt": {
+      "label": "LGA centroids + senatorial districts",
+      "labelField": "lga"
+    },
+    "admin_wards_pt": {
+      "label": "Wards",
+      "labelField": "ward"
+    },
+    "population_density2016_states_pg": {
+      "label": "Population density 2016 (states)",
+      "labelField": "state"
+    },
+    "settlements_places_osm_pt": {
+      "label": "Places (OSM)",
+      "labelField": "name"
+    },
+    "settlements_state_capitals_map2023_pt": {
+      "label": "State capitals (2023 map)",
+      "labelField": "name"
+    },
+    "transport_roads_diva_ln": {
+      "label": "Roads (DIVA)"
+    },
+    "transport_railways_diva_ln": {
+      "label": "Railways (DIVA)"
+    },
+    "water_lines_diva_ln": {
+      "label": "Rivers and streams (DIVA)",
+      "labelField": "name"
+    },
+    "water_areas_diva_pg": {
+      "label": "Lakes and water bodies (DIVA)",
+      "labelField": "name"
+    },
+    "landcover_cgls2019_pg": {
+      "label": "Land cover 2019 (CGLS)",
+      "labelField": "class_name"
+    },
+    "soil_wrb2006_isric_pg": {
+      "label": "Soil groups (WRB 2006, ISRIC)",
+      "labelField": "wrb2006_group"
+    },
+    "ethnic_areas_anthromapper_pg": {
+      "label": "Ethnic areas (AnthroMapper)",
+      "labelField": "ethnic_group"
+    },
+    "forest_osm_pg": {
+      "label": "Forest (OSM)",
+      "labelField": "name"
+    },
+    "forest_reserves_water_picture_pg": {
+      "label": "Forest reserves and water (picture map)",
+      "labelField": "class_name"
+    },
+    "protected_areas_wdpa_pg": {
+      "label": "Protected areas (WDPA)",
+      "labelField": "name"
+    },
+    "reference_africa_countries_pg": {
+      "label": "Africa countries (reference)",
+      "labelField": "name"
+    },
+    "reference_world_countries_pg": {
+      "label": "World countries (reference)",
+      "labelField": "country"
     }
   }
 }
