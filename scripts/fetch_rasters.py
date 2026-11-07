@@ -29,12 +29,13 @@ import zipfile
 
 import numpy as np
 import rasterio
-from PIL import Image
+from PIL import Image, ImageDraw
 from rasterio.enums import Resampling
 from rasterio.windows import from_bounds
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from make_raster_gpkg import write_raster  # noqa: E402
+from build_site import read_gpkg_geom  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, 'data')
@@ -183,6 +184,32 @@ def soil_ph() -> np.ndarray:
     raise RuntimeError('all SoilGrids WCS variants failed')
 
 
+def nigeria_mask() -> np.ndarray:
+    """Rasterise the geoBoundaries national outline onto the common grid."""
+    import sqlite3
+    p = os.path.join(DATA, 'admin_country_geoboundaries_pg.gpkg')
+    con = sqlite3.connect('file:' + p + '?mode=ro', uri=True)
+    blob = con.execute('select geom from admin_country_geoboundaries_pg limit 1').fetchone()[0]
+    con.close()
+    g = read_gpkg_geom(blob)
+    polys = g['coordinates'] if g['type'] == 'MultiPolygon' else [g['coordinates']]
+    img = Image.new('L', (W, H), 0)
+    draw = ImageDraw.Draw(img)
+    outer, holes = [], []
+    for poly in polys:
+        for i, ring in enumerate(poly):
+            pts = [((lon - WEST) / (EAST - WEST) * W, (NORTH - lat) / (NORTH - SOUTH) * H)
+                   for lon, lat in ring]
+            (outer if i == 0 else holes).append(pts)
+    for pts in outer:
+        draw.polygon(pts, fill=255)
+    for pts in holes:
+        draw.polygon(pts, fill=0)
+    m = np.asarray(img) > 127
+    print(f'[mask] Nigeria outline covers {m.mean():.1%} of the grid', flush=True)
+    return m
+
+
 RASTERS = [
     ('elevation_srtm_terrarium_rst', 'metres', 'Elevation',
      'DEM of Nigeria from AWS Terrain Tiles (Mapzen Terrarium: SRTM 30 m with Copernicus/other fill), '
@@ -211,9 +238,13 @@ def main():
         'climate_srad_annual_worldclim_rst': worldclim('srad', 'mean'),
         'soil_ph_0_5cm_isric_rst': soil_ph(),
     }
+    mask = nigeria_mask()
     for table, uom, field, desc, _ in RASTERS:
         arr = np.asarray(grids[table], dtype='f4')
         assert arr.shape == (H, W), (table, arr.shape)
+        arr = np.where(mask, arr, NODATA)
+        if table.startswith('elevation'):
+            arr = np.where(arr < 0, NODATA, arr)  # drop Terrarium ocean bathymetry
         out = os.path.join(DATA, table + '.gpkg')
         write_raster(out, table, arr, (WEST, SOUTH, EAST, NORTH), uom=uom, field=field, description=desc)
         n_ok = int((arr != NODATA).sum())

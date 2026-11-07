@@ -47,3 +47,5 @@ jobs:
           name: fetch-log
           path: /tmp/fetch.log
           if-no-files-found: warn
+
+# re-run with national-outline mask
