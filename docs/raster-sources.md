@@ -46,7 +46,7 @@ climate normals and SoilGrids prediction are genuine per-cell measurements.
 `scripts/fetch_rasters.py` downloads and builds all five; `scripts/make_raster_gpkg.py` writes the
 GeoPackage containers. Both need unrestricted HTTPS, so they run in the repository's
 **Fetch public raster sources** GitHub Actions workflow (`workflow_dispatch`), which commits
-the resulting `data/*.gpkg` files. The sandbox itself can only reach GitHub/PyPI, which is why
+the resulting grouped `data/**/*.gpkg` files. The sandbox itself can only reach GitHub/PyPI, which is why
 the fetch was relayed through CI. To re-run: `gh workflow run fetch-rasters.yml`.
 
 ## Validation performed

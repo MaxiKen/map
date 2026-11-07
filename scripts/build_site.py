@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """
-Build the static site from the GeoPackages in data/.
+Build the static site from the GeoPackages in data/<group name>/.
 
-    python scripts/build_site.py            # data/*.gpkg -> public/
+    python scripts/build_site.py            # data/<group name>/**/*.gpkg -> public/
     python scripts/build_site.py --data data --app app --out public --config config/layers.config.json
 
 Every layer found in every .gpkg (any name, any columns) becomes an entry in public/catalog.json.
+The immediate subfolder of data/ is the layer's group and its name is displayed verbatim. Files
+placed directly in data/ are rejected: the build never guesses a group from a filename or table.
+A file whose basename starts with hidden_ is ignored, including every table inside that GeoPackage.
 The web app builds its layer list, popups, legends and tables ONLY from that catalog, so adding,
 replacing or renaming a layer/column in data/ needs no change to the app.
 
@@ -36,6 +39,32 @@ def slug(s): return re.sub(r'[^a-z0-9_]+', '_', s.lower()).strip('_')
 def pretty(s): return re.sub(r'\s+', ' ', s.replace('_', ' ')).strip().capitalize()
 
 
+def discover_geopackages(data_dir):
+    """Return (path, group name) pairs, grouped by each top-level data subfolder.
+
+    Group folders may contain additional nested folders for organisation; only the
+    top-level folder controls the display group. No files of any kind are allowed
+    directly in data/, which prevents an upload from silently losing its grouping.
+    """
+    if not os.path.isdir(data_dir):
+        raise ValueError(f'data directory does not exist: {data_dir}')
+    with os.scandir(data_dir) as entries:
+        entries = list(entries)
+    loose = sorted(e.name for e in entries if e.is_file())
+    if loose:
+        shown = ', '.join(loose[:5]) + (', …' if len(loose) > 5 else '')
+        raise ValueError(
+            f'files are not allowed directly in {data_dir}/: {shown}. '
+            f'Move each GeoPackage into a group folder, for example '
+            f'{data_dir}/Geology/example.gpkg. The folder name becomes the display group.')
+    files = []
+    groups = sorted((e for e in entries if e.is_dir()), key=lambda e: e.name.casefold())
+    for group in groups:
+        paths = sorted(glob.glob(os.path.join(group.path, '**', '*.gpkg'), recursive=True))
+        files.extend((path, group.name) for path in paths)
+    return files
+
+
 SOURCES = {'map2011', 'map2023', 'picture', 'usgs', 'gadm', 'diva', 'isric', 'worldclim', 'osm', 'wdpa', 'wfp', 'esri',
            'cgls2019', 'anthromapper', 'geoboundaries', 'glc2000', 'srtm1km', 'srtm247m'}
 
@@ -44,7 +73,7 @@ def label_from_name(n):
     parts = n.split('_')
     kind = None
     if parts and parts[-1] in KIND_SUFFIX: kind = KIND_SUFFIX[parts.pop()]
-    if len(parts) > 1: parts = parts[1:]          # first token = theme/group
+    if len(parts) > 1: parts = parts[1:]          # omit the legacy theme prefix from the layer label
     src = [p for p in parts if p in SOURCES]
     rest = [p for p in parts if p not in SOURCES]
     if not rest: rest = [kind or 'layer']
@@ -545,13 +574,21 @@ def main():
     t0 = time.time()
     config = json.load(open(a.config, encoding='utf8')) if os.path.exists(a.config) else {}
     lcfg = config.get('layers', {})
+    try:
+        discovered = discover_geopackages(a.data)
+    except ValueError as e:
+        ap.error(str(e))
+    files = [(path, group) for path, group in discovered
+             if not os.path.basename(path).startswith('hidden_')]
+    hidden_count = len(discovered) - len(files)
+    if hidden_count:
+        print(f'skipped {hidden_count} hidden GeoPackage(s): remove the hidden_ filename prefix to publish them')
+    if not files: print('WARNING: no visible .gpkg files in group folders under', a.data)
     if os.path.exists(a.out): shutil.rmtree(a.out)
     shutil.copytree(a.app, a.out)
     os.makedirs(os.path.join(a.out, 'data'), exist_ok=True)
-    files = sorted(glob.glob(os.path.join(a.data, '**', '*.gpkg'), recursive=True))
-    if not files: print('WARNING: no .gpkg files in', a.data)
     layers, seen = [], set()
-    for path in files:
+    for path, group_name in files:
         try: con = sqlite3.connect('file:' + path + '?mode=ro', uri=True)
         except Exception as e: print('skip', path, e); continue
         gcols = {r[0]: (r[1], r[2]) for r in con.execute('select table_name,column_name,geometry_type_name from gpkg_geometry_columns')} if con.execute("select 1 from sqlite_master where name='gpkg_geometry_columns'").fetchone() else {}
@@ -563,7 +600,7 @@ def main():
             if cfg.get('hidden'): continue
             kindsuf = kind_from_name(table)
             row = {'id': lid, 'table': table, 'source': os.path.relpath(path, a.data).replace('\\', '/'),
-                   'group': cfg.get('group') or (table.split('_')[0] if '_' in table else 'other'),
+                   'group': group_name,
                    'label': cfg.get('label') or label_from_name(table), 'description': desc or ''}
             try:
                 if dtype == 'features':
@@ -589,7 +626,9 @@ def main():
     layers = fold_legends(layers, a.out, lcfg)
     gl = config.get('groups', {})
     groups = {}
-    for l in layers: groups.setdefault(l['group'], {'id': l['group'], 'label': gl.get(l['group'], {}).get('label') or pretty(l['group']), 'order': gl.get(l['group'], {}).get('order', 100)})
+    for l in layers:
+        name = l['group']
+        groups.setdefault(name, {'id': name, 'label': name, 'order': gl.get(name, {}).get('order', 100)})
     cat = {'title': config.get('app', {}).get('title', 'Nigeria WebGIS'), 'center': config.get('app', {}).get('center', [8.7, 9.1]),
            'zoom': config.get('app', {}).get('zoom', 5.4), 'basemap': config.get('app', {}).get('basemap', 'light'),
            'built': time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime()), 'groups': sorted(groups.values(), key=lambda g: (g['order'], g['label'])),

@@ -66,8 +66,9 @@ The picture is right (river + lake controls), so the vectors were wrong: a miner
 displayed ~3 km away from where it lies on its own source map, i.e. over the wrong geology unit.
 
 **Fix applied** (2026-11-06): shift all three layers by `dlon +0.0010°, dlat −0.0288°` in
-`data/minerals_occurrences_map2023_pt.gpkg`, `data/minerals_unresolved_symbols_map2023_pt.gpkg`,
-`data/minerals_division_lines_map2023_ln.gpkg`, then rebuild `public/`.
+`data/Mineral resources/minerals_occurrences_map2023_pt.gpkg`,
+`data/Mineral resources/minerals_unresolved_symbols_map2023_pt.gpkg`, and
+`data/Mineral resources/minerals_division_lines_map2023_ln.gpkg`, then rebuild `public/`.
 
 After the fix: symbol-minus-point offset 0.00 km E / 0.20 km N (residual = click noise, σ ≈ 1–2 px),
 division lines land on the drawn dividers (rows/cols match to 0.2 px).

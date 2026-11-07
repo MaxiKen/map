@@ -3,15 +3,19 @@
 A mobile-friendly, installable map app. No backend, no API keys. Everything is static files.
 
 ## How it works
-- `data/` holds one GeoPackage per layer (vector, raster, image or table).
-- `scripts/build_site.py` reads every `.gpkg` in `data/` and writes the website into `public/`
-  (GeoJSON, images, value grids, `catalog.json`). Layer names, fields, colours and legends are detected automatically.
+- `data/<group name>/` holds the spatial GeoPackages. Each immediate subfolder is a layer group, and its folder
+  name is shown verbatim in the app. No files belong directly in `data/`. Attribute tables live inside their owning
+  GeoPackage, not in standalone `*_tbl.gpkg` files.
+- `scripts/build_site.py` reads every visible `.gpkg` in those group folders and writes the website into `public/`
+  (GeoJSON, images, value grids, `catalog.json`). A filename starting with `hidden_` is skipped. Layer names, fields,
+  colours and legends are detected automatically; group membership and group names come only from the folders.
 - A GitHub Action runs the build whenever you push changes to `data/`, `app/`, `scripts/` or `config/`, and commits `public/`.
 - Netlify serves `public/` (no build command needed).
 
 ## Legends live inside their layer
-There is no separate legend layer and no legend widget to keep in sync. A `*_legend_*` table is never
-published as a layer: the build folds its rows into the layer it describes.
+There is no separate legend layer and no legend widget to keep in sync. A `*_legend_*` attribute table is never
+published as a layer: the build folds its rows into the layer it describes. Keep that table **inside its owner's
+`.gpkg`**; do not upload a standalone `*_tbl.gpkg`. `scripts/import_missing_hidden.py` can perform this consolidation.
 
 - Vector layers: legend columns become attributes of every feature (joined on the key column), so
   the class name, description, colour and any extra column (e.g. `points_detected`) are in the
@@ -101,9 +105,63 @@ For scripting and support the console exposes `window.__nwg` (`map`, `L`, `stack
 3. Done. The site is live; the first page load already works because `public/` is included.
 
 ## Updating
-- Add, replace or edit a `.gpkg` in `data/` (any name; the prefix before the first `_` becomes the group) and push. The Action rebuilds and Netlify redeploys.
-- Names and columns are not fixed. Optional labels, groups, order, default-visible layers, label field and colours go in `config/layers.config.json`.
+Create or choose a top-level group folder, then add, replace or edit a `.gpkg` inside it and push. The Action
+rebuilds and Netlify redeploys. For example:
+
+```text
+data/
+├── Geology/
+│   ├── geology_units_map2011_pg.gpkg
+│   └── geology_faults_map2011_ln.gpkg
+├── Mineral resources/
+│   └── minerals_occurrences_map2023_pt.gpkg
+├── My custom group/
+│   └── any_layer_name.gpkg
+└── Settlements/
+    └── hidden_settlements_gazetteer_diva_pt.gpkg
+```
+
+- **Hide a layer:** add `hidden_` to the start of its GeoPackage filename, for example
+  `hidden_water_rivers_map2011_ln.gpkg`. The build skips the entire file without opening it.
+- **Show a hidden layer:** remove only the `hidden_` filename prefix and rebuild. Its table name and layer ID stay
+  unchanged, while its folder continues to control the group. This works for every table contained in that GeoPackage.
+- **Create a group:** create a folder in `data/`. Its exact name—including spaces and capitalisation—is its display name.
+- **Rename a group:** rename the folder. **Move a layer to another group:** move its `.gpkg` to that group's folder.
+  Filename prefixes and table names no longer affect grouping.
+- Additional nested folders are allowed for organisation; the **top-level** folder still determines the group.
+- The build stops with a clear error if any file is directly in `data/`. Put it in a group folder instead of relying on
+  an automatic fallback. Since `/` cannot occur in a folder name, use another separator such as ` - ` in group names.
+- Names and columns are not fixed. Optional layer labels, layer order, default-visible layers, label fields and colours
+  go in `config/layers.config.json`. Its `groups` section controls **group order only** and is keyed by the exact folder
+  name; per-layer `group` overrides are not used.
 - GitHub rejects files over 100 MB; keep each gpkg below that.
+
+### Import master layers without publishing them
+
+The original `files/all_maps.gpkg` import is complete and that folder has been removed. To repeat the process with an
+external master GeoPackage:
+
+```bash
+python scripts/import_missing_hidden.py --master /path/to/all_maps.gpkg
+```
+
+The utility compares the master with both visible and hidden tables already in `data/`. It imports only missing
+spatial layers as `data/<group>/hidden_<table>.gpkg`, never replacing an existing layer. It also embeds standalone
+attribute-table GeoPackages into the owners configured with `legendOf`, then removes the redundant table files.
+Attribute tables whose real owner is absent remain only in the master rather than being attached to an unrelated
+layer. The command is idempotent, so running it again imports nothing and changes nothing.
+
+### Reduce GeoPackage size losslessly
+
+```bash
+python scripts/optimize_gpkg.py --dry-run   # report only; writes nothing
+python scripts/optimize_gpkg.py             # apply and VACUUM changed files
+```
+
+The optimizer removes empty/blank-only attribute columns and columns with at most one distinct non-blank value.
+Geometry, primary keys and configured legend join keys are preserved, and stale label-field references are removed
+from the layer config. It also uses smaller lossless DEFLATE TIFF tiles when an exact dtype, shape and cell-value
+read-back check passes. Vector geometries and picture overlays are never simplified or recompressed.
 
 ## Updates on the deployed site (no hard refresh)
 A deploy is picked up by itself:

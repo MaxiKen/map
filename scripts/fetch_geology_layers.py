@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch seven geology-associated Nigeria layers and write them to data/ as GeoPackages.
+"""Fetch seven geology-associated Nigeria layers into group folders under data/.
 
 Run where outbound HTTPS is available (GitHub Actions); the sandbox cannot reach
 these hosts directly.  Sources, licences and method: docs/geology-layers.md.
@@ -40,6 +40,7 @@ from shapely.geometry import box, shape
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from make_raster_gpkg import write_raster  # noqa: E402
+from data_paths import layer_path  # noqa: E402
 from fetch_layers import (  # noqa: E402
     BBOX, WEST, SOUTH, EAST, NORTH, NODATA, TMP,
     download, unzip, asset, to_grid, write_vec,
@@ -254,8 +255,8 @@ def water_table():
                 0, -resy, float(lat[iy1]) + resy / 2)
     win = write_tif(os.path.join(TMP, 'wtd_window.tif'), depth, tr)
     a = to_grid(win, 1000, 800, Resampling.average, src_nodata=NODATA)
-    write_raster(os.path.join(DATA, 'groundwater_water_table_fan2017_rst.gpkg'),
-                 'groundwater_water_table_fan2017_rst', a, BBOX,
+    out = layer_path(DATA, 'groundwater_water_table_fan2017_rst')
+    write_raster(out, 'groundwater_water_table_fan2017_rst', a, BBOX,
                  uom='metres below land surface', field='WaterTableDepth',
                  description='Revised Fan et al. (2017) equilibrium water table depth, '
                              '0.01 degree (~1 km) Africa annual-mean NetCDF, averaged to '
@@ -263,8 +264,7 @@ def water_table():
                              'below the land surface (source stores negative depth). Free '
                              'for research with acknowledgement of Fan et al. 2017, '
                              'PNAS 114(40):10572-10577. EPSG:4326.')
-    print(f'WROTE groundwater_water_table_fan2017_rst.gpkg  '
-          f'{os.path.getsize(os.path.join(DATA, "groundwater_water_table_fan2017_rst.gpkg"))/1e6:.2f} MB',
+    print(f'WROTE {out}  {os.path.getsize(out)/1e6:.2f} MB',
           flush=True)
 
 
@@ -289,15 +289,14 @@ def magnetic_anomaly():
         raise RuntimeError('EMAG2 produced an empty Nigeria grid')
     print(f'  EMAG2 valid {valid.mean():.1%}, range '
           f'[{a[valid].min():.1f}, {a[valid].max():.1f}] nT', flush=True)
-    write_raster(os.path.join(DATA, 'geophysics_magnetic_emag2_rst.gpkg'),
-                 'geophysics_magnetic_emag2_rst', a, BBOX,
+    out = layer_path(DATA, 'geophysics_magnetic_emag2_rst')
+    write_raster(out, 'geophysics_magnetic_emag2_rst', a, BBOX,
                  uom='nanoTesla', field='MagneticAnomaly',
                  description='EMAG2 Earth Magnetic Anomaly Grid v2, 2 arc-minute global '
                              'total-field anomaly in nT (NOAA/NCEI / CIRES, free). '
                              'Averaged to 0.025 degree and masked to Nigeria. '
                              'EPSG:4326.')
-    print(f'WROTE geophysics_magnetic_emag2_rst.gpkg  '
-          f'{os.path.getsize(os.path.join(DATA, "geophysics_magnetic_emag2_rst.gpkg"))/1e6:.2f} MB',
+    print(f'WROTE {out}  {os.path.getsize(out)/1e6:.2f} MB',
           flush=True)
 
 
@@ -346,7 +345,7 @@ def main():
     print('\n=== expected outputs ===', flush=True)
     missing = []
     for t in expected:
-        p = os.path.join(DATA, t + '.gpkg')
+        p = layer_path(DATA, t)
         ok = os.path.exists(p) and os.path.getsize(p) > 1024
         print(f'  {"OK " if ok else "MISS"} {t}', flush=True)
         if not ok:

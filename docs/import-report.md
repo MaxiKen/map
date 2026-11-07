@@ -4,8 +4,8 @@
 standalone, single-layer GeoPackage per layer** in `data/`. Layer names are unchanged. No table
 layer was written: the four attribute tables are now columns on the features they describe.
 
-`python scripts/import_selected.py --single` writes the same 20 layers into one combined
-`data/selected_layers.gpkg` instead, if a single file is preferred.
+`python scripts/import_selected.py --single --group "Group name"` writes the same 20 layers into one combined
+`data/Group name/selected_layers.gpkg` instead, if a single file is preferred.
 
 ## Added — 20 layers, 76,089 rows, 44.4 MB of `.gpkg`
 
@@ -50,10 +50,10 @@ build automatically, so the soil layer renders in the official ISRIC colours wit
 
 Three `*_tbl.gpkg` files were **already** in `data/` from the original project
 (`geology_legend_map2011_tbl`, `geology_surficial_usgs_legend_tbl`,
-`minerals_legend_map2023_tbl`). They were left in place because `build_site.py` folds them into
-geology/minerals at publish time — including the class labels for the surficial-geology raster,
-which cannot be reproduced from layer columns. **No table layer is published**: the catalog contains
-zero `table` entries.
+`minerals_legend_map2023_tbl`). They have since been embedded as attribute tables in their owner
+GeoPackages by `scripts/import_missing_hidden.py`, which still folds them into geology/minerals at
+publish time — including the class labels for the surficial-geology raster, which cannot be reproduced
+from layer columns. **No table layer is published** and no standalone table file remains.
 
 ## Site rebuilt
 

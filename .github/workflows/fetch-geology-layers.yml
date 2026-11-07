@@ -2,7 +2,7 @@ name: Fetch geology-associated vector and raster layers
 # Re-fetch the seven Nigeria geology-associated layers (BGS Nigeria hydrogeology,
 # WHYMAP ECOWAS hydrogeological units + cover, WPDx boreholes, IGRAC transboundary
 # aquifers, Fan water table depth, EMAG2 magnetic anomaly) and commit the resulting
-# GeoPackages into data/.  Run manually with:
+# GeoPackages into their group folders under data/. Run manually with:
 #   gh workflow run fetch-geology-layers.yml
 # Sources, licences and method: docs/geology-layers.md
 on:
@@ -28,13 +28,15 @@ jobs:
       - name: Verify and commit
         run: |
           python - <<'PY'
-          import os, sqlite3
+          import os, sqlite3, sys
+          sys.path.insert(0, 'scripts')
+          from data_paths import layer_path
           names = ('groundwater_aquifers_bgs2019_pg', 'groundwater_units_ecowas2022_pg',
                    'groundwater_cover_ecowas2022_pg', 'groundwater_boreholes_wpdx_pt',
                    'groundwater_transboundary_igrac2025_pg',
                    'groundwater_water_table_fan2017_rst', 'geophysics_magnetic_emag2_rst')
           for n in names:
-              p = 'data/' + n + '.gpkg'
+              p = layer_path('data', n)
               assert os.path.exists(p) and os.path.getsize(p) > 1024, p
               c = sqlite3.connect(p)
               rows = c.execute('select table_name,data_type,srs_id from gpkg_contents').fetchall()
@@ -46,5 +48,5 @@ jobs:
           PY
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/*.gpkg
+          git add data
           git diff --cached --quiet || (git commit -m "Add fetched Nigeria geology layers [skip ci]" && git push)

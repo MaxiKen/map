@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch the five missing Nigeria rasters and write them into data/ as GeoPackages.
+"""Fetch the five missing Nigeria rasters into group folders under data/.
 
 Run where outbound HTTP is available (GitHub Actions). Sources, all public and key-free:
 
@@ -36,6 +36,7 @@ from rasterio.windows import from_bounds
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from make_raster_gpkg import write_raster  # noqa: E402
 from build_site import read_gpkg_geom  # noqa: E402
+from data_paths import layer_path  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, 'data')
@@ -187,7 +188,7 @@ def soil_ph() -> np.ndarray:
 def nigeria_mask() -> np.ndarray:
     """Rasterise the geoBoundaries national outline onto the common grid."""
     import sqlite3
-    p = os.path.join(DATA, 'admin_country_geoboundaries_pg.gpkg')
+    p = layer_path(DATA, 'admin_country_geoboundaries_pg')
     con = sqlite3.connect('file:' + p + '?mode=ro', uri=True)
     blob = con.execute('select geom from admin_country_geoboundaries_pg limit 1').fetchone()[0]
     con.close()
@@ -245,7 +246,7 @@ def main():
         arr = np.where(mask, arr, NODATA)
         if table.startswith('elevation'):
             arr = np.where(arr < 0, NODATA, arr)  # drop Terrarium ocean bathymetry
-        out = os.path.join(DATA, table + '.gpkg')
+        out = layer_path(DATA, table)
         write_raster(out, table, arr, (WEST, SOUTH, EAST, NORTH), uom=uom, field=field, description=desc)
         n_ok = int((arr != NODATA).sum())
         print(f'WROTE {out}  valid={n_ok}/{arr.size}', flush=True)

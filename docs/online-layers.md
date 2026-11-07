@@ -164,5 +164,5 @@ gh workflow run fetch-layers.yml            # or push a change to scripts/fetch_
 python scripts/build_site.py                # regenerate public/ from data/
 ```
 
-The workflow commits changed `data/*.gpkg` with `[skip ci]`; the site build is a
+The workflow commits changed grouped `data/**/*.gpkg` files with `[skip ci]`; the site build is a
 separate step (`.github/workflows/build-site.yml` or the command above).

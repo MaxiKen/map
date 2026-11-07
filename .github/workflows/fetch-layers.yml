@@ -1,7 +1,7 @@
 name: Fetch public vector and raster layers
 # Re-fetch the eight Nigeria layers (settlement extents, built-up surface, river
 # basins, flood hazard, WorldPop population, airports / seaports / POIs) and commit
-# the resulting GeoPackages into data/.  Run manually with:
+# the resulting GeoPackages into group folders under data/. Run manually with:
 #   gh workflow run fetch-layers.yml
 # Sources, licences and method: docs/online-layers.md
 on:
@@ -28,7 +28,7 @@ jobs:
         run: |
           python - <<'PY'
           import glob, os, sqlite3
-          for p in sorted(glob.glob('data/*.gpkg')):
+          for p in sorted(glob.glob('data/**/*.gpkg', recursive=True)):
               if os.path.basename(p) not in (
                   'settlements_extents_grid3_pg.gpkg', 'settlements_builtup_ghsl2020_rst.gpkg',
                   'water_basins_fao_pg.gpkg', 'hazards_flood_aqueduct_rst.gpkg',
@@ -45,5 +45,5 @@ jobs:
           PY
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/*.gpkg
+          git add data
           git diff --cached --quiet || (git commit -m "Add fetched Nigeria layers [skip ci]" && git push)

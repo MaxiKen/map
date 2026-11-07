@@ -80,8 +80,9 @@ Geometry sanity: all 1 547 points inside the sheet bounds; GPKG extent metadata 
 
 ## Files
 
-- `data/minerals_occurrences_map2023_pt.gpkg` — replaced (table name & schema unchanged).
-- `data/minerals_legend_map2023_tbl.gpkg` — `points_detected` refreshed.
+- `data/Mineral resources/minerals_occurrences_map2023_pt.gpkg` — replaced (table name & schema unchanged).
+- `minerals_legend_map2023_tbl`, now embedded in `data/Mineral resources/minerals_occurrences_map2023_pt.gpkg`
+  — `points_detected` refreshed.
 - `public/` — rebuilt via `scripts/build_site.py`.
 
 *Second-pass audit note:* the fixed 1 410 were verified byte-identical after the update

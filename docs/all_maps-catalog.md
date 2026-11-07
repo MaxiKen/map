@@ -251,5 +251,5 @@ and from 16 to 66 layers.
 ---
 
 *Nothing has been copied into `data/` yet. When you have your list, each pick is one command:*
-`python scripts/split_gpkg.py files/all_maps.gpkg data/ <prefix>` — or I can split exactly the
+`python scripts/split_gpkg.py files/all_maps.gpkg "data/Group name" <prefix>` — or I can split exactly the
 picked tables and run the build.
