@@ -1,0 +1,43 @@
+=== HEAD ===
+  ornl0        ('ERR', 'HTTP Error 404: Not Found', '', '')
+  ornl1        ('ERR', 'HTTP Error 404: Not Found', '', '')
+  ornl2        ('ERR', 'HTTP Error 403: Forbidden', '', '')
+  ornl3        ('ERR', 'HTTP Error 403: Forbidden', '', '')
+  wb_median    (200, '129702110', 'application/octet-stream', 'bytes')
+  wb_mean      (200, '151871038', 'application/octet-stream', 'bytes')
+  wb_th        (200, '18942026', 'application/octet-stream', 'bytes')
+  gem          (200, '12302802', 'text/plain; charset=utf-8', 'bytes')
+  gem_h        (200, '10622730', 'text/plain; charset=utf-8', 'bytes')
+  ihfc         (200, '30728338', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'bytes')
+  bgi0         ('ERR', 'HTTP Error 404: Not Found', '', '')
+  bgi1         ('ERR', 'HTTP Error 404: Not Found', '', '')
+  bgi2         ('ERR', 'HTTP Error 404: Not Found', '', '')
+
+=== remote raster windows ===
+  wb_median: shape=(15779, 43201) dtype=('float32',) crs=EPSG:4326 transform=| 0.01, 0.00,-180.00|
+| 0.00,-0.01, 72.00|
+| 0.00, 0.00, 1.00| nodata=None window=(1200, 1500) min=0.0000 max=0.0785 mean=0.0002
+  wb_mean: shape=(15779, 43201) dtype=('float32',) crs=EPSG:4326 transform=| 0.01, 0.00,-180.00|
+| 0.00,-0.01, 72.00|
+| 0.00, 0.00, 1.00| nodata=None window=(1200, 1500) min=0.0000 max=0.1401 mean=0.0010
+
+=== GEM active faults in Nigeria ===
+  gem.geojson: 12.30 MB
+  gem: total=16195 inside Nigeria bbox=2
+     prop keys=['average_dip', 'average_rake', 'catalog_id', 'catalog_name', 'dip_dir', 'lower_seis_depth', 'name', 'net_slip_rate', 'slip_type', 'upper_seis_depth']
+     {'catalog_id': 'EAF_2655', 'catalog_name': 'Macgregor_AfricaFaults'}
+     {'catalog_id': 'EAF_2656', 'catalog_name': 'Macgregor_AfricaFaults'}
+  gem_h.geojson: 10.62 MB
+  gem_h: total=13696 inside Nigeria bbox=2
+     prop keys=['average_dip', 'average_rake', 'catalog_id', 'catalog_name', 'dip_dir', 'lower_seis_depth', 'name', 'net_slip_rate', 'slip_type', 'upper_seis_depth']
+     {'catalog_id': 'EAF_2655', 'catalog_name': 'Macgregor_AfricaFaults'}
+     {'catalog_id': 'EAF_2656', 'catalog_name': 'Macgregor_AfricaFaults'}
+
+=== IHFC heat flow ===
+  ihfc.xlsx: 30.73 MB
+  sheets: ['data release2024']
+/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/openpyxl/worksheet/_reader.py:329: UserWarning: Data Validation extension is not supported and will be removed
+  warn(msg)
+  sheet data release2024: rows=91187 cols=['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9', 'P10', 'P11', 'P12', 'P13', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10', 'C11', 'C12', 'C13', 'C14', 'C15', 'C16', 'C17', 'C18', 'C19', 'C20', 'C21', 'C22', 'C23', 'C24', 'C25', 'C26', 'C27']
+
+=== DONE ===
