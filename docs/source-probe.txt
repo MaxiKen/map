@@ -37,8 +37,8 @@ content-length: 5457
 === https://data.humdata.org/dataset/af838671-b9a6-4ae9-8ed5-eea750b05597/resource/0a22d6fc-7f1f-4f50-aead-09ef7be0455d/download/grid3_nga_settlement_extents_v3_1_gpkg.zip
 HTTP/2 302 
 content-type: text/html; charset=utf-8
-content-length: 1537
-location: https://s3.us-east-1.amazonaws.com/hdx-production-filestore/resources/0a22d6fc-7f1f-4f50-aead-09ef7be0455d/grid3_nga_settlement_extents_v3_1_gpkg.zip?AWSAccessKeyId=ASIAXYC32WNARCXAYH4V&Signature=u5oPHigUuJGrf5tv5SG9AY7YUGA%3D&x-amz-security-token=FwoGZXIvYXdzEDkaDGXlxABmBrsllR4ghCLBAaJpZtq2LphK0Tp7H%2BC54e9Fj8mjW9V6d%2Fh7NCIc%2FJhCNMm5MzWwss6oDmYRDk5jQGHzYHPhgQguf4wmqDNs9PHAvGIc1Z9O6PsXz2i8x%2FoojXcXVEAUUffqV%2BZdXgUFC9Snz4hIkYfuW0NdyDfeb5iey%2FzTwzFZ1PpYKL%2FCAl8Uw8eFFQWtD0EnbxN6TDUD5PLCgwnvMxCdkpmrNClx6O8v0iyjPE6cM6ZkTSxO%2ByaED%2FyLdcK8170epCqoHfu%2F9Ggoq7S71wYyLVKO%2BX0ujewEwjT9glat3U3FnJu%2ButAxNVapxJdNEOIdJkk2cV3vdvG1Saro1A%3D%3D&Expires=1794040990
+content-length: 1545
+location: https://s3.us-east-1.amazonaws.com/hdx-production-filestore/resources/0a22d6fc-7f1f-4f50-aead-09ef7be0455d/grid3_nga_settlement_extents_v3_1_gpkg.zip?AWSAccessKeyId=ASIAXYC32WNARCXAYH4V&Signature=aMbwbVBCYSQ7kv3k%2FS8MXbG%2FcL8%3D&x-amz-security-token=FwoGZXIvYXdzEDkaDGXlxABmBrsllR4ghCLBAaJpZtq2LphK0Tp7H%2BC54e9Fj8mjW9V6d%2Fh7NCIc%2FJhCNMm5MzWwss6oDmYRDk5jQGHzYHPhgQguf4wmqDNs9PHAvGIc1Z9O6PsXz2i8x%2FoojXcXVEAUUffqV%2BZdXgUFC9Snz4hIkYfuW0NdyDfeb5iey%2FzTwzFZ1PpYKL%2FCAl8Uw8eFFQWtD0EnbxN6TDUD5PLCgwnvMxCdkpmrNClx6O8v0iyjPE6cM6ZkTSxO%2ByaED%2FyLdcK8170epCqoHfu%2F9Ggoq7S71wYyLVKO%2BX0ujewEwjT9glat3U3FnJu%2ButAxNVapxJdNEOIdJkk2cV3vdvG1Saro1A%3D%3D&Expires=1794041243
 HTTP/1.1 200 OK
 Content-Length: 735773991
 Content-Type: application/x-zip-compressed
@@ -68,7 +68,7 @@ Content-Length: 3406184448
 
 === GET with browser UA (range 0-1023) ===
 === https://data.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev01-12_v1c.zip
-HTTP 403 bytes 5616 type text/html; charset=UTF-8
+HTTP 403 bytes 5637 type text/html; charset=UTF-8
 === https://data.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev06_v1c.zip
 HTTP 403 bytes 5607 type text/html; charset=UTF-8
 === https://www.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev01-12_v1c.zip
@@ -76,7 +76,7 @@ HTTP 404 bytes 10699 type text/html; charset=utf-8
 === https://data.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev01-12_v1c.zip?download=1
 HTTP 403 bytes 5685 type text/html; charset=UTF-8
 === https://data.hydrosheds.org/file/hydrobasins/customized_with_lakes/hybas_lake_af_lev01-12_v1c.zip
-HTTP 403 bytes 5691 type text/html; charset=UTF-8
+HTTP 403 bytes 5712 type text/html; charset=UTF-8
 === https://data.humdata.org/dataset/hotosm_nga_waterways
 HTTP 202 bytes 0 type text/html; charset=UTF-8
 
@@ -108,7 +108,7 @@ HTTP 200 bytes 109940 type application/zip
 HTTP 403 bytes 243 type application/xml
     not a zip: File is not a zip file
 === MIRROR https://data.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev01-12_v1c.zip
-HTTP 403 bytes 5466 type text/html; charset=UTF-8
+HTTP 403 bytes 5488 type text/html; charset=UTF-8
     not a zip: File is not a zip file
 === HOT airports
 HTTP 200 bytes 268767
@@ -132,3 +132,32 @@ HTTP 200 bytes 5671032
 HTTP 200 bytes 45731850
     NGA_population_v3_0_gridded/ 0
     NGA_population_v3_0_gridded/NGA_population_v3_0_gridded.tif 50221869
+   downloaded 187.081725 MB https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/GHS_BUILT_S_GLOBE_R2023A/GHS_BUILT_S_E2020_GLO
+   GHSL member GHSL_Data_Package_2023.pdf 15139500
+   GHSL member GHS_BUILT_S_E2020_GLOBE_R2023A_4326_30ss_V1_0.tif 129011667
+   GHSL member GHS_BUILT_S_E2020_GLOBE_R2023A_4326_30ss_V1_0.tif.ovr 58680207
+   GHSL tifs ['GHS_BUILT_S_E2020_GLOBE_R2023A_4326_30ss_V1_0.tif'] count 1
+
+=== RASTER GHSL first tif
+    (21384, 43201) EPSG:4326 BoundingBox(left=-180.00124926466006, bottom=-89.10041610517223, right=180.00708264275895, top=89.0995831776456) nodata None dtype ('uint32',) res (0.00833333330032682, 0.008333333299795073)
+   downloaded 92.162308 MB https://aqueduct.wridata.org/AqueductFloods20/inunriver_historical_000000000WATCH_1980_rp00100.tif
+
+=== RASTER Aqueduct 100y
+    (21600, 43200) EPSG:4326 BoundingBox(left=-180.0, bottom=-90.0, right=180.0, top=90.0) nodata -9999.0 dtype ('float32',) res (0.008333333333333333, 0.008333333333333333)
+
+=== RASTER WorldPop v3.0
+    (11532, 14392) EPSG:4326 BoundingBox(left=2.68249927, bottom=4.27500032, right=14.675832550000003, top=13.88500028) nodata nan dtype ('float32',) res (0.000833333329627571, 0.0008333333298647242)
+   downloaded 4.255526 MB https://storage.googleapis.com/fao-maps-catalog-data/geonetwork/aquamaps/hydrobasins_africa.zip
+
+=== FAO BASINS fields ['SUB_BAS', 'TO_BAS', 'MAJ_BAS', 'SUB_NAME', 'MAJ_NAME', 'SUB_AREA', 'MAJ_AREA', 'LEGEND'] shapes 1450
+   bbox BBox(xmin=-18.162499999999717, ymin=-34.837500000000276, xmax=54.53749999999906, ymax=37.56249999999858) shapeType 5
+   first record [90002, -888, 7009, 'Borkou', 'Lake Chad', 1179610, 2461890, 9]
+   downloaded 735.773991 MB https://data.humdata.org/dataset/af838671-b9a6-4ae9-8ed5-eea750b05597/resource/0a22d6fc-7f1f-4f50-ae
+   GRID3 member GRID3_NGA_settlement_extents_v3_1.gpkg 1739476992
+   GRID3 member GRID3_NGA_settlement_extents_v3_1.xml 11930
+   GRID3 member GRID3 NGA - Settlement Extents v3.1 - Data Release Notes .pdf 17736989
+   GRID3 gpkgs ['GRID3_NGA_settlement_extents_v3_1.gpkg']
+   contents [('GRID3_NGA_settlement_extents_v3_1', 'features')]
+   cols ['OBJECTID', 'Shape', 'country', 'iso3', 'building_count', 'building_area', 'type', 'probability', 'date', 'source', 'mgrs_code']
+   rows 745191
+   geomcols [('GRID3_NGA_settlement_extents_v3_1', 'Shape', 'MULTIPOLYGON', 4326, 0, 0)]
