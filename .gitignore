@@ -1,0 +1,4 @@
+# Large derived artifacts: all_maps.gpkg is the join of the 20 part files
+# (64 layers, 161,040 features, ~77 MiB). Keep it out of Git; the site build
+# reads the per-layer GeoPackages in data/ instead.
+files/*.gpkg
