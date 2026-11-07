@@ -1,6 +1,6 @@
 name: Probe final geology source URLs
-# Temporary: verify the last four non-groundwater candidates from CI, then
-# commit the report.  Deleted after the fetch.
+# Temporary phase 2: inspect IHFC columns, GLHYMPS zip contents and World Bank
+# raster variants.  Writes docs/final-source-probe.txt and commits it.
 on:
   workflow_dispatch:
   push:
@@ -17,130 +17,131 @@ jobs:
           python-version: '3.11'
       - name: Install inspection dependencies
         run: pip install --quiet numpy rasterio shapely pandas openpyxl geopandas pyogrio
-      - name: Probe
+      - name: Probe phase 2
         run: |
           set -o pipefail
           python - <<'PY' 2>&1 | tee /tmp/probe-final.log
-          import os, json, urllib.request, zipfile, io
-          import numpy as np
-          from shapely.geometry import box, shape
+          import os, io, json, urllib.request, zipfile, struct
+          import numpy as np, pandas as pd
           UA = {'User-Agent': 'nigeria-webgis-source-probe/1.0'}
-          TMP = '/tmp/finalprobe'; os.makedirs(TMP, exist_ok=True)
-          BBOX = (2.5, 4.0, 15.0, 14.0)
+          TMP='/tmp/finalprobe2'; os.makedirs(TMP, exist_ok=True)
+          BBOX=(2.5,4.0,15.0,14.0)
+          IHFC='https://www.ihfc-iugg.org/user/downloads/data/R2024/IHFC_2024_GHFDB.xlsx'
+          GLH='https://storage.i-guide.io/datasets/fd345695-7dfd-4ba1-97b7-a3cc984b060d/GLiM_GLHYMPS.zip'
+          WB_TH='https://datacatalogfiles.worldbank.org/ddh-published/0037584/DR0045415/ls_th.zip'
+          WB_EQ='https://datacatalogfiles.worldbank.org/ddh-published/0037584/DR0045416/ls_eq_tiled.tif'
+          WB_MEDIAN='https://datacatalogfiles.worldbank.org/ddh-published/0037584/DR0045419/LS_RF_Median_1980-2018_COG.tif'
 
-          ORNL = [
-            'https://data.ornldaac.earthdata.nasa.gov/public/global_soil/Global_Soil_Regolith_Sediment/data/average_soil_and_sedimentary-deposit_thickness.tif',
-            'https://data.ornldaac.earthdata.nasa.gov/public/global_soil/Global_Soil_Regolith_Sediment/average_soil_and_sedimentary-deposit_thickness.tif',
-            'https://ornl-cumulus-prod-public.s3.us-west-2.amazonaws.com/global_soil/Global_Soil_Regolith_Sediment/data/average_soil_and_sedimentary-deposit_thickness.tif',
-            'https://daac.ornl.gov/SOILS/data/Global_Soil_Regolith_Sediment/average_soil_and_sedimentary-deposit_thickness.tif',
-          ]
-          WB_MEDIAN = 'https://datacatalogfiles.worldbank.org/ddh-published/0037584/DR0045419/LS_RF_Median_1980-2018_COG.tif'
-          WB_MEAN = 'https://datacatalogfiles.worldbank.org/ddh-published/0037584/DR0045418/LS_RF_Mean_1980-2018_COG.tif'
-          WB_TH = 'https://datacatalogfiles.worldbank.org/ddh-published/0037584/DR0045415/ls_th.zip'
-          GEM = 'https://raw.githubusercontent.com/GEMScienceTools/gem-global-active-faults/master/geojson/gem_active_faults.geojson'
-          GEM_H = 'https://raw.githubusercontent.com/GEMScienceTools/gem-global-active-faults/master/geojson/gem_active_faults_harmonized.geojson'
-          IHFC = 'https://www.ihfc-iugg.org/user/downloads/data/R2024/IHFC_2024_GHFDB.xlsx'
-          BGI = [
-            'https://bgi.obs-mip.fr/wp-content-omp/uploads/sites/46/2017/10/WGM2012_Bouguer_2min.zip',
-            'https://bgi.obs-mip.fr/data-products/Download/WGM2012/WGM2012_Bouguer.grd',
-            'https://bgi.obs-mip.fr/wp-content-omp/uploads/sites/46/2017/10/WGM2012_Bouguer.grd',
-          ]
-          URLS = ([('ornl%d' % i, u) for i, u in enumerate(ORNL)] +
-                  [('wb_median', WB_MEDIAN), ('wb_mean', WB_MEAN), ('wb_th', WB_TH),
-                   ('gem', GEM), ('gem_h', GEM_H), ('ihfc', IHFC)] +
-                  [('bgi%d' % i, u) for i, u in enumerate(BGI)])
-
-          def head(url):
-              for method in ('HEAD', 'GET1K'):
-                  try:
-                      h = dict(UA)
-                      req = urllib.request.Request(url, headers=h, method='HEAD' if method == 'HEAD' else 'GET')
-                      with urllib.request.urlopen(req, timeout=60) as r:
-                          if method == 'HEAD':
-                              return r.status, r.headers.get('Content-Length'), r.headers.get('Content-Type'), r.headers.get('Accept-Ranges')
-                          data = r.read(2048)
-                          return r.status, r.headers.get('Content-Length'), r.headers.get('Content-Type'), 'first=' + repr(data[:16])
-                  except Exception as e:
-                      if method == 'GET1K':
-                          return 'ERR', str(e)[:150], '', ''
-              return 'ERR', '?', '', ''
-
-          print('=== HEAD ===', flush=True)
-          heads = {}
-          for k, u in URLS:
-              r = head(u); heads[k] = r
-              print(f'  {k:12s} {r}', flush=True)
-
-          def get(url, name, cap=300_000_000):
-              p = os.path.join(TMP, name)
-              req = urllib.request.Request(url, headers=UA)
-              with urllib.request.urlopen(req, timeout=900) as r, open(p, 'wb') as f:
-                  total = 0
+          def get(url,name,cap=400_000_000):
+              p=os.path.join(TMP,name)
+              req=urllib.request.Request(url,headers=UA)
+              with urllib.request.urlopen(req,timeout=900) as r, open(p,'wb') as f:
+                  total=0
                   while True:
-                      b = r.read(1 << 20)
+                      b=r.read(1<<20)
                       if not b: break
-                      total += len(b)
-                      if total > cap:
-                          print(f'  {name}: cap exceeded at {total/1e6:.1f} MB', flush=True); break
+                      total+=len(b)
+                      if total>cap:
+                          print(f'  {name}: cap {total/1e6:.1f} MB',flush=True); break
                       f.write(b)
-              print(f'  {name}: {os.path.getsize(p)/1e6:.2f} MB', flush=True)
+              print(f'  {name}: {os.path.getsize(p)/1e6:.2f} MB',flush=True)
               return p
 
-          print('\n=== remote raster windows ===', flush=True)
+          # ---------- IHFC ----------------------------------------------------
+          print('=== IHFC 2024 spreadsheet ===',flush=True)
+          try:
+              p=get(IHFC,'ihfc.xlsx')
+              d=pd.read_excel(p,sheet_name='data release2024',header=None,nrows=8)
+              for i in range(min(8,len(d))):
+                  print(f'  row{i}: {[str(x)[:28] for x in d.iloc[i].tolist()[:60]]}',flush=True)
+              # find the header row containing lat/lon words
+              hdr=None
+              for i in range(min(8,len(d))):
+                  vals=[str(x).lower() for x in d.iloc[i].tolist()]
+                  if any('lat' in v for v in vals) and any(('lon' in v or 'long' in v) for v in vals):
+                      hdr=i;break
+              print('  header row',hdr,flush=True)
+              full=pd.read_excel(p,sheet_name='data release2024',header=hdr)
+              print('  columns',list(full.columns),flush=True)
+              print('  rows',len(full),flush=True)
+              lat=next((c for c in full.columns if 'lat' in str(c).lower()),None)
+              lon=next((c for c in full.columns if 'lon' in str(c).lower() or 'long' in str(c).lower()),None)
+              hf=next((c for c in full.columns if 'heat' in str(c).lower() or 'hf' in str(c).lower().split()),None)
+              print('  lat/lon/hf',lat,lon,hf,flush=True)
+              if lat and lon:
+                  la=pd.to_numeric(full[lat],errors='coerce');lo=pd.to_numeric(full[lon],errors='coerce')
+                  m=(lo>=2.5)&(lo<=15)&(la>=4)&(la<=14)
+                  print('  Nigeria bbox rows',int(m.sum()),flush=True)
+                  print(full.loc[m].head(5).to_string()[:1800],flush=True)
+          except Exception as e:
+              import traceback;traceback.print_exc()
+
+          # ---------- GLHYMPS ZIP central directory via HTTP range -----------
+          print('\n=== GLHYMPS range ZIP ===',flush=True)
+          class RangeFile(io.RawIOBase):
+              def __init__(self,url):
+                  self.url=url;self.pos=0
+                  req=urllib.request.Request(url,headers={**UA,'Range':'bytes=0-0'})
+                  with urllib.request.urlopen(req,timeout=90) as r:
+                      cr=r.headers.get('Content-Range')
+                      self.size=int(cr.split('/')[-1]) if cr else int(r.headers['Content-Length'])
+                      print(f'  size={self.size/1e9:.3f} GB content-range={cr}',flush=True)
+              def seekable(self): return True
+              def readable(self): return True
+              def tell(self): return self.pos
+              def seek(self,off,whence=0):
+                  self.pos = off if whence==0 else (self.pos+off if whence==1 else self.size+off)
+                  return self.pos
+              def read(self,n=-1):
+                  if n<0: n=self.size-self.pos
+                  if n<=0: return b''
+                  end=min(self.size-1,self.pos+n-1)
+                  req=urllib.request.Request(self.url,headers={**UA,'Range':f'bytes={self.pos}-{end}'})
+                  with urllib.request.urlopen(req,timeout=120) as r: data=r.read()
+                  self.pos+=len(data)
+                  return data
+          try:
+              rf=RangeFile(GLH)
+              z=zipfile.ZipFile(io.BufferedReader(rf))
+              infos=z.infolist()
+              print(f'  entries={len(infos)}',flush=True)
+              for i in infos[:80]:
+                  print(f'     {i.file_size/1e6:10.2f} MB  {i.filename}',flush=True)
+          except Exception as e:
+              print(f'  range ZIP FAILED {type(e).__name__}: {str(e)[:300]}',flush=True)
+
+          # ---------- World Bank qualitative + earthquake rasters ------------
+          print('\n=== World Bank TH ranks / EQ raster ===',flush=True)
+          try:
+              p=get(WB_TH,'ls_th.zip')
+              with zipfile.ZipFile(p) as z:
+                  for i in z.infolist()[:20]:
+                      print(f'     {i.file_size/1e6:9.2f} MB  {i.filename}',flush=True)
+                  z.extractall(os.path.join(TMP,'th'))
+              import rasterio, glob
+              for tif in glob.glob(os.path.join(TMP,'th','**','*.tif'),recursive=True)[:5]:
+                  with rasterio.open(tif) as ds:
+                      a=ds.read(1)
+                      print(f'  TIF {os.path.basename(tif)} shape={a.shape} dtype={a.dtype} '
+                            f'crs={ds.crs} nodata={ds.nodata} transform={ds.transform} '
+                            f'uniq={np.unique(a)[:12]}',flush=True)
+          except Exception as e:
+              print(f'  TH zip FAILED {type(e).__name__}: {str(e)[:200]}',flush=True)
           import rasterio
           from rasterio.windows import from_bounds
-          os.environ['GDAL_DISABLE_READDIR_ON_OPEN'] = 'EMPTY_DIR'
-          for k in [k for k, _ in URLS if k.startswith('ornl') or k.startswith('wb_')]:
-              if k == 'wb_th' or 'ERR' in str(heads[k][0]):
-                  continue
-              u = dict(URLS)[k]
+          os.environ['GDAL_DISABLE_READDIR_ON_OPEN']='EMPTY_DIR'
+          for k,u in (('wb_eq',WB_EQ),('wb_median',WB_MEDIAN)):
               try:
-                  with rasterio.open('/vsicurl/' + u) as ds:
-                      win = from_bounds(*BBOX, transform=ds.transform)
-                      a = ds.read(1, window=win)
-                      v = a[a != ds.nodata] if ds.nodata is not None else a
-                      print(f'  {k}: shape={ds.shape} dtype={ds.dtypes} crs={ds.crs} '
-                            f'transform={ds.transform} nodata={ds.nodata} '
-                            f'window={a.shape} min={np.nanmin(v):.4f} max={np.nanmax(v):.4f} '
-                            f'mean={np.nanmean(v):.4f}', flush=True)
+                  with rasterio.open('/vsicurl/'+u) as ds:
+                      win=from_bounds(*BBOX,transform=ds.transform)
+                      a=ds.read(1,window=win)
+                      print(f'  {k}: shape={ds.shape} dtype={ds.dtypes} nodata={ds.nodata} '
+                            f'window={a.shape} unique={np.unique(a)[:12]} '
+                            f'min={np.nanmin(a)} max={np.nanmax(a)}',flush=True)
               except Exception as e:
-                  print(f'  {k}: window FAILED {type(e).__name__}: {str(e)[:240]}', flush=True)
+                  print(f'  {k}: FAILED {type(e).__name__}: {str(e)[:200]}',flush=True)
 
-          print('\n=== GEM active faults in Nigeria ===', flush=True)
-          for k in ('gem', 'gem_h'):
-              if 'ERR' in str(heads[k][0]): continue
-              try:
-                  p = get(dict(URLS)[k], k + '.geojson')
-                  fc = json.load(open(p))
-                  fs = fc.get('features', [])
-                  hits = [f for f in fs if shape(f['geometry']).intersects(box(*BBOX))]
-                  print(f'  {k}: total={len(fs)} inside Nigeria bbox={len(hits)}', flush=True)
-                  if fs:
-                      print(f'     prop keys={list(fs[0]["properties"].keys())}', flush=True)
-                  for f in hits[:5]:
-                      print(f'     {f["properties"]}', flush=True)
-              except Exception as e:
-                  print(f'  {k}: FAILED {type(e).__name__}: {str(e)[:200]}', flush=True)
-
-          print('\n=== IHFC heat flow ===', flush=True)
-          try:
-              import pandas as pd
-              p = get(IHFC, 'ihfc.xlsx')
-              x = pd.ExcelFile(p)
-              print('  sheets:', x.sheet_names, flush=True)
-              for sh in x.sheet_names[:3]:
-                  d = pd.read_excel(p, sheet_name=sh)
-                  print(f'  sheet {sh}: rows={len(d)} cols={list(d.columns)[:40]}', flush=True)
-                  lat = next((c for c in d.columns if str(c).lower() in ('lat','latitude','lat_deg','y')), None)
-                  lon = next((c for c in d.columns if str(c).lower() in ('lon','longitude','long','lon_deg','x')), None)
-                  if lat and lon:
-                      la = pd.to_numeric(d[lat], errors='coerce'); lo = pd.to_numeric(d[lon], errors='coerce')
-                      m = (lo>=2.5)&(lo<=15)&(la>=4)&(la<=14)
-                      print(f'     in Nigeria bbox={m.sum()}', flush=True)
-          except Exception as e:
-              import traceback; traceback.print_exc()
-
-          print('\n=== DONE ===', flush=True)
+          print('\n=== DONE ===',flush=True)
           PY
       - name: Save probe report
         run: |
