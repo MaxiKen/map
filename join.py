@@ -1,15 +1,9 @@
 import glob
 import pandas as pd
-import pyogrio
+import geopandas as gpd
 
 files = sorted(glob.glob("part_*.gpkg"))
-collected = {}
-
-for f in files:
-    for name in pyogrio.list_layers(f)[:, 0]:
-        collected.setdefault(name, []).append(pyogrio.read_dataframe(f, layer=name))
-
-for name, frames in collected.items():
-    merged = pd.concat(frames, ignore_index=True)
-    pyogrio.write_dataframe(merged, "big_merged.gpkg", layer=name, driver="GPKG")
-    print(name, len(merged), "features merged")
+gdf = pd.concat([gpd.read_file(f, layer="data") for f in files], ignore_index=True)
+gdf = gpd.GeoDataFrame(gdf, crs=gpd.read_file(files[0], layer="data").crs)
+gdf.to_file("big_merged.gpkg", driver="GPKG", layer="data")
+print(len(gdf), "features merged")
