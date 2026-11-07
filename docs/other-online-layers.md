@@ -1,6 +1,14 @@
 # Other online layers with Nigeria data that this project has none of
 
-Surveyed 2026-11-07 against the **current** catalog: 41 layers in 15 groups
+> **Status 2026-11-07 (updated):** six of the surveyed concepts — settlement
+> extents, built-up areas, river basins, flood hazard, WorldPop gridded
+> population, and airports / seaports / POIs — have now been fetched and
+> published as eight new layers. See `docs/online-layers.md` for sources,
+> licences and method. The catalog is now 49 layers in 17 groups. The rest of
+> this survey (health, education, buildings, power grid, conflict, etc.) remains
+> research-only and has **not** been imported.
+
+Surveyed 2026-11-07 against the **then-current** catalog: 41 layers in 15 groups
 (`geology, minerals, admin, settlements, population, transport, water, landcover,
 soil, ethnic, forest, protected, reference, climate, elevation`).
 

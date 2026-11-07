@@ -1,5 +1,9 @@
 # The five fetched rasters — sources and provenance
 
+> A second batch of three continuous rasters (built-up surface, 100-year flood
+> depth, WorldPop population counts) plus five vector layers was added later the
+> same day; see `docs/online-layers.md`.
+
 Added 2026-11-07 to fill the five concepts with **zero representation** in the project
 (the gaps listed in `docs/missing-concepts.md`). Each is a proper `2d-gridded-coverage`
 GeoPackage in `data/`: one float32 GeoTIFF tile, EPSG:4326, 500 × 400 cells at 0.025°

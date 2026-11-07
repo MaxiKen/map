@@ -7,7 +7,7 @@ layer was written: the four attribute tables are now columns on the features the
 `python scripts/import_selected.py --single` writes the same 20 layers into one combined
 `data/selected_layers.gpkg` instead, if a single file is preferred.
 
-## Added — 20 layers, 75,838 rows, 44.4 MB of `.gpkg`
+## Added — 20 layers, 76,089 rows, 44.4 MB of `.gpkg`
 
 | # | Layer | Rows | MB |
 |---|---|---|---|
