@@ -70,6 +70,14 @@
     "elevation": {
       "label": "Elevation / DEM",
       "order": 15
+    },
+    "hazards": {
+      "label": "Natural hazards",
+      "order": 16
+    },
+    "infrastructure": {
+      "label": "Infrastructure & services",
+      "order": 17
     }
   },
   "layers": {
@@ -201,6 +209,43 @@
     "soil_ph_0_5cm_isric_rst": {
       "label": "Soil pH 0–5 cm (ISRIC SoilGrids 2.0)",
       "order": 64
+    },
+    "settlements_extents_grid3_pg": {
+      "label": "Settlement extents (GRID3 v3.1)",
+      "labelField": "settlement_type",
+      "order": 65
+    },
+    "settlements_builtup_ghsl2020_rst": {
+      "label": "Built-up surface 2020 (GHSL)",
+      "order": 66
+    },
+    "water_basins_fao_pg": {
+      "label": "River basins (FAO / HydroSHEDS)",
+      "labelField": "name",
+      "order": 67
+    },
+    "hazards_flood_aqueduct_rst": {
+      "label": "Flood hazard: 100-year riverine depth (Aqueduct)",
+      "order": 68
+    },
+    "population_worldpop2025_rst": {
+      "label": "Gridded population ~1 km (WorldPop v3.0)",
+      "order": 69
+    },
+    "infrastructure_airports_osm_pt": {
+      "label": "Airports (OSM)",
+      "labelField": "name",
+      "order": 70
+    },
+    "infrastructure_seaports_osm_pt": {
+      "label": "Sea ports (OSM)",
+      "labelField": "name",
+      "order": 71
+    },
+    "infrastructure_pois_osm_pt": {
+      "label": "Points of interest (OSM)",
+      "labelField": "name",
+      "order": 72
     }
   }
 }

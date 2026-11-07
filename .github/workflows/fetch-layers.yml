@@ -1,0 +1,49 @@
+name: Fetch public vector and raster layers
+# Re-fetch the eight Nigeria layers (settlement extents, built-up surface, river
+# basins, flood hazard, WorldPop population, airports / seaports / POIs) and commit
+# the resulting GeoPackages into data/.  Run manually with:
+#   gh workflow run fetch-layers.yml
+# Sources, licences and method: docs/online-layers.md
+on:
+  workflow_dispatch:
+  push:
+    paths: ['scripts/fetch_layers.py']
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install geo dependencies
+        run: pip install --quiet numpy Pillow tifffile rasterio imagecodecs geopandas pyogrio shapely
+      - name: Fetch and build the eight layers
+        run: |
+          set -o pipefail
+          python scripts/fetch_layers.py 2>&1 | tee /tmp/fetch-layers.log
+      - name: Verify and commit
+        run: |
+          python - <<'PY'
+          import glob, os, sqlite3
+          for p in sorted(glob.glob('data/*.gpkg')):
+              if os.path.basename(p) not in (
+                  'settlements_extents_grid3_pg.gpkg', 'settlements_builtup_ghsl2020_rst.gpkg',
+                  'water_basins_fao_pg.gpkg', 'hazards_flood_aqueduct_rst.gpkg',
+                  'population_worldpop2025_rst.gpkg', 'infrastructure_airports_osm_pt.gpkg',
+                  'infrastructure_seaports_osm_pt.gpkg', 'infrastructure_pois_osm_pt.gpkg'):
+                  continue
+              c = sqlite3.connect(p)
+              print(os.path.basename(p), f'{os.path.getsize(p)/1e6:.2f} MB',
+                    c.execute('select table_name,data_type,srs_id from gpkg_contents').fetchall())
+              for (t, dt) in c.execute('select table_name,data_type from gpkg_contents'):
+                  if dt == 'features':
+                      print('   rows:', c.execute('select count(*) from "%s"' % t).fetchone()[0])
+              c.close()
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/*.gpkg
+          git diff --cached --quiet || (git commit -m "Add fetched Nigeria layers [skip ci]" && git push)
