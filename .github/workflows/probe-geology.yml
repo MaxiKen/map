@@ -1,0 +1,184 @@
+name: Probe geology-associated source URLs
+# Temporary survey relay: check which publisher URLs are reachable from CI and
+# inspect the small ones.  Writes docs/geology-source-probe.txt and commits it.
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/probe-geology.yml']
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install inspection dependencies
+        run: pip install --quiet geopandas pyogrio shapely netCDF4 h5py numpy pandas
+      - name: Probe
+        run: |
+          set -o pipefail
+          python - <<'PY' 2>&1 | tee /tmp/probe.log
+          import io, os, urllib.request, urllib.error, zipfile, glob, traceback
+          import numpy as np
+
+          UA = {'User-Agent': 'nigeria-webgis-source-probe/1.0'}
+          TMP = '/tmp/geoprobe'
+          os.makedirs(TMP, exist_ok=True)
+
+          URLS = {
+            'bgs_nigeria': 'https://africagroundwateratlas.org/downloads/Nigeria.zip',
+            'whymap_ecowas': 'https://download.bgr.de/bgr/grundwasser/gwr_ecowas/SHP/GWR_ECOWAS_SHP_v1.zip',
+            'whymap_ecowas_pdf': 'https://download.bgr.de/bgr/grundwasser/gwr_ecowas/PDF/GWR_ECOWAS_PDF_v1.zip',
+            'wpdx_csv': 'https://data.humdata.org/dataset/29677a2d-1fb2-48a3-a06a-9c66800c418b/resource/1fdb9a0c-d145-49e5-a502-6a3bc63626e8/download/wpdx_enhanced.csv',
+            'glim_glhymps': 'https://storage.i-guide.io/datasets/fd345695-7dfd-4ba1-97b7-a3cc984b060d/GLiM_GLHYMPS.zip',
+            'bdticm': 'https://files.isric.org/soilgrids/former/2017-03-10/data/BDTICM_M_250m_ll.tif',
+            'wtd_africa_http': 'http://thredds-gfnl.usc.es/thredds/fileServer/GLOBALWTDFTP/annualmeans/AFRICA_WTD_annualmean.nc',
+            'wtd_africa_https': 'https://thredds-gfnl.usc.es/thredds/fileServer/GLOBALWTDFTP/annualmeans/AFRICA_WTD_annualmean.nc',
+            'emag2_http': 'http://geomag.colorado.edu/images/EMAG2/EMAG2_V2.tif',
+            'emag2_https': 'https://geomag.colorado.edu/images/EMAG2/EMAG2_V2.tif',
+            'igrac_wfs': 'https://ggis.un-igrac.org/geoserver/ows?service=WFS&version=2.0.0&request=GetFeature&typeName=BGS_groundwater:bgs_hydrogeol_nigeria&outputFormat=application/json&count=1',
+            'bgr_wms': 'https://services.bgr.de/wms/groundwater/ecowas?service=WMS&version=1.3.0&request=GetCapabilities',
+            'arsenic_doi': 'https://doi.org/10.25678/0001ZT',
+            'fluoride_doi': 'https://doi.org/10.25678/0006GQ',
+            'lhasa_layer': 'https://www.geonode-gfdrrlab.org/layers/hazard:ls_nasa_rc',
+            'tba_pdf': 'https://un-igrac.org/wp-content/uploads/2024/12/TBAMAP-2021__2023-update-1.pdf',
+            'nmis': 'https://energydata.info/dataset/nigeria-nmis-water-facility-data-2014',
+          }
+
+          results = {}
+          for key, url in URLS.items():
+              for method in ('HEAD', 'RANGE', 'GET1K'):
+                  try:
+                      h = dict(UA)
+                      if method == 'RANGE':
+                          h['Range'] = 'bytes=0-2047'
+                      req = urllib.request.Request(url, headers=h, method='HEAD' if method == 'HEAD' else 'GET')
+                      with urllib.request.urlopen(req, timeout=45) as r:
+                          if method == 'HEAD':
+                              print(f'{key:22s} HEAD  {r.status}  type={r.headers.get("Content-Type")}  '
+                                    f'len={r.headers.get("Content-Length")}  ranges={r.headers.get("Accept-Ranges")}  '
+                                    f'final={r.geturl()[:130]}', flush=True)
+                              break
+                          else:
+                              data = r.read(2048)
+                              print(f'{key:22s} {method:5s} {r.status}  type={r.headers.get("Content-Type")}  '
+                                    f'len={r.headers.get("Content-Length")}  first={data[:24]!r}  '
+                                    f'final={r.geturl()[:130]}', flush=True)
+                              break
+                  except Exception as e:
+                      if method == 'GET1K':
+                          print(f'{key:22s} FAILED  {type(e).__name__}: {str(e)[:160]}', flush=True)
+                      continue
+              else:
+                  pass
+
+          # ---- full inspection of the small assets --------------------------------
+          def fetch(key, url, cap=400_000_000):
+              p = os.path.join(TMP, key + os.path.splitext(url.split('?')[0])[1])
+              try:
+                  req = urllib.request.Request(url, headers=UA)
+                  with urllib.request.urlopen(req, timeout=600) as r, open(p, 'wb') as f:
+                      total = 0
+                      while True:
+                          b = r.read(1 << 20)
+                          if not b:
+                              break
+                          total += len(b)
+                          if total > cap:
+                              print(f'  {key}: exceeds cap, aborting at {total/1e6:.1f} MB', flush=True)
+                              break
+                          f.write(b)
+                  print(f'  {key}: downloaded {os.path.getsize(p)/1e6:.2f} MB -> {p}', flush=True)
+                  return p
+              except Exception as e:
+                  print(f'  {key}: download FAILED {type(e).__name__}: {str(e)[:200]}', flush=True)
+                  return None
+
+          print('\n=== ZIP / SHP inspection ===', flush=True)
+          for key in ('bgs_nigeria', 'whymap_ecowas', 'glim_glhymps'):
+              p = fetch(key, URLS[key])
+              if not p or not zipfile.is_zipfile(p):
+                  continue
+              with zipfile.ZipFile(p) as z:
+                  names = z.namelist()
+                  print(f'  {key}: {len(names)} entries, total uncompressed '
+                        f'{sum(i.file_size for i in z.infolist())/1e6:.1f} MB', flush=True)
+                  for i in z.infolist()[:60]:
+                      print(f'     {i.file_size/1e6:9.2f} MB  {i.filename}', flush=True)
+              out = os.path.join(TMP, key + '_x')
+              with zipfile.ZipFile(p) as z:
+                  z.extractall(out)
+              for shp in glob.glob(os.path.join(out, '**', '*.shp'), recursive=True)[:12]:
+                  try:
+                      import geopandas as gpd
+                      g = gpd.read_file(shp)
+                      print(f'  SHP {os.path.basename(shp)}: rows={len(g)} crs={g.crs} '
+                            f'bounds={tuple(round(v,3) for v in g.total_bounds)}', flush=True)
+                      print(f'     columns={list(g.columns)}', flush=True)
+                      for col in g.columns:
+                          if col != 'geometry':
+                              vals = g[col].dropna().astype(str).unique()[:8]
+                              print(f'       {col}: {list(vals)}', flush=True)
+                  except Exception as e:
+                      print(f'  SHP {os.path.basename(shp)}: read failed {e}', flush=True)
+              for gp in glob.glob(os.path.join(out, '**', '*.gpkg'), recursive=True)[:6]:
+                  try:
+                      import geopandas as gpd
+                      import pyogrio
+                      print(f'  GPKG {os.path.basename(gp)}: layers={pyogrio.list_layers(gp)}', flush=True)
+                      g = gpd.read_file(gp)
+                      print(f'     rows={len(g)} crs={g.crs} bounds={tuple(round(v,3) for v in g.total_bounds)} '
+                            f'columns={list(g.columns)}', flush=True)
+                  except Exception as e:
+                      print(f'  GPKG {os.path.basename(gp)}: read failed {e}', flush=True)
+
+          print('\n=== CSV inspection ===', flush=True)
+          p = fetch('wpdx_csv', URLS['wpdx_csv'], cap=200_000_000)
+          if p:
+              try:
+                  import pandas as pd
+                  d = pd.read_csv(p, low_memory=False)
+                  print(f'  wpdx: rows={len(d)} cols={list(d.columns)}', flush=True)
+                  print(d.head(3).to_string()[:1500], flush=True)
+              except Exception as e:
+                  print(f'  wpdx read failed {e}', flush=True)
+
+          print('\n=== NetCDF inspection ===', flush=True)
+          for key in ('wtd_africa_http', 'wtd_africa_https'):
+              p = fetch(key, URLS[key], cap=200_000_000)
+              if not p:
+                  continue
+              try:
+                  try:
+                      import netCDF4
+                      ds = netCDF4.Dataset(p)
+                      print(f'  {key} dims={ {k: len(v) for k,v in ds.dimensions.items()} }', flush=True)
+                      for name, var in ds.variables.items():
+                          arr = var[:]
+                          print(f'     var {name} shape={var.shape} dtype={var.dtype} '
+                                f'attrs={dict(var.__dict__)}', flush=True)
+                          if arr.ndim >= 2 and np.issubdtype(arr.dtype, np.number):
+                              a = np.asarray(arr)
+                              print(f'        min={np.nanmin(a)} max={np.nanmax(a)} '
+                                    f'finite={np.isfinite(a).mean():.3f}', flush=True)
+                      ds.close()
+                  except ImportError:
+                      import h5py
+                      with h5py.File(p) as f:
+                          print(f'  {key} HDF5 keys={list(f.keys())}', flush=True)
+                  break
+              except Exception as e:
+                  print(f'  {key}: netcdf inspect FAILED {type(e).__name__}: {e}', flush=True)
+
+          print('\n=== DONE ===', flush=True)
+          PY
+      - name: Save probe report
+        run: |
+          cp /tmp/probe.log docs/geology-source-probe.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/geology-source-probe.txt
+          git diff --cached --quiet || (git commit -m "Record geology source probe [skip ci]" && git push)
