@@ -139,12 +139,14 @@ def nigeria_mask(h: int, w: int) -> np.ndarray:
 
 
 def to_grid(src_path: str, w: int, h: int, resampling, src_nodata=None,
-            to_sum=False, positive_only=False, zero_from_neg9999=False) -> np.ndarray:
+            to_sum=False, positive_only=False, zero_from_neg9999=False,
+            init_dest_nodata=True) -> np.ndarray:
     """Warp a source raster onto the Nigeria window at an arbitrary output size."""
     tr = Affine((EAST - WEST) / w, 0, WEST, 0, -(NORTH - SOUTH) / h, NORTH)
     with rasterio.open(src_path) as src:
         opts = dict(crs='EPSG:4326', transform=tr, width=w, height=h,
-                    resampling=resampling, nodata=NODATA, dtype='float32')
+                    resampling=resampling, nodata=NODATA, dtype='float32',
+                    init_dest_nodata=init_dest_nodata)
         if src_nodata is not None:
             opts['src_nodata'] = src_nodata
         with WarpedVRT(src, **opts) as vrt:
@@ -183,7 +185,12 @@ def build_rasters() -> None:
     # WorldPop v3.0 - people per ~1 km cell, summed from the 3 arc-second counts.
     print('\n[WorldPop v3.0 gridded population]', flush=True)
     tif = asset('worldpop', '.tif')
-    a = to_grid(tif, 1400, 1120, Resampling.average, to_sum=True, positive_only=True)
+    # GRA_Sum adds the 100 m source counts falling inside each ~1 km output cell,
+    # ignoring WorldPop's NaN NoData; an empty cell therefore means zero people.
+    a = to_grid(tif, 1400, 1120, Resampling.sum,
+                positive_only=True, init_dest_nodata=False)
+    total = float(a[a != NODATA].sum())
+    print(f'  national total from the gridded layer: {total/1e6:.1f} million people', flush=True)
     write_rst('population_worldpop2025_rst', a, 'people per cell', 'PopulationCount',
               'WorldPop Nigeria v3.0 (2025) bottom-up gridded population, 3 arc-second '
               '(~100 m) counts summed to a 0.0089 degree (~1 km) grid. CC BY 4.0. EPSG:4326.')
@@ -200,18 +207,20 @@ def build_rasters() -> None:
     # WRI Aqueduct baseline 1-in-100-year riverine inundation depth.
     print('\n[WRI Aqueduct flood hazard]', flush=True)
     flood = os.path.join(TMP, 'aqueduct.tif')
-    a = to_grid(flood, 500, 400, Resampling.bilinear,
+    # Keep the peak depth inside each ~2.8 km cell so narrow river floodplains do
+    # not disappear when the 30 arc-second source is resampled.
+    a = to_grid(flood, 500, 400, Resampling.max,
                 src_nodata=-9999.0, positive_only=True)
     if (a != NODATA).mean() < 0.25:
         # Some Aqueduct tiles use -9999 outside the modelled floodplain; inside a
         # national outline those cells simply have zero inundation depth.
         print('  sparse flood grid -> treating unmapped cells as zero depth', flush=True)
-        a = to_grid(flood, 500, 400, Resampling.bilinear, src_nodata=None,
+        a = to_grid(flood, 500, 400, Resampling.max, src_nodata=None,
                     positive_only=True, zero_from_neg9999=True)
     write_rst('hazards_flood_aqueduct_rst', a, 'metres', 'FloodDepth',
               'WRI Aqueduct Floods v2 baseline riverine inundation depth (metres) for the '
-              '1-in-100-year return period, 30 arc-second, resampled to 0.025 degree. '
-              'Winsemius et al. / WRI. EPSG:4326.')
+              '1-in-100-year return period, 30 arc-second; maximum depth per 0.025 degree '
+              'cell, zero where no inundation is modelled. Winsemius et al. / WRI. EPSG:4326.')
 
 
 # -------------------------------------------------------------------- vectors
