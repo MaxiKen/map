@@ -629,6 +629,30 @@ def fold_legends(layers, out, lcfg):
 
 
 # ------------------------------------------------------------------ main
+def is_build_timestamp(value):
+    if not isinstance(value, str):
+        return False
+    try:
+        parsed = time.strptime(value, '%Y-%m-%d %H:%M UTC')
+    except ValueError:
+        return False
+    return time.strftime('%Y-%m-%d %H:%M UTC', parsed) == value
+
+
+def build_timestamp():
+    """UTC display timestamp, honouring the standard reproducible-build epoch."""
+    epoch = os.environ.get('SOURCE_DATE_EPOCH')
+    if epoch is None:
+        return time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())
+    try:
+        seconds = int(epoch)
+        if seconds < 0:
+            raise ValueError
+    except ValueError:
+        raise SystemExit('SOURCE_DATE_EPOCH must be a non-negative integer (seconds since Unix epoch)')
+    return time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime(seconds))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--data', default='data'); ap.add_argument('--app', default='app')
@@ -656,6 +680,18 @@ def main():
     if hidden_count:
         print(f'skipped {hidden_count} hidden GeoPackage(s): remove the hidden_ filename prefix to publish them')
     if not files: print('WARNING: no visible .gpkg files in group folders under', a.data)
+    previous_version, previous_built = '', ''
+    previous_index = os.path.join(a.out, 'index.html')
+    previous_catalog = os.path.join(a.out, 'catalog.json')
+    if os.path.isfile(previous_index) and os.path.isfile(previous_catalog):
+        try:
+            with open(previous_index, encoding='utf8') as handle:
+                match = re.search(r'<meta name="build" content="([^"]+)"', handle.read())
+            previous_version = match.group(1) if match else ''
+            with open(previous_catalog, encoding='utf8') as handle:
+                previous_built = json.load(handle).get('built', '')
+        except (OSError, ValueError):
+            pass
     if os.path.exists(a.out): shutil.rmtree(a.out)
     shutil.copytree(a.app, a.out)
     os.makedirs(os.path.join(a.out, 'data'), exist_ok=True)
@@ -711,22 +747,31 @@ def main():
     cat = {'title': config.get('app', {}).get('title', 'Nigeria WebGIS'), 'center': config.get('app', {}).get('center', [8.7, 9.1]),
            'zoom': config.get('app', {}).get('zoom', 5.4), 'basemap': config.get('app', {}).get('basemap', 'light'),
            'crossBorderPolicy': catalog_policy(cross_border),
-           'built': time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime()), 'groups': sorted(groups.values(), key=lambda g: (g['order'], g['label'])),
+           'built': None, 'groups': sorted(groups.values(), key=lambda g: (g['order'], g['label'])),
            'layers': sorted(layers, key=lambda l: (l.get('order', 100), l['group'], l['label']))}
     spatial_layers = [layer for layer in layers if layer.get('kind') != 'table']
     if quality_document and spatial_layers and all(layer.get('quality') for layer in spatial_layers):
         cat['layerQualityRegister'] = catalog_summary(quality_document)
         # Publish the exact hash-covered evidence behind the UI, including hidden provenance rows.
         shutil.copyfile(quality_path, os.path.join(a.out, 'quality-register.json'))
-    blob = json.dumps(cat, separators=(',', ':'), ensure_ascii=False)
-    with open(os.path.join(a.out, 'catalog.json'), 'w', encoding='utf8') as f: f.write(blob)
-    # the build id covers the data *and* the app shell, so any change gets fresh URLs
-    hsh = hashlib.md5(blob.encode())
+    # The build id covers semantic catalog content and the app shell, never the wall clock.
+    # An unchanged rebuild can therefore retain both its version and its original timestamp.
+    semantic_blob = json.dumps({k: v for k, v in cat.items() if k != 'built'},
+                               separators=(',', ':'), ensure_ascii=False)
+    hsh = hashlib.md5(semantic_blob.encode())
     for rel in ('index.html', 'css/app.css', 'js/app.js', 'js/engine.js', 'js/loading.js', 'js/quality.js',
                 'js/vector-worker.js', 'sw.js', 'manifest.webmanifest'):
         p = os.path.join(a.out, rel)
         if os.path.exists(p): hsh.update(open(p, 'rb').read())
     ver = hsh.hexdigest()[:10]
+    if os.environ.get('SOURCE_DATE_EPOCH') is not None:
+        cat['built'] = build_timestamp()
+    elif previous_version == ver and is_build_timestamp(previous_built):
+        cat['built'] = previous_built
+    else:
+        cat['built'] = build_timestamp()
+    blob = json.dumps(cat, separators=(',', ':'), ensure_ascii=False)
+    with open(os.path.join(a.out, 'catalog.json'), 'w', encoding='utf8') as f: f.write(blob)
     sw = os.path.join(a.out, 'sw.js')
     if os.path.exists(sw):
         s = open(sw, encoding='utf8').read().replace('__BUILD__', ver); open(sw, 'w', encoding='utf8').write(s)

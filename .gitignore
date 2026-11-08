@@ -6,5 +6,8 @@ node_modules/
 test-results/
 playwright-report/
 blob-report/
+
+# Local release packages and checksums
+dist/
 .venv/
 .DS_Store

@@ -6,6 +6,7 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -41,6 +42,9 @@ jobs:
 
       - name: Validate GeoPackages and generated artifacts
         run: python scripts/validate_artifacts.py
+
+      - name: Verify the public build is current and reproducible
+        run: python scripts/check_build.py
 
       - name: Run full regression suite
         run: python -m unittest discover -s tests -v

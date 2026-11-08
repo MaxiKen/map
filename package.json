@@ -3,13 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Development-only browser, offline and visual-regression tests for the static map.",
+  "description": "Development-only verification, browser tests and release tooling for the static map.",
   "engines": {
     "node": ">=22.17.0"
   },
   "scripts": {
+    "build:site": "python scripts/build_site.py",
+    "verify": "python scripts/maintain.py",
+    "verify:build": "python scripts/maintain.py --build --check-build",
     "test:browser": "playwright test",
-    "test:browser:update": "playwright test --update-snapshots"
+    "test:browser:update": "playwright test --update-snapshots",
+    "release:prepare": "python scripts/prepare_release.py",
+    "release:package": "python scripts/package_release.py"
   },
   "devDependencies": {
     "@playwright/test": "1.65.0",

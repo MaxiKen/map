@@ -17,6 +17,10 @@ npm ci
 npm run test:browser
 ```
 
+For the combined repository gate, use `python scripts/maintain.py --check-build`; it performs the clean npm install and
+this complete browser suite after artifact and reproducible-build validation. Release candidates must not use
+`--skip-browser`. See [maintenance-and-releases.md](maintenance-and-releases.md) for build and release commands.
+
 Useful focused runs:
 
 ```bash

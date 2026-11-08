@@ -10,7 +10,8 @@ A mobile-friendly, installable map app. No backend, no API keys. Everything is s
   (GeoJSON and gzip transport sidecars, images, value grids, `catalog.json`). A filename starting with `hidden_`
   is skipped. Layer names, fields,
   colours and legends are detected automatically; group membership and group names come only from the folders.
-- A GitHub Action runs the build whenever you push changes to `data/`, `app/`, `scripts/` or `config/`, and commits `public/`.
+- A GitHub Action builds and runs every validation gate whenever you push changes to `data/`, `app/`, `scripts/`
+  or `config/`, and commits `public/` only if the verified output changed.
 - Netlify serves `public/` (no build command needed).
 
 ## Legends live inside their layer
@@ -116,7 +117,9 @@ fallback behavior and the exact round-trip validation gates.
 
 ## Updating
 Create or choose a top-level group folder, then add, replace or edit a `.gpkg` inside it and push. The Action
-rebuilds and Netlify redeploys. For example:
+rebuilds, runs all artifact/Python/Chromium/offline/visual gates, commits a changed `public/`, and Netlify redeploys.
+Before committing, run the same combined gate described in [maintenance and releases](docs/maintenance-and-releases.md).
+For example:
 
 ```text
 data/
@@ -245,16 +248,18 @@ ground truth. In particular, visual overlap and a shared EPSG code are not proof
 ### Automated CI validation
 
 The [Validate geospatial data and site workflow](.github/workflows/validate.yml) runs on pull requests to `main`,
-pushes to `main`, and manual dispatch. It compiles the Python sources, checks every GeoPackage and generated audit or
-public artifact, and runs the full regression suite with a read-only repository token.
+pushes to `main`, manual dispatch, and as the reusable gate for tag releases. It compiles the Python sources, checks
+every GeoPackage and generated audit/public artifact, independently rebuilds and byte-compares `public/`, and runs the
+full Python/Node and Chromium regression suites.
 
 Run the same checks locally from the repository root:
 
 ```bash
 python -m pip install -r scripts/requirements.txt
-python -m compileall -q scripts tests
-python scripts/validate_artifacts.py
-python -m unittest discover -s tests -v
+python scripts/maintain.py --check-build
+
+# When source or application changes also need a new public build:
+python scripts/maintain.py --build --check-build
 ```
 
 `validate_artifacts.py` is read-only. It checks SQLite integrity, source/audit/public inventory consistency, staging
@@ -273,6 +278,11 @@ npm run test:browser
 See [browser, offline and visual-regression testing](docs/browser-testing.md) for focused commands, snapshot update
 procedures, deterministic network/font setup, and failure traces. Node packages are development-only and are not used
 by the published static application.
+
+See **[maintenance and releases](docs/maintenance-and-releases.md)** for reproducible-build semantics, routine update
+order, changelog preparation and stable `vX.Y.Z` releases. The tag workflow reruns the complete validation gate and
+publishes a deterministic static-site ZIP, SHA-256 checksum, per-file manifest and changelog notes with the full source
+commit and public build ID. It does not replace Netlify deployment or require visitors to clear caches.
 
 The reviewed state-capital correction is complete: 32 scanned-map positions were replaced individually with OSM
 city/town nodes and five corroborated gazetteer positions were retained. The original is hidden as
