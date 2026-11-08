@@ -27,7 +27,8 @@ test('visual: desktop quality overview, evidence detail and source links', async
   await expect(detail).toContainText('5 of 6 tracked fields recorded');
   await expect(detail).toContainText('Not recorded: Temporal coverage');
   await expect(detail.locator('a[href="https://data.humdata.org/dataset/wpdx_nga"]')).toHaveAttribute('rel', 'noopener noreferrer');
-  await expect(detail.locator('a[download][href$=".geojson"]')).toHaveAttribute('href', 'data/groundwater_boreholes_wpdx_pt.geojson');
+  await expect(detail.locator('a[download][href$=".geojson"]')).toHaveCount(0);
+  await expect(detail).not.toContainText('Download GeoJSON');
   await expect(page.locator('a[download][href="quality-register.json"]')).toHaveCount(1);
   await resetPanelScroll(page);
   await expect(page.locator('#sheet')).toHaveScreenshot('quality-review-desktop.png');

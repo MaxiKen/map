@@ -169,6 +169,12 @@ class WorkflowGuardTests(unittest.TestCase):
                 text = (ROOT / '.github/workflows' / filename).read_text(encoding='utf8')
                 self.assertIn(guard, text)
 
+    def test_geology_refresh_requires_manual_dispatch(self):
+        text = (ROOT / '.github/workflows/fetch-geology-layers.yml').read_text(encoding='utf8')
+        self.assertIn('workflow_dispatch:', text)
+        self.assertNotIn('\n  push:\n', text)
+        self.assertIn('current EMAG2 partial-coverage classification requires explicit review', text)
+
 
 class ReleaseUtilityTests(unittest.TestCase):
     def test_version_and_public_build_validation(self):

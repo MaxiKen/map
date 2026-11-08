@@ -123,7 +123,6 @@ export function qualityDetailHTML(meta) {
     <div class="actions">
       <button class="btn" data-quality-clear>Catalog overview</button>
       ${hash ? `<button class="btn" data-quality-copy="${esc(hash)}">Copy source SHA-256</button>` : ''}
-      ${meta.file ? `<a class="btn" href="${esc(meta.file)}" download>Download GeoJSON</a>` : ''}
     </div>
   </article>`;
 }

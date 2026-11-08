@@ -14,6 +14,7 @@ assert.match(overview, /16 hidden originals retain historical defects/);
 assert.match(overview, /groundwater_boreholes_wpdx_pt/);
 assert.match(overview, /quality-register\.json/);
 assert.match(overview, /Evidence, not a score/);
+assert.match(overview, /Download full JSON register/);
 assert.ok(!overview.includes('undefined'));
 assert.ok(!overview.includes('NaN'));
 
@@ -27,6 +28,8 @@ assert.match(review, /CC BY-SA 4\.0/);
 assert.ok(review.includes(boreholes.quality.sourceSha256));
 assert.match(review, /structural pass/);
 assert.match(review, /Catalog overview and full register/);
+assert.doesNotMatch(review, /Download GeoJSON/);
+assert.doesNotMatch(review, /\.geojson["']?[^\n]*download/);
 
 const igrac = qualityPanelHTML(catalog, 'groundwater_transboundary_igrac2025_pg');
 assert.match(igrac, /6 of 6 tracked fields recorded/);

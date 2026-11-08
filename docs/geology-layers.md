@@ -143,13 +143,12 @@ contains only a 12-byte `dummy.txt` (the real 0.5° aquifer-property CSV is not
 served by that API). HDX `package_search?q=groundwater&fq=groups:nga` returns 0
 datasets — the WPDx link must be used directly.
 
-## 6. Reproduction
+## 6. Reproduction and refresh safety
 
 ```
-gh workflow run fetch-geology-layers.yml      # on the default branch, or
-git push <branch> with a change to scripts/fetch_geology_layers.py
-python scripts/reclassify_magnetic_coverage.py  # verify current metadata-only result
-python scripts/build_site.py                  # data/<group name>/**/*.gpkg -> public/
+gh workflow run fetch-geology-layers.yml --ref main  # deliberate manual refresh only
+python scripts/reclassify_magnetic_coverage.py       # verify current metadata-only result
+python scripts/build_site.py                         # data/<group name>/**/*.gpkg -> public/
 ```
 
 The workflow installs `numpy Pillow tifffile rasterio imagecodecs netCDF4
@@ -157,6 +156,18 @@ geopandas pyogrio shapely pandas`, runs the fetch script, validates all seven
 GeoPackages and commits changed grouped `data/**/*.gpkg` files with `[skip ci]`. Successful runs:
 `42362739731` (bot commit `4b71519`). Every layer is independently re-fetchable;
 nothing depends on a previous batch's temporary files.
+
+**Run 42511403513 investigation (2026-11-08):** all source downloads succeeded, but the new EMAG2
+land-coverage guard called `nigeria_mask` with width/height reversed. The `(400, 500)` raster and
+`(500, 400)` mask raised a boolean-index `IndexError`; the verify/commit step was skipped and no data
+was published. The guard now uses explicit `h=`/`w=` arguments and a regression test exercises the
+same non-square grid. The workflow is manual-only so a script merge cannot automatically rewrite the
+seven audited sources. With the dimensions corrected, the currently observed EMAG2 partial coverage
+(about 90.2% of sampled land) still intentionally fails the 98% unlabelled-national-raster gate. Do
+not dispatch a refresh merely to test the fix: a future EMAG2 replacement requires an explicit
+partial-coverage review and evidence update, not interpolation or silent overwrite. The failed run was
+not rerun during this investigation, and the current GeoPackages and reclassification evidence remain
+unchanged.
 
 ## 7. Attribution summary
 

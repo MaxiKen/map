@@ -1,10 +1,15 @@
 """Regression evidence for transparent EMAG2 partial-coverage classification."""
+import ast
 import csv
 import hashlib
 import json
+import sqlite3
 import sys
 import unittest
 from pathlib import Path
+
+import numpy as np
+from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'docs/geospatial-audit'
@@ -14,6 +19,22 @@ from reclassify_magnetic_coverage import (  # noqa: E402
     CONFIG, LABEL, PNG, RESULT, SOURCE, STATE_CSV, TABLE, VALUES, VERIFICATION,
     source_evidence,
 )
+from build_site import read_gpkg_geom  # noqa: E402
+from data_paths import layer_path  # noqa: E402
+
+
+def load_nigeria_mask():
+    """Load the real lightweight mask without importing fetch-only rasterio dependencies."""
+    path = ROOT / 'scripts/fetch_layers.py'
+    tree = ast.parse(path.read_text(encoding='utf8'), filename=str(path))
+    function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'nigeria_mask')
+    namespace = {
+        'np': np, 'Image': Image, 'ImageDraw': ImageDraw, 'sqlite3': sqlite3,
+        'layer_path': layer_path, 'read_gpkg_geom': read_gpkg_geom, 'DATA': str(ROOT / 'data'),
+        'WEST': 2.5, 'SOUTH': 4.0, 'EAST': 15.0, 'NORTH': 14.0,
+    }
+    exec(compile(ast.Module(body=[function], type_ignores=[]), str(path), 'exec'), namespace)
+    return namespace['nigeria_mask']
 
 
 def sha256(path):
@@ -97,11 +118,19 @@ class MagneticCoverageReclassificationTests(unittest.TestCase):
 
     def test_future_fetch_has_a_completeness_gate(self):
         source = (ROOT / 'scripts/fetch_geology_layers.py').read_text(encoding='utf8')
-        self.assertIn('land = nigeria_mask(a.shape[1], a.shape[0])', source)
+        self.assertIn('land = nigeria_mask(h=a.shape[0], w=a.shape[1])', source)
+        self.assertNotIn('land = nigeria_mask(a.shape[1], a.shape[0])', source)
         self.assertIn('land_coverage = float(valid[land].mean())', source)
         self.assertIn('if land_coverage < 0.98:', source)
         self.assertIn('refusing to publish an', source)
         self.assertIn('Do not interpolate missing magnetic values.', source)
+        # Run 42511403513 transposed this non-square grid and crashed before the
+        # completeness gate. The corrected height/width order must support indexing.
+        valid = np.ones((400, 500), dtype=bool)
+        nigeria_mask = load_nigeria_mask()
+        land = nigeria_mask(h=valid.shape[0], w=valid.shape[1])
+        self.assertEqual(land.shape, valid.shape)
+        self.assertEqual(float(valid[land].mean()), 1.0)
 
     def test_refreshed_audit_discloses_scope_without_claiming_repair(self):
         extended = json.loads((OUT / 'extended-audit.json').read_text(encoding='utf8'))

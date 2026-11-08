@@ -287,7 +287,7 @@ def magnetic_anomaly():
     valid = (a != NODATA) & np.isfinite(a)
     if valid.sum() == 0:
         raise RuntimeError('EMAG2 produced an empty Nigeria grid')
-    land = nigeria_mask(a.shape[1], a.shape[0])
+    land = nigeria_mask(h=a.shape[0], w=a.shape[1])
     land_coverage = float(valid[land].mean())
     print(f'  EMAG2 valid {valid.mean():.1%} of grid, {land_coverage:.1%} of land mask, range '
           f'[{a[valid].min():.1f}, {a[valid].max():.1f}] nT', flush=True)

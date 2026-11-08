@@ -23,6 +23,10 @@ The interface deliberately states that structural checks are not survey certific
 not licence clearance, and no numeric quality score is assigned. The per-layer `5 of 6` or `6 of 6` values are
 counts of six tracked metadata fields, not quality ratings.
 
+Source GeoPackage names and SHA-256 values are plain provenance text, not package downloads. Layer rows and layer
+quality details do not offer GeoJSON links, and feature results do not offer GeoJSON/JSON export. These controls
+were removed without changing the rendering data, fallback path, source metadata or evidence bytes.
+
 ## Full evidence download
 
 The overview links to `public/quality-register.json`, an exact copy of
@@ -49,8 +53,8 @@ feature preparation.
 
 - `tests/js_quality_test.mjs` exercises the real catalog overview, WPDx and IGRAC details, missing GADM fields,
   escaping, unsafe URL rejection, empty-catalog behavior and the single-colour fallback.
-- `tests/test_quality_transparency.py` checks public-register bytes/hash, versioned shell wiring, download/cache
-  headers and JavaScript syntax.
+- `tests/test_quality_transparency.py` checks public-register bytes/hash, versioned shell wiring, register/cache
+  headers, removal of raw GeoPackage/GeoJSON controls and JavaScript syntax.
 - `scripts/validate_artifacts.py` checks the exact public register and every compact catalog projection.
 - A DOM-level smoke test exercised the actual built app: overview rendering, layer-row navigation, WPDx review,
   layer selection, register link, single-colour legend and quality search. Quality rendering reused one catalog

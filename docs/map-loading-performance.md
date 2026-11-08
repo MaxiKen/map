@@ -4,7 +4,8 @@ The map remains dependency-free and lazy-loads layers only when needed. Loading 
 
 1. **Deterministic gzip transport.** Every published vector has a `.geojson.gz` sidecar. The browser fetches
    this smaller representation when `DecompressionStream` is available. The original GeoJSON remains unchanged
-   for downloads, exports, compatibility fallback and independent verification.
+   for compatibility fallback and independent verification; the application no longer exposes GeoJSON download
+   buttons or feature/layer GeoJSON export.
 2. **Worker parsing and conversion.** `js/vector-worker.js` fetches and decompresses GeoJSON, parses JSON,
    converts coordinates to Web Mercator and allocates typed geometry arrays away from the UI thread. Coordinate
    buffers transfer back without another copy. Styling and feature indices use the same `prepareFeature`
