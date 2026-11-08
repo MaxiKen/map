@@ -19,6 +19,9 @@ import numpy as np
 from PIL import Image
 from shapely.geometry import shape
 
+from cross_border_policy import catalog_policy, load_policy, public_metadata, resolve_layer
+from layer_quality_public import catalog_summary, public_quality, public_source_metadata
+
 Image.MAX_IMAGE_PIXELS = None
 MAX_IMG = 2800        # longest side of a raster / picture overlay (pixels)
 MAX_VAL = 1400        # longest side of the value grid used for click-to-read values
@@ -363,6 +366,32 @@ def choose_style(kind, fields, rows, cfg, name):
     return {'mode': 'single', 'color': base}
 
 
+def write_vector_files(out, layer_id, features):
+    """Write lossless GeoJSON plus a deterministic gzip transport sidecar.
+
+    The original remains the public download/fallback. The sidecar is fetched as bytes and
+    decompressed in a worker, avoiding reliance on optional CDN content negotiation.
+    """
+    payload = json.dumps(
+        {'type': 'FeatureCollection', 'features': features},
+        separators=(',', ':'), ensure_ascii=False).encode('utf8')
+    filename = f'{layer_id}.geojson'
+    original_path = os.path.join(out, 'data', filename)
+    with open(original_path, 'wb') as handle:
+        handle.write(payload)
+    compressed_path = original_path + '.gz'
+    with open(compressed_path, 'wb') as raw:
+        with gzip.GzipFile(filename='', mode='wb', fileobj=raw, compresslevel=6, mtime=0) as handle:
+            handle.write(payload)
+    return {
+        'file': 'data/' + filename,
+        'fileBytes': len(payload),
+        'loadFile': 'data/' + filename + '.gz',
+        'loadEncoding': 'gzip',
+        'loadBytes': os.path.getsize(compressed_path),
+    }
+
+
 def build_vector(con, table, row, gcol, geomtype, out, cfg):
     cols = [(r[1], col_kind(r[2])) for r in con.execute(f'pragma table_info("{table}")') if r[1] != gcol and r[1].lower() not in ('fid', 'ogc_fid')]
     hide = {k for k, v in cfg.get('fields', {}).items() if v.get('hidden')}
@@ -386,16 +415,19 @@ def build_vector(con, table, row, gcol, geomtype, out, cfg):
             if v is None or v == '' or c in hide: continue
             if k == 'number' and isinstance(v, float): v = round(v, 6)
             props[c] = v
-        feats.append({'type': 'Feature', 'properties': props, 'geometry': g})
+        feature = {'type': 'Feature', 'properties': props, 'geometry': g}
+        # Administrative IDs are stable entity identifiers, not row-number FIDs.
+        # Preserve them in the standard GeoJSON id member as well as properties.
+        if props.get('admin_id'):
+            feature['id'] = props['admin_id']
+        feats.append(feature)
         rowsd.append(props)
     fields = [{'name': c, 'type': k, 'label': cfg.get('fields', {}).get(c, {}).get('label', pretty(c))} for c, k in cols if c not in hide]
     style = choose_style(row['kind'], fields, rowsd, cfg, table)
     lf = cfg.get('labelField') or next((n for n in NAME_FIELDS if n in [f['name'] for f in fields if f['type'] == 'text']), None)
-    fn = f'{row["id"]}.geojson'
-    with open(os.path.join(out, 'data', fn), 'w', encoding='utf8') as f:
-        json.dump({'type': 'FeatureCollection', 'features': feats}, f, separators=(',', ':'), ensure_ascii=False)
-    result = {'file': 'data/' + fn, 'count': len(feats), 'fields': fields, 'style': style, 'labelField': lf,
+    result = {'count': len(feats), 'fields': fields, 'style': style, 'labelField': lf,
               'bounds': box if box[0] < box[2] + 1e-9 and box[0] < 1e8 else None, 'geometry': geomtype}
+    result.update(write_vector_files(out, row['id'], feats))
     if precision_fallbacks:
         result['geometryPrecisionFallbacks'] = dict(sorted(precision_fallbacks.items()))
         print('  geometry precision fallbacks:', result['geometryPrecisionFallbacks'], flush=True)
@@ -572,8 +604,8 @@ def fold_legends(layers, out, lcfg):
                         v = r[cols.index(c)]
                         if v not in (None, '') and p.get(c) in (None, ''):
                             p[c] = v
-                with open(os.path.join(out, owner['file']), 'w', encoding='utf8') as fh:
-                    json.dump(gj, fh, separators=(',', ':'), ensure_ascii=False)
+                # Keep the optimized transport in sync when legend attributes enrich GeoJSON.
+                owner.update(write_vector_files(out, owner['id'], feats))
                 owner['fields'] = (owner.get('fields') or []) + [
                     {'name': c, 'type': next((a['type'] for a in attrs if a['name'] == c), 'text'), 'label': pretty(c)}
                     for c in extra]
@@ -597,6 +629,30 @@ def fold_legends(layers, out, lcfg):
 
 
 # ------------------------------------------------------------------ main
+def is_build_timestamp(value):
+    if not isinstance(value, str):
+        return False
+    try:
+        parsed = time.strptime(value, '%Y-%m-%d %H:%M UTC')
+    except ValueError:
+        return False
+    return time.strftime('%Y-%m-%d %H:%M UTC', parsed) == value
+
+
+def build_timestamp():
+    """UTC display timestamp, honouring the standard reproducible-build epoch."""
+    epoch = os.environ.get('SOURCE_DATE_EPOCH')
+    if epoch is None:
+        return time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())
+    try:
+        seconds = int(epoch)
+        if seconds < 0:
+            raise ValueError
+    except ValueError:
+        raise SystemExit('SOURCE_DATE_EPOCH must be a non-negative integer (seconds since Unix epoch)')
+    return time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime(seconds))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--data', default='data'); ap.add_argument('--app', default='app')
@@ -605,6 +661,15 @@ def main():
     t0 = time.time()
     config = json.load(open(a.config, encoding='utf8')) if os.path.exists(a.config) else {}
     lcfg = config.get('layers', {})
+    cross_border = load_policy()
+    quality_path = os.path.join(
+        os.path.dirname(__file__), '..', 'docs', 'geospatial-audit', 'layer-quality-register.json')
+    quality_document = None
+    quality_layers = {}
+    if os.path.isfile(quality_path):
+        with open(quality_path, encoding='utf8') as handle:
+            quality_document = json.load(handle)
+        quality_layers = {row['layer']: row for row in quality_document['layers']}
     try:
         discovered = discover_geopackages(a.data)
     except ValueError as e:
@@ -615,6 +680,18 @@ def main():
     if hidden_count:
         print(f'skipped {hidden_count} hidden GeoPackage(s): remove the hidden_ filename prefix to publish them')
     if not files: print('WARNING: no visible .gpkg files in group folders under', a.data)
+    previous_version, previous_built = '', ''
+    previous_index = os.path.join(a.out, 'index.html')
+    previous_catalog = os.path.join(a.out, 'catalog.json')
+    if os.path.isfile(previous_index) and os.path.isfile(previous_catalog):
+        try:
+            with open(previous_index, encoding='utf8') as handle:
+                match = re.search(r'<meta name="build" content="([^"]+)"', handle.read())
+            previous_version = match.group(1) if match else ''
+            with open(previous_catalog, encoding='utf8') as handle:
+                previous_built = json.load(handle).get('built', '')
+        except (OSError, ValueError):
+            pass
     if os.path.exists(a.out): shutil.rmtree(a.out)
     shutil.copytree(a.app, a.out)
     os.makedirs(os.path.join(a.out, 'data'), exist_ok=True)
@@ -633,6 +710,13 @@ def main():
             row = {'id': lid, 'table': table, 'source': os.path.relpath(path, a.data).replace('\\', '/'),
                    'group': group_name,
                    'label': cfg.get('label') or label_from_name(table), 'description': desc or ''}
+            if dtype != 'attributes':
+                row['crossBorder'] = public_metadata(resolve_layer(
+                    table, visible=True, kind=dtype, policy=cross_border))
+                quality_row = quality_layers.get(table)
+                if quality_row:
+                    row['quality'] = public_quality(quality_row)
+                    row['sourceMetadata'] = public_source_metadata(quality_row)
             try:
                 if dtype == 'features':
                     gc, gt = gcols[table]
@@ -662,16 +746,32 @@ def main():
         groups.setdefault(name, {'id': name, 'label': name, 'order': gl.get(name, {}).get('order', 100)})
     cat = {'title': config.get('app', {}).get('title', 'Nigeria WebGIS'), 'center': config.get('app', {}).get('center', [8.7, 9.1]),
            'zoom': config.get('app', {}).get('zoom', 5.4), 'basemap': config.get('app', {}).get('basemap', 'light'),
-           'built': time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime()), 'groups': sorted(groups.values(), key=lambda g: (g['order'], g['label'])),
+           'crossBorderPolicy': catalog_policy(cross_border),
+           'built': None, 'groups': sorted(groups.values(), key=lambda g: (g['order'], g['label'])),
            'layers': sorted(layers, key=lambda l: (l.get('order', 100), l['group'], l['label']))}
-    blob = json.dumps(cat, separators=(',', ':'), ensure_ascii=False)
-    with open(os.path.join(a.out, 'catalog.json'), 'w', encoding='utf8') as f: f.write(blob)
-    # the build id covers the data *and* the app shell, so any change gets fresh URLs
-    hsh = hashlib.md5(blob.encode())
-    for rel in ('index.html', 'css/app.css', 'js/app.js', 'js/engine.js', 'sw.js', 'manifest.webmanifest'):
+    spatial_layers = [layer for layer in layers if layer.get('kind') != 'table']
+    if quality_document and spatial_layers and all(layer.get('quality') for layer in spatial_layers):
+        cat['layerQualityRegister'] = catalog_summary(quality_document)
+        # Publish the exact hash-covered evidence behind the UI, including hidden provenance rows.
+        shutil.copyfile(quality_path, os.path.join(a.out, 'quality-register.json'))
+    # The build id covers semantic catalog content and the app shell, never the wall clock.
+    # An unchanged rebuild can therefore retain both its version and its original timestamp.
+    semantic_blob = json.dumps({k: v for k, v in cat.items() if k != 'built'},
+                               separators=(',', ':'), ensure_ascii=False)
+    hsh = hashlib.md5(semantic_blob.encode())
+    for rel in ('index.html', 'css/app.css', 'js/app.js', 'js/engine.js', 'js/loading.js', 'js/quality.js',
+                'js/vector-worker.js', 'sw.js', 'manifest.webmanifest'):
         p = os.path.join(a.out, rel)
         if os.path.exists(p): hsh.update(open(p, 'rb').read())
     ver = hsh.hexdigest()[:10]
+    if os.environ.get('SOURCE_DATE_EPOCH') is not None:
+        cat['built'] = build_timestamp()
+    elif previous_version == ver and is_build_timestamp(previous_built):
+        cat['built'] = previous_built
+    else:
+        cat['built'] = build_timestamp()
+    blob = json.dumps(cat, separators=(',', ':'), ensure_ascii=False)
+    with open(os.path.join(a.out, 'catalog.json'), 'w', encoding='utf8') as f: f.write(blob)
     sw = os.path.join(a.out, 'sw.js')
     if os.path.exists(sw):
         s = open(sw, encoding='utf8').read().replace('__BUILD__', ver); open(sw, 'w', encoding='utf8').write(s)
@@ -685,10 +785,20 @@ def main():
             h = h.replace(before, after)
         h = h.replace('content="dev"', f'content="{ver}"')
         open(idx, 'w', encoding='utf8').write(h)
-    app = os.path.join(a.out, 'js', 'app.js')
-    if os.path.exists(app):
-        t = open(app, encoding='utf8').read().replace("from './engine.js'", f"from './engine.js?v={ver}'")
-        open(app, 'w', encoding='utf8').write(t)
+    for rel in ('js/app.js', 'js/vector-worker.js'):
+        module_path = os.path.join(a.out, rel)
+        if not os.path.exists(module_path):
+            continue
+        text = open(module_path, encoding='utf8').read()
+        for dependency in ('engine.js', 'loading.js', 'quality.js'):
+            text = text.replace(f"from './{dependency}'", f"from './{dependency}?v={ver}'")
+        open(module_path, 'w', encoding='utf8').write(text)
+    raw_vector_bytes = sum(layer.get('fileBytes', 0) for layer in layers)
+    gzip_vector_bytes = sum(layer.get('loadBytes', 0) for layer in layers)
+    if raw_vector_bytes:
+        print(f'vector transport: {raw_vector_bytes / 1048576:.1f} MiB -> '
+              f'{gzip_vector_bytes / 1048576:.1f} MiB gzip '
+              f'({100 * (1 - gzip_vector_bytes / raw_vector_bytes):.1f}% smaller)')
     print(f'built {len(layers)} layers from {len(files)} files in {time.time() - t0:.1f}s -> {a.out}/ (version {ver})')
 
 

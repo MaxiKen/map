@@ -262,7 +262,7 @@
       "order": 78
     },
     "geophysics_magnetic_emag2_rst": {
-      "label": "Magnetic anomaly (EMAG2 v2)",
+      "label": "Magnetic anomaly (EMAG2 v2, partial coverage)",
       "order": 79
     },
     "hazards_landslide_rainfall_wb_rst": {

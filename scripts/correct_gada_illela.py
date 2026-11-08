@@ -743,8 +743,44 @@ def finalize_installation():
 
 def verify_existing_result():
     result = json.loads(RESULT.read_text(encoding='utf8'))
+    residual_path = OUT / 'ward-lga-correction-result.json'
+    residual = (json.loads(residual_path.read_text(encoding='utf8'))
+                if residual_path.exists() else None)
+    hidden_path = OUT / 'hidden-source-artifact-result.json'
+    hidden = (json.loads(hidden_path.read_text(encoding='utf8'))
+              if hidden_path.exists() else None)
+    admin_identifier_path = OUT / 'admin-identifier-result.json'
+    admin_identifiers = (json.loads(admin_identifier_path.read_text(encoding='utf8'))
+                         if admin_identifier_path.exists() else None)
     for table, expected in result['after_sha256'].items():
-        if sha256(source_path(table)) != expected:
+        current_hash = sha256(source_path(table))
+        if current_hash == expected:
+            continue
+        # A later, separately verified residual review may change only the ward
+        # attributes. Preserve this historical result and verify the hash chain
+        # rather than reapplying or rewriting the completed Gada/Illela work.
+        superseded_wards = bool(
+            table == WARDS and residual and
+            residual.get('status') == 'applied_and_verified' and
+            residual.get('before_sha256') == expected and
+            residual.get('after_sha256') == current_hash and
+            all(residual.get('checks', {}).values()))
+        superseded_towns = bool(
+            table == 'settlements_towns_map2023_pt' and hidden and
+            hidden.get('status') == 'resolved_and_verified' and
+            hidden['sources']['towns']['before_sha256'] == expected and
+            hidden['after_sha256']['towns'] == current_hash and
+            all(hidden.get('checks', {}).values()))
+        predecessor = expected
+        if table == WARDS and residual:
+            predecessor = residual['after_sha256']
+        superseded_identifiers = bool(
+            table in (POLYGONS, CENTROIDS, WARDS) and admin_identifiers and
+            admin_identifiers.get('status') == 'installed_and_verified' and
+            admin_identifiers['before_sha256'][table] == predecessor and
+            admin_identifiers['after_sha256'][table] == current_hash and
+            all(admin_identifiers.get('checks', {}).values()))
+        if not superseded_wards and not superseded_towns and not superseded_identifiers:
             raise RuntimeError(f'{table}: current hash differs from correction result')
     for table, saved in result['provenance'].items():
         if sha256(ROOT / saved['path']) != saved['sha256']:

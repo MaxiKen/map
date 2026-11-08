@@ -1,0 +1,200 @@
+{
+  "status": "ready_for_approved_admin_identifier_installation",
+  "scheme": "ngmap-admin-v1",
+  "registry": "docs/admin-identifiers/admin-identifier-registry.csv",
+  "registry_sha256": "92a31416ae8137483b1a262b30d3d8b432e6f02c266395aad318cf64285ccace",
+  "source_manifest": "docs/admin-identifiers/inec-source-manifest.json",
+  "source_manifest_sha256": "0fdff63b5d1183730e13e1f864f1553674fceea0bc1acd76aedb5530e68130b5",
+  "sources": {
+    "admin_states_gadm_pg": {
+      "path": "data/Administrative boundaries/admin_states_gadm_pg.gpkg",
+      "before_sha256": "cbae156fcbcb973d49ffbafc07ae0d14aaaf8b3356fb9620dcb4caf13bf2f688",
+      "feature_count": 38,
+      "original_columns": [
+        "fid",
+        "geom",
+        "state_id",
+        "state",
+        "type",
+        "state_code",
+        "area_km2"
+      ],
+      "added_columns": {
+        "admin_id": "TEXT",
+        "inec_state_id": "INTEGER"
+      },
+      "original_row_digest": "22a0037ac0b390bcd029e163165ab7b943d365a4c07da971354efe9f3b36d0de",
+      "geometry_digest": "e24400ab582a5bd67b7bfa46300dbf73b28bc8b51bfa055f7b4b6fd6ed278720",
+      "integrity_check": "ok"
+    },
+    "admin_lgas_gadm_pg": {
+      "path": "data/Administrative boundaries/admin_lgas_gadm_pg.gpkg",
+      "before_sha256": "51dc9673f0c4f0a9c01b562a16e4225f26919691279437d44e6e61b25587c5a9",
+      "feature_count": 775,
+      "original_columns": [
+        "fid",
+        "geom",
+        "state_id",
+        "state",
+        "lga_id",
+        "lga",
+        "lga_alt_name",
+        "area_km2"
+      ],
+      "added_columns": {
+        "admin_id": "TEXT",
+        "state_admin_id": "TEXT",
+        "inec_lga_id": "INTEGER",
+        "inec_lga_code": "TEXT"
+      },
+      "original_row_digest": "ef1cbc30fd7cfb020f44f4d588a368c3157ffa8f91c933813dc7aee9ace5dd35",
+      "geometry_digest": "9aef7b5ba277d791117433f343ffa12a705179351df6d3354f3f272cbb94acb5",
+      "integrity_check": "ok"
+    },
+    "admin_lga_centroids_pt": {
+      "path": "data/Administrative boundaries/admin_lga_centroids_pt.gpkg",
+      "before_sha256": "b1c9ee1dca49c993d1539c99a2d562cfbdaa1fcfb531eefbcc5e6a5ecdfa3f31",
+      "feature_count": 774,
+      "original_columns": [
+        "fid",
+        "geom",
+        "lga",
+        "state",
+        "state_code",
+        "wikidata_id",
+        "senatorial_district",
+        "representative_district",
+        "position_qa",
+        "district_state",
+        "district_n_lgas",
+        "district_lgas"
+      ],
+      "added_columns": {
+        "admin_id": "TEXT",
+        "state_admin_id": "TEXT",
+        "inec_lga_id": "INTEGER",
+        "inec_lga_code": "TEXT"
+      },
+      "original_row_digest": "c7881cb953a4094eaee27cdd06acdcb10c306f4269c05db8a9a75c9251d6f405",
+      "geometry_digest": "33e405fc17ac86178ffaee72eed243befe5337e358122b6f71653848fe18ef9a",
+      "integrity_check": "ok"
+    },
+    "admin_wards_pt": {
+      "path": "data/Administrative boundaries/admin_wards_pt.gpkg",
+      "before_sha256": "bf921c01802abcf36fb68f4991eae752246ea248ed3f2b18157e4bc12d0f69db",
+      "feature_count": 8809,
+      "original_columns": [
+        "fid",
+        "geom",
+        "ward",
+        "lga",
+        "state",
+        "dist_to_lga_centroid_km"
+      ],
+      "added_columns": {
+        "admin_id": "TEXT",
+        "state_admin_id": "TEXT",
+        "lga_admin_id": "TEXT",
+        "inec_ward_id": "INTEGER",
+        "inec_ward_code": "TEXT"
+      },
+      "original_row_digest": "190ee23c0b4ca8af9d7ee00f875102f0c72045f8f015804ae4163d34f0e97c3b",
+      "geometry_digest": "948e8d09a8612234a30c9f8e5b088b958a77aeffdcc072810c06d523de7e5440",
+      "integrity_check": "ok"
+    },
+    "population_density2016_states_pg": {
+      "path": "data/Population/population_density2016_states_pg.gpkg",
+      "before_sha256": "b3d3255fc0bcd2e67d23e25a3dcaabd7a917e090c6b66ad0d43c2b708ba74e6f",
+      "feature_count": 38,
+      "original_columns": [
+        "fid",
+        "geom",
+        "state_id",
+        "state",
+        "type",
+        "pop_2016",
+        "area_km2",
+        "pop_per_km2",
+        "state_code"
+      ],
+      "added_columns": {
+        "admin_id": "TEXT",
+        "inec_state_id": "INTEGER"
+      },
+      "original_row_digest": "960a274c7f2e3693bc63e406ad950ded2d036b2609eed46c6b81bbdbc2342d13",
+      "geometry_digest": "934683e684f2521a8921eb3a816763404c16d0d0e6b45372096fb6158f7a5787",
+      "integrity_check": "ok"
+    },
+    "settlements_state_capitals_map2023_pt": {
+      "path": "data/Settlements/settlements_state_capitals_map2023_pt.gpkg",
+      "before_sha256": "d4df1e292e6acf6c18681b7b2bd34f72d787894c7d6f71e568c421b96c890430",
+      "feature_count": 37,
+      "original_columns": [
+        "fid",
+        "geom",
+        "name",
+        "state",
+        "position_basis",
+        "coordinate_source",
+        "previous_longitude",
+        "previous_latitude",
+        "previous_position_basis",
+        "correction_distance_km",
+        "diva_crosscheck_km",
+        "qa_note"
+      ],
+      "added_columns": {
+        "state_admin_id": "TEXT"
+      },
+      "original_row_digest": "56da67cd004c0e44aa9a22a4a7aa92225276041856674f1c1bab818233735aee",
+      "geometry_digest": "85fd93d6b6bd1bf94a1069869eb339475fb06126d9c0fd0001dbe7c4f291d477",
+      "integrity_check": "ok"
+    }
+  },
+  "coverage": {
+    "states_with_admin_id": 37,
+    "lgas_with_admin_id": 774,
+    "wards_with_admin_id": 8809,
+    "non_admin_rows_without_admin_id": 2,
+    "states_with_inec_id": 37,
+    "lgas_with_inec_id": 774,
+    "wards_with_inec_id": 8589,
+    "wards_without_inec_id": 220,
+    "ward_inec_coverage_fraction": 0.9750255420592576,
+    "ward_unresolved_methods": {
+      "unmatched_name": 198,
+      "duplicate_local_label": 22
+    },
+    "ward_match_methods": {
+      "exact_name": 8189,
+      "unmatched_name": 198,
+      "normalized_numeral_name": 400,
+      "duplicate_local_label": 22
+    },
+    "duplicate_local_label_groups": 11
+  },
+  "checks": {
+    "admin_states_gadm_pg_integrity": true,
+    "admin_lgas_gadm_pg_integrity": true,
+    "admin_lga_centroids_pt_integrity": true,
+    "admin_wards_pt_integrity": true,
+    "population_density2016_states_pg_integrity": true,
+    "settlements_state_capitals_map2023_pt_integrity": true,
+    "registry_9622_rows": true,
+    "registry_38_state_rows": true,
+    "registry_775_lga_rows": true,
+    "registry_8809_ward_rows": true,
+    "assigned_ids_37_states_774_lgas_8809_wards": true,
+    "unique_assigned_ids": true,
+    "two_nonadmin_rows_have_null_ids": true,
+    "all_37_states_have_inec_ids": true,
+    "all_774_lgas_have_inec_ids": true,
+    "inec_lga_ids_unique": true,
+    "inec_ward_ids_unique": true,
+    "8589_wards_have_inec_ids": true,
+    "220_wards_have_null_inec_fields": true,
+    "198_unmatched_and_22_duplicate_rows": true,
+    "11_duplicate_local_label_groups": true,
+    "six_source_counts_preserved": true
+  }
+}

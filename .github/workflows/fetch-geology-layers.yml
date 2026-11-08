@@ -13,6 +13,10 @@ permissions:
   contents: write
 jobs:
   fetch:
+    # Source refreshes can rewrite seven GeoPackages and commit to the branch.
+    # Never launch that write-enabled operation from a pull-request branch push;
+    # use explicit dispatch or a deliberate script change merged to main.
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

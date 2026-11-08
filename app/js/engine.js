@@ -2,6 +2,7 @@
 // XYZ basemap tiles, graticule, touch (pan + pinch), hit-testing, value sampling and symbology.
 // No libraries, no API keys, works offline.
 const TAU = Math.PI * 2;
+export const DEFAULT_VECTOR_COLOR = '#7a7a7a';
 export const mercY = (lat) => { lat = Math.max(-85.05, Math.min(85.05, lat)); const s = Math.sin(lat * Math.PI / 180); return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI); };
 export const mercX = (lon) => (lon + 180) / 360;
 export const unX = (x) => x * 360 - 180;
@@ -581,6 +582,21 @@ export function convertFeature(f) {
   const bb = type === 'point' ? bboxOf([Float64Array.from(parts)]) : type === 'line' ? bboxOf(parts) : bboxOf(parts.flat());
   return { props, type, parts: type === 'point' ? Float64Array.from(parts) : parts, bb };
 }
+export function prepareFeature(f, style, idx) {
+  const c = convertFeature(f);
+  if (!c) return null;
+  let col = DEFAULT_VECTOR_COLOR;
+  if (style) {
+    if (style.mode === 'color-field') {
+      const value = c.props[style.field];
+      col = typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value : style.color;
+    } else if (style.mode === 'category') col = style.colors[c.props[style.field]] || '#9aa0a6';
+    else col = style.color || col;
+  }
+  c.fill = col; c.stroke = col; c.fill0 = col; c.idx = idx;
+  return c;
+}
+
 export function pointInFeature(x, y, f) {
   if (!f) return false;
   if (x < f.bb[0] || x > f.bb[2] || y < f.bb[1] || y > f.bb[3]) return false;

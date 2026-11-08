@@ -1,5 +1,5 @@
 {
-  "source_commit": "19b85f365365ab8ce5ab90cc083da64be6116491",
+  "source_commit": "1f77ccc896f5fd38e8199ddf9a5aea4c9d727948",
   "capital_cross_source": {
     "summary": {
       "osm": {
@@ -79,12 +79,23 @@
     }
   },
   "ward_exceptions": {
-    "total_outside_assigned_lga": 40,
+    "total_outside_assigned_lga": 37,
     "within_1km_of_assigned_lga": 32,
-    "over_10km_from_assigned_lga": 1,
+    "over_10km_from_assigned_lga": 0,
+    "without_local_container": 15,
     "sokoto_gada_illela_exceptions": 1,
     "reciprocal_gada_illela_containment": 0,
-    "interpretation": "The verified identity correction resolved all 21 reciprocal exceptions without geometry changes; residual exceptions require separate review."
+    "individual_review_complete": true,
+    "pre_review_exception_count": 40,
+    "review_lga_corrections": 3,
+    "review_dispositions": {
+      "correct_lga": 3,
+      "retain_boundary_generalisation": 20,
+      "retain_coastal_water": 14,
+      "retain_suspect_coordinate": 2,
+      "retain_delimitation_uncertainty": 1
+    },
+    "interpretation": "All 40 residual cases were reviewed individually against INEC and an independent boundary service; three LGA attributes were corrected without geometry changes and 37 evidence-documented exceptions remain."
   },
   "topology": {
     "total_invalid": 0,
@@ -781,6 +792,1657 @@
       "kiri_unchanged": true
     }
   },
+  "residual_ward_lga_correction": {
+    "status": "applied_and_verified",
+    "applied_at": "2026-11-08T11:25:53.275482+00:00",
+    "source_path": "data/Administrative boundaries/admin_wards_pt.gpkg",
+    "before_sha256": "97065ca02cf64444cdb5e265e48de4fd462e08c904a37b9fc8999f3f75aca534",
+    "after_sha256": "bf921c01802abcf36fb68f4991eae752246ea248ed3f2b18157e4bc12d0f69db",
+    "baseline_sha256": "aa9ed5dd9a991eedf2ffa1456e0e3caf5fed6f8caa9eafd037dacbfe34f38dc7",
+    "ledger_sha256": "981f821fcdab3d633e5006687b4b1fbe313dd02bc956e43d8a98318bea68f43e",
+    "verification_sha256": "ab0c474245cd317dab6a8873357aabf348f49d2c0fbb7537b8c492c82cbacf77",
+    "all_ward_geometry_sha256": "87bd448abc6aabd4c730b6856a5180b59dddfe37e60b5b3fe16cc5d5f65195c8",
+    "counts": {
+      "reviewed_cases": 40,
+      "lga_corrections": 3,
+      "retained_cases": 37,
+      "ward_geometries_changed": 0,
+      "dispositions": {
+        "correct_lga": 3,
+        "retain_boundary_generalisation": 20,
+        "retain_coastal_water": 14,
+        "retain_suspect_coordinate": 2,
+        "retain_delimitation_uncertainty": 1
+      }
+    },
+    "staged_verification": {
+      "feature_count": 8809,
+      "changed_features": 3,
+      "untargeted_features_verified": 8806,
+      "all_geometry_byte_identical": true,
+      "all_untargeted_attributes_verified": true,
+      "integrity_check": "ok",
+      "contents_metadata_unchanged": true
+    },
+    "post_correction": {
+      "corrected_wards": {
+        "4096": {
+          "feature_index": 4095,
+          "ward": "Kwarau",
+          "previous_lga": "Kaduna North",
+          "new_lga": "Igabi",
+          "dist_to_lga_centroid_km": 25.5,
+          "contained_by_corrected_local_lga": true
+        },
+        "4215": {
+          "feature_index": 4214,
+          "ward": "Gidan Waya",
+          "previous_lga": "Sanga",
+          "new_lga": "Jema'a",
+          "dist_to_lga_centroid_km": 23.4,
+          "contained_by_corrected_local_lga": true
+        },
+        "7295": {
+          "feature_index": 7294,
+          "ward": "Ward XI E9 I",
+          "previous_lga": "Ibadan South East",
+          "new_lga": "Ibadan North East",
+          "dist_to_lga_centroid_km": 0.9,
+          "contained_by_corrected_local_lga": true
+        }
+      },
+      "residual_exception_count": 37,
+      "residual_within_1km": 32,
+      "residual_over_10km": 0,
+      "residual_without_local_container": 15,
+      "residual_feature_indices": [
+        59,
+        472,
+        668,
+        1184,
+        1282,
+        1762,
+        2007,
+        2195,
+        2334,
+        2431,
+        2821,
+        3291,
+        4210,
+        4456,
+        4823,
+        5070,
+        5127,
+        6042,
+        6952,
+        6990,
+        6994,
+        7733,
+        7811,
+        7817,
+        7851,
+        7853,
+        7854,
+        7860,
+        7891,
+        7997,
+        8003,
+        8028,
+        8042,
+        8048,
+        8149,
+        8342,
+        8447
+      ],
+      "all_40_ledger_rows_rechecked": true,
+      "all_8809_geometry_blobs_unchanged": true
+    },
+    "checks": {
+      "source_hash_matches_staged_installation": true,
+      "ledger_and_verification_hashes_preserved": true,
+      "exactly_3_lga_corrections": true,
+      "all_corrected_points_contained": true,
+      "exactly_37_reviewed_residuals": true,
+      "zero_ward_geometries_changed": true,
+      "all_8809_rows_staged_and_verified": true,
+      "untargeted_attributes_unchanged": true,
+      "gpkg_contents_unchanged": true
+    }
+  },
+  "magnetic_coverage_reclassification": {
+    "status": "reclassified_and_verified",
+    "classification": "partial_coverage_no_interpolation",
+    "applied_at": "2026-11-08T12:31:45.151394+00:00",
+    "source_path": "data/Geology/geophysics_magnetic_emag2_rst.gpkg",
+    "before_sha256": "ed31c59b846696cf2ccbec6bdae7562b67584d579f5df6b0d3a1bc3df7c5de39",
+    "after_sha256": "9d1474b8c5b92195241bb3fedd5ae8917479c8834b8446c5205cab907a044baa",
+    "verification_sha256": "f30625d96896acf2a2d6cba986805d682d87c868b4eef4f5930e37ea27b6a1ad",
+    "visible_label": "Magnetic anomaly (EMAG2 v2, partial coverage)",
+    "before_description": "EMAG2 Earth Magnetic Anomaly Grid v2, 2 arc-minute global total-field anomaly in nT (NOAA/NCEI / CIRES, free). Averaged to 0.025 degree and masked to Nigeria. EPSG:4326.",
+    "after_description": "PARTIAL NIGERIA COVERAGE: 90.2% of sampled land cells are valid (Ekiti 0.0%, Osun 5.6%, Oyo 30.4%, Sokoto 40.2%). Missing areas remain NoData; no interpolation or magnetic infilling was applied. This is not continuous national coverage. EMAG2 Earth Magnetic Anomaly Grid v2, 2 arc-minute global total-field anomaly in nT (NOAA/NCEI / CIRES, free), averaged to 0.025 degree and masked to Nigeria. EPSG:4326.",
+    "coverage": {
+      "grid": {
+        "width": 500,
+        "height": 400,
+        "cells": 200000,
+        "valid_cells": 109484,
+        "nodata_cells": 90516,
+        "nodata_value": -9999.0
+      },
+      "full_cell_land": {
+        "cells": 119116,
+        "valid_cells": 107357,
+        "valid_fraction": 0.9012811041337856
+      },
+      "sampled_land": {
+        "stride_cells": 2,
+        "cells": 29789,
+        "valid_cells": 26871,
+        "valid_fraction": 0.9020443787975427
+      },
+      "states": [
+        {
+          "state": "Abia",
+          "cells": 613,
+          "valid_cells": 613,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Adamawa",
+          "cells": 4505,
+          "valid_cells": 4497,
+          "valid_fraction": 0.9982241953385128
+        },
+        {
+          "state": "Akwa Ibom",
+          "cells": 878,
+          "valid_cells": 878,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Anambra",
+          "cells": 597,
+          "valid_cells": 597,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Bauchi",
+          "cells": 6503,
+          "valid_cells": 6503,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Bayelsa",
+          "cells": 1282,
+          "valid_cells": 1282,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Benue",
+          "cells": 4100,
+          "valid_cells": 4100,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Borno",
+          "cells": 8795,
+          "valid_cells": 8795,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Cross River",
+          "cells": 2785,
+          "valid_cells": 2784,
+          "valid_fraction": 0.999640933572711
+        },
+        {
+          "state": "Delta",
+          "cells": 2167,
+          "valid_cells": 2167,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Ebonyi",
+          "cells": 812,
+          "valid_cells": 812,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Edo",
+          "cells": 2563,
+          "valid_cells": 2440,
+          "valid_fraction": 0.9520093640265314
+        },
+        {
+          "state": "Ekiti",
+          "cells": 697,
+          "valid_cells": 0,
+          "valid_fraction": 0.0
+        },
+        {
+          "state": "Enugu",
+          "cells": 1009,
+          "valid_cells": 1009,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Federal Capital Territory",
+          "cells": 968,
+          "valid_cells": 968,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Gombe",
+          "cells": 2410,
+          "valid_cells": 2410,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Imo",
+          "cells": 695,
+          "valid_cells": 695,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Jigawa",
+          "cells": 3188,
+          "valid_cells": 3188,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Kaduna",
+          "cells": 5853,
+          "valid_cells": 5853,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Kano",
+          "cells": 2663,
+          "valid_cells": 2663,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Katsina",
+          "cells": 3153,
+          "valid_cells": 3015,
+          "valid_fraction": 0.956232159847764
+        },
+        {
+          "state": "Kebbi",
+          "cells": 4774,
+          "valid_cells": 3677,
+          "valid_fraction": 0.7702136573104315
+        },
+        {
+          "state": "Kogi",
+          "cells": 3790,
+          "valid_cells": 3512,
+          "valid_fraction": 0.9266490765171504
+        },
+        {
+          "state": "Kwara",
+          "cells": 4676,
+          "valid_cells": 3103,
+          "valid_fraction": 0.663601368691189
+        },
+        {
+          "state": "Lagos",
+          "cells": 501,
+          "valid_cells": 458,
+          "valid_fraction": 0.9141716566866267
+        },
+        {
+          "state": "Nasarawa",
+          "cells": 3451,
+          "valid_cells": 3451,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Niger",
+          "cells": 9357,
+          "valid_cells": 9225,
+          "valid_fraction": 0.9858929143956396
+        },
+        {
+          "state": "Ogun",
+          "cells": 2098,
+          "valid_cells": 1256,
+          "valid_fraction": 0.5986653956148713
+        },
+        {
+          "state": "Ondo",
+          "cells": 1897,
+          "valid_cells": 1316,
+          "valid_fraction": 0.6937269372693727
+        },
+        {
+          "state": "Osun",
+          "cells": 1199,
+          "valid_cells": 67,
+          "valid_fraction": 0.05587989991659716
+        },
+        {
+          "state": "Oyo",
+          "cells": 3597,
+          "valid_cells": 1095,
+          "valid_fraction": 0.30442035029190995
+        },
+        {
+          "state": "Plateau",
+          "cells": 3637,
+          "valid_cells": 3637,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Rivers",
+          "cells": 1111,
+          "valid_cells": 1111,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Sokoto",
+          "cells": 4240,
+          "valid_cells": 1705,
+          "valid_fraction": 0.40212264150943394
+        },
+        {
+          "state": "Taraba",
+          "cells": 7911,
+          "valid_cells": 7861,
+          "valid_fraction": 0.993679686512451
+        },
+        {
+          "state": "Water body",
+          "cells": 690,
+          "valid_cells": 690,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Yobe",
+          "cells": 6053,
+          "valid_cells": 6053,
+          "valid_fraction": 1.0
+        },
+        {
+          "state": "Zamfara",
+          "cells": 4588,
+          "valid_cells": 4561,
+          "valid_fraction": 0.9941150828247602
+        }
+      ]
+    },
+    "tile_rows": 1,
+    "tile_sha256": "5869206b07b14c3f7bdfcacea193f71fbd242150efbe663453885d6688619af0",
+    "array_sha256": "c69542c525b08981ac9b3930944b710d97a7a46da92f608d211d78c5152498ce",
+    "non_contents_sha256": "734aed400455aa433b7876b4a18a49e318fc77f31298d1e56d5e8b371fdbf550",
+    "public_assets_before": {
+      "png_sha256": "921f9d478d84ec52b271deede8b386d22b5d71a21b9cfe3d06e3c6d84a0fd469",
+      "values_sha256": "9711702886e4c83eea7a6b2d9d10edc26832105d0f345627662e50b3db7c0c63"
+    },
+    "staged_verification": {
+      "changed_contents_fields": [
+        "description",
+        "last_change"
+      ],
+      "tile_bytes_unchanged": true,
+      "logical_array_unchanged": true,
+      "all_other_tables_unchanged": true,
+      "coverage_unchanged": true,
+      "integrity_check": "ok"
+    },
+    "checks": {
+      "source_hash_matches_staged_installation": true,
+      "description_is_explicit_partial_coverage": true,
+      "tile_bytes_unchanged": true,
+      "logical_array_unchanged": true,
+      "all_other_tables_unchanged": true,
+      "coverage_unchanged": true,
+      "integrity_check_ok": true,
+      "public_png_unchanged": true,
+      "public_values_unchanged": true
+    }
+  },
+  "hidden_source_artifact_resolution": {
+    "status": "resolved_and_verified",
+    "applied_at": "2026-11-08T13:08:49.919790+00:00",
+    "verification_sha256": "f0d085d3e4b80dcaed199f33436c3d040b05a2d1cbba3f2255767d1a480daeba",
+    "ledger_sha256": "607f82261a8f325529f38e5a1134b911921917b3416b6337d1f47200c1708052",
+    "sources": {
+      "towns": {
+        "path": "data/Settlements/hidden_settlements_towns_map2023_pt.gpkg",
+        "table": "settlements_towns_map2023_pt",
+        "sidecar_table": "settlements_towns_map2023_excluded_artifacts_tbl",
+        "before_sha256": "3fc93c87244347e290a1638119ef11c50548a2dc4d43a1ab46b7ac2c14b6bea0",
+        "before_feature_count": 479,
+        "before_feature_digest": "62f7ab8539f635d4997b2e067722501664db4967f63813f884c987902a5d1e51"
+      },
+      "population": {
+        "path": "data/Population/hidden_population_districts_picture_pg.gpkg",
+        "table": "population_districts_picture_pg",
+        "sidecar_table": "population_districts_picture_semantic_review_tbl",
+        "before_sha256": "5d2232b747553abb8d29ab82118d78527ae160e558da19a6a6cf5f565a6c34d2",
+        "before_feature_count": 504,
+        "before_feature_digest": "cb1240cd05c0bc9fa237e77e57b5772a15c3603e70c4247abea03293253d6a09"
+      }
+    },
+    "after_sha256": {
+      "towns": "83e15d562508a6558a8f1b81b037b27abc4b3e0e3725109cdd0d5497d77effe1",
+      "population": "5fd0ff322a9de0b386af41313000bbcf1c36ac1ba0a7da27782ae0794c26b17e"
+    },
+    "towns": {
+      "fid": 479,
+      "identifier": "Tow ns",
+      "before_attributes": {
+        "name": "Tow ns",
+        "label_dist_pt": 15.8,
+        "state": null,
+        "lga": null,
+        "name_qa": "spacing artefacts of the PDF text layer removed",
+        "previous_lga": null
+      },
+      "geometry_sha256": "8845d4f4f64c942d386bb3f5c9945433df37d75940bf210a2d3232f884b286ef",
+      "longitude": 12.434388988783967,
+      "latitude": 5.750014871603464,
+      "label_dist_pt": 15.8,
+      "nearest_settlements": {
+        "osm": {
+          "nearest_name": "Nver",
+          "distance_km": 133.82067748918462
+        },
+        "diva": {
+          "nearest_name": "Nver",
+          "distance_km": 133.8225722127829
+        }
+      },
+      "disposition": "quarantine_scanned_legend_text_not_a_settlement",
+      "reason": "Generic English plural label text with a 15.8 pt label offset, null state/LGA, and no OSM/DIVA settlement within 100 km; do not rename or move it as a town."
+    },
+    "population": {
+      "fid": 451,
+      "identifier": "D0451",
+      "before_attributes": {
+        "district_id": "D0451",
+        "class_name": "232,288 - 1,319,571",
+        "pop_min": 232288,
+        "pop_max": 1319571,
+        "area_km2": 121139.862,
+        "raster_value": 775929.5
+      },
+      "geometry_sha256": "1ca702321995663a344a8c30d2089d41ea8212fc149efdce804f4feafcf7efce",
+      "current_metric_area_km2": 121249.28013700336,
+      "geometry_type": "MultiPolygon",
+      "polygon_parts": 1,
+      "intersections": {
+        "states": [
+          {
+            "name": "Bauchi",
+            "intersection_km2": 37051.92133170876
+          },
+          {
+            "name": "Kaduna",
+            "intersection_km2": 35276.26035021725
+          },
+          {
+            "name": "Zamfara",
+            "intersection_km2": 17868.34836300768
+          },
+          {
+            "name": "Yobe",
+            "intersection_km2": 9086.366946664333
+          },
+          {
+            "name": "Niger",
+            "intersection_km2": 5359.6159837983505
+          },
+          {
+            "name": "Gombe",
+            "intersection_km2": 5144.706470743512
+          },
+          {
+            "name": "Jigawa",
+            "intersection_km2": 4462.318784534975
+          },
+          {
+            "name": "Kebbi",
+            "intersection_km2": 2865.0914642590333
+          },
+          {
+            "name": "Katsina",
+            "intersection_km2": 1697.7903975300344
+          },
+          {
+            "name": "Kano",
+            "intersection_km2": 1284.843915380476
+          },
+          {
+            "name": "Plateau",
+            "intersection_km2": 939.3815512128231
+          },
+          {
+            "name": "Borno",
+            "intersection_km2": 83.89896874949261
+          },
+          {
+            "name": "Taraba",
+            "intersection_km2": 41.749013339530045
+          },
+          {
+            "name": "Nasarawa",
+            "intersection_km2": 33.64258717210739
+          },
+          {
+            "name": "Federal Capital Territory",
+            "intersection_km2": 20.94067749581983
+          },
+          {
+            "name": "Sokoto",
+            "intersection_km2": 2.5954218575121546
+          }
+        ],
+        "lgas": [
+          {
+            "name": "Maru",
+            "intersection_km2": 7627.775202919674,
+            "state": "Zamfara"
+          },
+          {
+            "name": "Toro",
+            "intersection_km2": 6966.526035288639,
+            "state": "Bauchi"
+          },
+          {
+            "name": "Birnin Gwari",
+            "intersection_km2": 6208.315514668769,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Alkaleri",
+            "intersection_km2": 6037.502479321853,
+            "state": "Bauchi"
+          },
+          {
+            "name": "Ganjuwa",
+            "intersection_km2": 5264.257419042789,
+            "state": "Bauchi"
+          },
+          {
+            "name": "Ningi",
+            "intersection_km2": 5123.2822703663805,
+            "state": "Bauchi"
+          },
+          {
+            "name": "Shiroro",
+            "intersection_km2": 5100.287724869892,
+            "state": "Niger"
+          },
+          {
+            "name": "Fune",
+            "intersection_km2": 4902.445435543504,
+            "state": "Yobe"
+          },
+          {
+            "name": "Chikun",
+            "intersection_km2": 4855.05806117029,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Kachia",
+            "intersection_km2": 4500.35764492359,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Bauchi",
+            "intersection_km2": 3910.32845781881,
+            "state": "Bauchi"
+          },
+          {
+            "name": "Jakusko",
+            "intersection_km2": 3798.550892578385,
+            "state": "Yobe"
+          },
+          {
+            "name": "Igabi",
+            "intersection_km2": 3492.2351295566277,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Gusau",
+            "intersection_km2": 3033.524677975281,
+            "state": "Zamfara"
+          },
+          {
+            "name": "Gamawa",
+            "intersection_km2": 2896.9095072432524,
+            "state": "Bauchi"
+          },
+          {
+            "name": "Danko-Wasagu",
+            "intersection_km2": 2844.845435616476,
+            "state": "Kebbi"
+          },
+          {
+            "name": "Akko",
+            "intersection_km2": 2788.2276436498933,
+            "state": "Gombe"
+          },
+          {
+            "name": "Zurmi",
+            "intersection_km2": 2684.803344117049,
+            "state": "Zamfara"
+          },
+          {
+            "name": "Zangon Kataf",
+            "intersection_km2": 2592.2884914461492,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Darazo",
+            "intersection_km2": 2473.3064321734773,
+            "state": "Bauchi"
+          },
+          {
+            "name": "Kubau",
+            "intersection_km2": 2376.9422813718356,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Lere",
+            "intersection_km2": 2238.8048428147863,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Kagarko",
+            "intersection_km2": 2165.8446580901796,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Soba",
+            "intersection_km2": 2134.8896673514323,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Yamaltu/Deba",
+            "intersection_km2": 2130.5206705531587,
+            "state": "Gombe"
+          },
+          {
+            "name": "Tsafe",
+            "intersection_km2": 2049.5939351312,
+            "state": "Zamfara"
+          },
+          {
+            "name": "Gwaram",
+            "intersection_km2": 1969.5400900570519,
+            "state": "Jigawa"
+          },
+          {
+            "name": "Giwa",
+            "intersection_km2": 1911.6760827849848,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Katagum",
+            "intersection_km2": 1847.2172175486749,
+            "state": "Bauchi"
+          },
+          {
+            "name": "Bungudu",
+            "intersection_km2": 1715.044690314984,
+            "state": "Zamfara"
+          },
+          {
+            "name": "Jema'a",
+            "intersection_km2": 1618.8607224378968,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Kankara",
+            "intersection_km2": 1387.3967919605345,
+            "state": "Katsina"
+          },
+          {
+            "name": "Birnin Kudu",
+            "intersection_km2": 1383.6978265919117,
+            "state": "Jigawa"
+          },
+          {
+            "name": "Misau",
+            "intersection_km2": 1168.843795892364,
+            "state": "Bauchi"
+          },
+          {
+            "name": "Sumaila",
+            "intersection_km2": 1134.567384214357,
+            "state": "Kano"
+          },
+          {
+            "name": "Dutse",
+            "intersection_km2": 971.4997112560945,
+            "state": "Jigawa"
+          },
+          {
+            "name": "Shira",
+            "intersection_km2": 904.4153858508364,
+            "state": "Bauchi"
+          },
+          {
+            "name": "Kaura Namoda",
+            "intersection_km2": 648.7061619067877,
+            "state": "Zamfara"
+          },
+          {
+            "name": "Jos South",
+            "intersection_km2": 413.5927064696848,
+            "state": "Plateau"
+          },
+          {
+            "name": "Jos North",
+            "intersection_km2": 381.58718573298916,
+            "state": "Plateau"
+          },
+          {
+            "name": "Zaria",
+            "intersection_km2": 302.10251545939724,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Sabon Gari",
+            "intersection_km2": 242.17671059184647,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Kauru",
+            "intersection_km2": 127.33929764484648,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Munya",
+            "intersection_km2": 123.33336151284473,
+            "state": "Niger"
+          },
+          {
+            "name": "Kirfi",
+            "intersection_km2": 119.31914407348083,
+            "state": "Bauchi"
+          },
+          {
+            "name": "Kajuru",
+            "intersection_km2": 96.13190147528022,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Giade",
+            "intersection_km2": 91.94933337377685,
+            "state": "Bauchi"
+          },
+          {
+            "name": "Damaturu",
+            "intersection_km2": 91.13320091724152,
+            "state": "Yobe"
+          },
+          {
+            "name": "Kaduna North",
+            "intersection_km2": 87.43694513945402,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Sanga",
+            "intersection_km2": 84.64338867765063,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Faskari",
+            "intersection_km2": 82.00729223040993,
+            "state": "Katsina"
+          },
+          {
+            "name": "Doguwa",
+            "intersection_km2": 81.5487830065858,
+            "state": "Kano"
+          },
+          {
+            "name": "Tarmuwa",
+            "intersection_km2": 72.31532395635425,
+            "state": "Yobe"
+          },
+          {
+            "name": "Bayo",
+            "intersection_km2": 70.49156671031241,
+            "state": "Borno"
+          },
+          {
+            "name": "Dukku",
+            "intersection_km2": 70.34744570707068,
+            "state": "Gombe"
+          },
+          {
+            "name": "Buji",
+            "intersection_km2": 66.46705146370843,
+            "state": "Jigawa"
+          },
+          {
+            "name": "Damban",
+            "intersection_km2": 65.0481451252694,
+            "state": "Bauchi"
+          },
+          {
+            "name": "Kaura",
+            "intersection_km2": 61.19870950938489,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Kaduna South",
+            "intersection_km2": 59.86654053924249,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Bassa",
+            "intersection_km2": 56.690265631217315,
+            "state": "Plateau"
+          },
+          {
+            "name": "Nangere",
+            "intersection_km2": 53.236843975638024,
+            "state": "Yobe"
+          },
+          {
+            "name": "Kiyawa",
+            "intersection_km2": 52.125966939382806,
+            "state": "Jigawa"
+          },
+          {
+            "name": "Dass",
+            "intersection_km2": 51.003369148465474,
+            "state": "Bauchi"
+          },
+          {
+            "name": "Warji",
+            "intersection_km2": 49.80984160826039,
+            "state": "Bauchi"
+          },
+          {
+            "name": "Birnin Magaji/Kiyaw",
+            "intersection_km2": 49.311435206057084,
+            "state": "Zamfara"
+          },
+          {
+            "name": "Billiri",
+            "intersection_km2": 48.9173059896915,
+            "state": "Gombe"
+          },
+          {
+            "name": "Bade",
+            "intersection_km2": 48.58014937973736,
+            "state": "Yobe"
+          },
+          {
+            "name": "Rafi",
+            "intersection_km2": 47.89223293946591,
+            "state": "Niger"
+          },
+          {
+            "name": "Takai",
+            "intersection_km2": 44.50161126178552,
+            "state": "Kano"
+          },
+          {
+            "name": "Gujba",
+            "intersection_km2": 44.25213477984144,
+            "state": "Yobe"
+          },
+          {
+            "name": "Jos East",
+            "intersection_km2": 44.12155263879436,
+            "state": "Plateau"
+          },
+          {
+            "name": "Karim Lamido",
+            "intersection_km2": 41.749013339530045,
+            "state": "Taraba"
+          },
+          {
+            "name": "Jaba",
+            "intersection_km2": 41.739257286992995,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Sabuwa",
+            "intersection_km2": 40.851415852929485,
+            "state": "Katsina"
+          },
+          {
+            "name": "Bosso",
+            "intersection_km2": 39.9944820369805,
+            "state": "Niger"
+          },
+          {
+            "name": "Tafawa Balewa",
+            "intersection_km2": 38.86107075719512,
+            "state": "Bauchi"
+          },
+          {
+            "name": "Kudan",
+            "intersection_km2": 38.30099789866009,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Musawa",
+            "intersection_km2": 36.085137457746775,
+            "state": "Katsina"
+          },
+          {
+            "name": "Mariga",
+            "intersection_km2": 35.25385505373721,
+            "state": "Niger"
+          },
+          {
+            "name": "Fika",
+            "intersection_km2": 33.78625686837514,
+            "state": "Yobe"
+          },
+          {
+            "name": "Karu",
+            "intersection_km2": 32.20374118152567,
+            "state": "Nasarawa"
+          },
+          {
+            "name": "Ikara",
+            "intersection_km2": 31.838729697826984,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Dan Musa",
+            "intersection_km2": 30.045126590661177,
+            "state": "Katsina"
+          },
+          {
+            "name": "Jibia",
+            "intersection_km2": 29.82269369097383,
+            "state": "Katsina"
+          },
+          {
+            "name": "Kwami",
+            "intersection_km2": 29.622609068951604,
+            "state": "Gombe"
+          },
+          {
+            "name": "Malumfashi",
+            "intersection_km2": 28.880712810135797,
+            "state": "Katsina"
+          },
+          {
+            "name": "Shongom",
+            "intersection_km2": 26.909236019448077,
+            "state": "Gombe"
+          },
+          {
+            "name": "Batsari",
+            "intersection_km2": 24.953148922303598,
+            "state": "Katsina"
+          },
+          {
+            "name": "Bukkuyum",
+            "intersection_km2": 22.009432808741455,
+            "state": "Zamfara"
+          },
+          {
+            "name": "Potiskum",
+            "intersection_km2": 21.397877462145075,
+            "state": "Yobe"
+          },
+          {
+            "name": "Kaltungo",
+            "intersection_km2": 20.99118963808266,
+            "state": "Gombe"
+          },
+          {
+            "name": "Bwari",
+            "intersection_km2": 20.94067749581983,
+            "state": "Federal Capital Territory"
+          },
+          {
+            "name": "Sakaba",
+            "intersection_km2": 19.824335080645586,
+            "state": "Kebbi"
+          },
+          {
+            "name": "Zaki",
+            "intersection_km2": 19.295458800165818,
+            "state": "Bauchi"
+          },
+          {
+            "name": "Jahun",
+            "intersection_km2": 18.919711197239433,
+            "state": "Jigawa"
+          },
+          {
+            "name": "Itas/Gadau",
+            "intersection_km2": 18.879478557574167,
+            "state": "Bauchi"
+          },
+          {
+            "name": "Barkin Ladi",
+            "intersection_km2": 18.852626598951463,
+            "state": "Plateau"
+          },
+          {
+            "name": "Bursari",
+            "intersection_km2": 17.332727511536692,
+            "state": "Yobe"
+          },
+          {
+            "name": "Riyom",
+            "intersection_km2": 16.711348734673017,
+            "state": "Plateau"
+          },
+          {
+            "name": "Maradun",
+            "intersection_km2": 15.129294892036658,
+            "state": "Zamfara"
+          },
+          {
+            "name": "Garko",
+            "intersection_km2": 15.038154084713664,
+            "state": "Kano"
+          },
+          {
+            "name": "Balanga",
+            "intersection_km2": 14.31126553517558,
+            "state": "Gombe"
+          },
+          {
+            "name": "Shani",
+            "intersection_km2": 13.407313314619138,
+            "state": "Borno"
+          },
+          {
+            "name": "Gombe",
+            "intersection_km2": 12.299768080863831,
+            "state": "Gombe"
+          },
+          {
+            "name": "Safana",
+            "intersection_km2": 12.15896783317294,
+            "state": "Katsina"
+          },
+          {
+            "name": "Bakori",
+            "intersection_km2": 11.94144979820166,
+            "state": "Katsina"
+          },
+          {
+            "name": "Anka",
+            "intersection_km2": 10.558474737596553,
+            "state": "Zamfara"
+          },
+          {
+            "name": "Shinkafi",
+            "intersection_km2": 9.94737165527289,
+            "state": "Zamfara"
+          },
+          {
+            "name": "Danja",
+            "intersection_km2": 9.93275537442951,
+            "state": "Katsina"
+          },
+          {
+            "name": "Paikoro",
+            "intersection_km2": 9.698401135146385,
+            "state": "Niger"
+          },
+          {
+            "name": "Makarfi",
+            "intersection_km2": 8.174338618011001,
+            "state": "Kaduna"
+          },
+          {
+            "name": "Kanam",
+            "intersection_km2": 7.818062250723758,
+            "state": "Plateau"
+          },
+          {
+            "name": "Jama'are",
+            "intersection_km2": 5.101071462198971,
+            "state": "Bauchi"
+          },
+          {
+            "name": "Tudun Wada",
+            "intersection_km2": 4.757497255010782,
+            "state": "Kano"
+          },
+          {
+            "name": "Gulani",
+            "intersection_km2": 3.3235771509240943,
+            "state": "Yobe"
+          },
+          {
+            "name": "Tafa",
+            "intersection_km2": 3.161659321297726,
+            "state": "Niger"
+          },
+          {
+            "name": "Gaya",
+            "intersection_km2": 2.8348262799565553,
+            "state": "Kano"
+          },
+          {
+            "name": "Isa",
+            "intersection_km2": 2.5954218575047374,
+            "state": "Sokoto"
+          },
+          {
+            "name": "Nafada",
+            "intersection_km2": 2.546009474323457,
+            "state": "Gombe"
+          },
+          {
+            "name": "Funtua",
+            "intersection_km2": 2.442294215308601,
+            "state": "Katsina"
+          },
+          {
+            "name": "Talata Mafara",
+            "intersection_km2": 1.8730233664411304,
+            "state": "Zamfara"
+          },
+          {
+            "name": "Albasu",
+            "intersection_km2": 1.5885546826487174,
+            "state": "Kano"
+          },
+          {
+            "name": "Kokona",
+            "intersection_km2": 1.4389148698750713,
+            "state": "Nasarawa"
+          },
+          {
+            "name": "DanDume",
+            "intersection_km2": 1.2619213296413294,
+            "state": "Katsina"
+          }
+        ]
+      },
+      "state_intersection_count": 16,
+      "lga_intersection_count": 124,
+      "disposition": "retain_as_connected_population_class_region_exclude_from_district_analysis",
+      "reason": "One connected high-population-class picture region crosses 16 states and 124 LGAs. It is not an administrative district; retain its geometry/class as picture evidence rather than shifting, splitting or deleting it."
+    },
+    "descriptions_after": {
+      "towns": "Hidden reviewed 2023 sheet town-label cross-check points. FID 479 generic 'Tow ns' legend text was excluded from the active table on 2026-11-08; its complete original record and geometry are quarantined in settlements_towns_map2023_excluded_artifacts_tbl. Not a settlement reference or for publication.",
+      "population": "Hidden picture-derived population-class connected regions, not official administrative districts. D0451 (FID 451) has stated area 121,139.862 km2 and intersects 16 states and 124 LGAs; it is excluded from district-level analysis in population_districts_picture_semantic_review_tbl. Geometry and class attributes are unchanged."
+    },
+    "planned_counts": {
+      "towns": 478,
+      "population": 504
+    },
+    "staged_verification": {
+      "towns": {
+        "before_feature_digest": "62f7ab8539f635d4997b2e067722501664db4967f63813f884c987902a5d1e51",
+        "after_feature_digest": "84da70a52fddb73e77cbee03b2b061b9162749dc9c2808a1debada43b22fd786",
+        "active_feature_count": 478,
+        "integrity_check": "ok",
+        "sidecar_registered_as_attributes": true,
+        "all_untargeted_active_rows_byte_identical": true,
+        "target_absent_from_active_table": true
+      },
+      "population": {
+        "before_feature_digest": "cb1240cd05c0bc9fa237e77e57b5772a15c3603e70c4247abea03293253d6a09",
+        "after_feature_digest": "cb1240cd05c0bc9fa237e77e57b5772a15c3603e70c4247abea03293253d6a09",
+        "active_feature_count": 504,
+        "integrity_check": "ok",
+        "sidecar_registered_as_attributes": true,
+        "all_untargeted_active_rows_byte_identical": true,
+        "target_absent_from_active_table": null
+      }
+    },
+    "checks": {
+      "towns_source_hash": true,
+      "towns_feature_digest": true,
+      "towns_feature_count": true,
+      "towns_sidecar_count": true,
+      "towns_description": true,
+      "towns_integrity": true,
+      "population_source_hash": true,
+      "population_feature_digest": true,
+      "population_feature_count": true,
+      "population_sidecar_count": true,
+      "population_description": true,
+      "population_integrity": true,
+      "town_target_removed": true
+    }
+  },
+  "administrative_identifiers": {
+    "status": "installed_and_verified",
+    "scheme": "ngmap-admin-v1",
+    "applied_at": "2026-11-08T13:57:35.638009+00:00",
+    "registry": "docs/admin-identifiers/admin-identifier-registry.csv",
+    "registry_sha256": "92a31416ae8137483b1a262b30d3d8b432e6f02c266395aad318cf64285ccace",
+    "source_manifest": "docs/admin-identifiers/inec-source-manifest.json",
+    "source_manifest_sha256": "0fdff63b5d1183730e13e1f864f1553674fceea0bc1acd76aedb5530e68130b5",
+    "verification_sha256": "d25e8c48f4d9513117c881d88df1a8655da52623cb684f0e712b4e2ac8a6fa1a",
+    "before_sha256": {
+      "admin_states_gadm_pg": "cbae156fcbcb973d49ffbafc07ae0d14aaaf8b3356fb9620dcb4caf13bf2f688",
+      "admin_lgas_gadm_pg": "51dc9673f0c4f0a9c01b562a16e4225f26919691279437d44e6e61b25587c5a9",
+      "admin_lga_centroids_pt": "b1c9ee1dca49c993d1539c99a2d562cfbdaa1fcfb531eefbcc5e6a5ecdfa3f31",
+      "admin_wards_pt": "bf921c01802abcf36fb68f4991eae752246ea248ed3f2b18157e4bc12d0f69db",
+      "population_density2016_states_pg": "b3d3255fc0bcd2e67d23e25a3dcaabd7a917e090c6b66ad0d43c2b708ba74e6f",
+      "settlements_state_capitals_map2023_pt": "d4df1e292e6acf6c18681b7b2bd34f72d787894c7d6f71e568c421b96c890430"
+    },
+    "after_sha256": {
+      "admin_states_gadm_pg": "5d1ebed939c5a59cc35038670d5cdc623e8ce8fdab9440135a2a9fe40d236796",
+      "admin_lgas_gadm_pg": "7d66df28ef27a96e25aab18b09747e54a20b2ac34d7f1bd4a37795716ce1db3f",
+      "admin_lga_centroids_pt": "27ebd5a36b12ae8d42071e431ce53c5179f17e63540a72b45b7826a53fd0c261",
+      "admin_wards_pt": "cb031dffc11435eb268d1cd93bbc03ef2317b511399bf06dccc5cf7409c1d624",
+      "population_density2016_states_pg": "55d2cb9eed3238389d96f681bac5aadf315906c192eea0722e15cd55a40e5095",
+      "settlements_state_capitals_map2023_pt": "40563a00c6bbbbf9e2299832fbadaf1ae9cd8d08f443416c2ba40f179c46a31b"
+    },
+    "sources": {
+      "admin_states_gadm_pg": {
+        "path": "data/Administrative boundaries/admin_states_gadm_pg.gpkg",
+        "before_sha256": "cbae156fcbcb973d49ffbafc07ae0d14aaaf8b3356fb9620dcb4caf13bf2f688",
+        "feature_count": 38,
+        "original_columns": [
+          "fid",
+          "geom",
+          "state_id",
+          "state",
+          "type",
+          "state_code",
+          "area_km2"
+        ],
+        "added_columns": {
+          "admin_id": "TEXT",
+          "inec_state_id": "INTEGER"
+        },
+        "original_row_digest": "22a0037ac0b390bcd029e163165ab7b943d365a4c07da971354efe9f3b36d0de",
+        "geometry_digest": "e24400ab582a5bd67b7bfa46300dbf73b28bc8b51bfa055f7b4b6fd6ed278720",
+        "integrity_check": "ok"
+      },
+      "admin_lgas_gadm_pg": {
+        "path": "data/Administrative boundaries/admin_lgas_gadm_pg.gpkg",
+        "before_sha256": "51dc9673f0c4f0a9c01b562a16e4225f26919691279437d44e6e61b25587c5a9",
+        "feature_count": 775,
+        "original_columns": [
+          "fid",
+          "geom",
+          "state_id",
+          "state",
+          "lga_id",
+          "lga",
+          "lga_alt_name",
+          "area_km2"
+        ],
+        "added_columns": {
+          "admin_id": "TEXT",
+          "state_admin_id": "TEXT",
+          "inec_lga_id": "INTEGER",
+          "inec_lga_code": "TEXT"
+        },
+        "original_row_digest": "ef1cbc30fd7cfb020f44f4d588a368c3157ffa8f91c933813dc7aee9ace5dd35",
+        "geometry_digest": "9aef7b5ba277d791117433f343ffa12a705179351df6d3354f3f272cbb94acb5",
+        "integrity_check": "ok"
+      },
+      "admin_lga_centroids_pt": {
+        "path": "data/Administrative boundaries/admin_lga_centroids_pt.gpkg",
+        "before_sha256": "b1c9ee1dca49c993d1539c99a2d562cfbdaa1fcfb531eefbcc5e6a5ecdfa3f31",
+        "feature_count": 774,
+        "original_columns": [
+          "fid",
+          "geom",
+          "lga",
+          "state",
+          "state_code",
+          "wikidata_id",
+          "senatorial_district",
+          "representative_district",
+          "position_qa",
+          "district_state",
+          "district_n_lgas",
+          "district_lgas"
+        ],
+        "added_columns": {
+          "admin_id": "TEXT",
+          "state_admin_id": "TEXT",
+          "inec_lga_id": "INTEGER",
+          "inec_lga_code": "TEXT"
+        },
+        "original_row_digest": "c7881cb953a4094eaee27cdd06acdcb10c306f4269c05db8a9a75c9251d6f405",
+        "geometry_digest": "33e405fc17ac86178ffaee72eed243befe5337e358122b6f71653848fe18ef9a",
+        "integrity_check": "ok"
+      },
+      "admin_wards_pt": {
+        "path": "data/Administrative boundaries/admin_wards_pt.gpkg",
+        "before_sha256": "bf921c01802abcf36fb68f4991eae752246ea248ed3f2b18157e4bc12d0f69db",
+        "feature_count": 8809,
+        "original_columns": [
+          "fid",
+          "geom",
+          "ward",
+          "lga",
+          "state",
+          "dist_to_lga_centroid_km"
+        ],
+        "added_columns": {
+          "admin_id": "TEXT",
+          "state_admin_id": "TEXT",
+          "lga_admin_id": "TEXT",
+          "inec_ward_id": "INTEGER",
+          "inec_ward_code": "TEXT"
+        },
+        "original_row_digest": "190ee23c0b4ca8af9d7ee00f875102f0c72045f8f015804ae4163d34f0e97c3b",
+        "geometry_digest": "948e8d09a8612234a30c9f8e5b088b958a77aeffdcc072810c06d523de7e5440",
+        "integrity_check": "ok"
+      },
+      "population_density2016_states_pg": {
+        "path": "data/Population/population_density2016_states_pg.gpkg",
+        "before_sha256": "b3d3255fc0bcd2e67d23e25a3dcaabd7a917e090c6b66ad0d43c2b708ba74e6f",
+        "feature_count": 38,
+        "original_columns": [
+          "fid",
+          "geom",
+          "state_id",
+          "state",
+          "type",
+          "pop_2016",
+          "area_km2",
+          "pop_per_km2",
+          "state_code"
+        ],
+        "added_columns": {
+          "admin_id": "TEXT",
+          "inec_state_id": "INTEGER"
+        },
+        "original_row_digest": "960a274c7f2e3693bc63e406ad950ded2d036b2609eed46c6b81bbdbc2342d13",
+        "geometry_digest": "934683e684f2521a8921eb3a816763404c16d0d0e6b45372096fb6158f7a5787",
+        "integrity_check": "ok"
+      },
+      "settlements_state_capitals_map2023_pt": {
+        "path": "data/Settlements/settlements_state_capitals_map2023_pt.gpkg",
+        "before_sha256": "d4df1e292e6acf6c18681b7b2bd34f72d787894c7d6f71e568c421b96c890430",
+        "feature_count": 37,
+        "original_columns": [
+          "fid",
+          "geom",
+          "name",
+          "state",
+          "position_basis",
+          "coordinate_source",
+          "previous_longitude",
+          "previous_latitude",
+          "previous_position_basis",
+          "correction_distance_km",
+          "diva_crosscheck_km",
+          "qa_note"
+        ],
+        "added_columns": {
+          "state_admin_id": "TEXT"
+        },
+        "original_row_digest": "56da67cd004c0e44aa9a22a4a7aa92225276041856674f1c1bab818233735aee",
+        "geometry_digest": "85fd93d6b6bd1bf94a1069869eb339475fb06126d9c0fd0001dbe7c4f291d477",
+        "integrity_check": "ok"
+      }
+    },
+    "coverage": {
+      "states_with_admin_id": 37,
+      "lgas_with_admin_id": 774,
+      "wards_with_admin_id": 8809,
+      "non_admin_rows_without_admin_id": 2,
+      "states_with_inec_id": 37,
+      "lgas_with_inec_id": 774,
+      "wards_with_inec_id": 8589,
+      "wards_without_inec_id": 220,
+      "ward_inec_coverage_fraction": 0.9750255420592576,
+      "ward_unresolved_methods": {
+        "unmatched_name": 198,
+        "duplicate_local_label": 22
+      },
+      "ward_match_methods": {
+        "exact_name": 8189,
+        "unmatched_name": 198,
+        "normalized_numeral_name": 400,
+        "duplicate_local_label": 22
+      },
+      "duplicate_local_label_groups": 11
+    },
+    "staged_verification": {
+      "admin_states_gadm_pg": {
+        "feature_count": 38,
+        "original_row_digest": "22a0037ac0b390bcd029e163165ab7b943d365a4c07da971354efe9f3b36d0de",
+        "geometry_digest": "e24400ab582a5bd67b7bfa46300dbf73b28bc8b51bfa055f7b4b6fd6ed278720",
+        "integrity_check": "ok",
+        "all_original_values_and_geometry_byte_identical": true,
+        "all_installed_values_match_registry": true,
+        "identifier_indexes_verified": true
+      },
+      "admin_lgas_gadm_pg": {
+        "feature_count": 775,
+        "original_row_digest": "ef1cbc30fd7cfb020f44f4d588a368c3157ffa8f91c933813dc7aee9ace5dd35",
+        "geometry_digest": "9aef7b5ba277d791117433f343ffa12a705179351df6d3354f3f272cbb94acb5",
+        "integrity_check": "ok",
+        "all_original_values_and_geometry_byte_identical": true,
+        "all_installed_values_match_registry": true,
+        "identifier_indexes_verified": true
+      },
+      "admin_lga_centroids_pt": {
+        "feature_count": 774,
+        "original_row_digest": "c7881cb953a4094eaee27cdd06acdcb10c306f4269c05db8a9a75c9251d6f405",
+        "geometry_digest": "33e405fc17ac86178ffaee72eed243befe5337e358122b6f71653848fe18ef9a",
+        "integrity_check": "ok",
+        "all_original_values_and_geometry_byte_identical": true,
+        "all_installed_values_match_registry": true,
+        "identifier_indexes_verified": true
+      },
+      "admin_wards_pt": {
+        "feature_count": 8809,
+        "original_row_digest": "190ee23c0b4ca8af9d7ee00f875102f0c72045f8f015804ae4163d34f0e97c3b",
+        "geometry_digest": "948e8d09a8612234a30c9f8e5b088b958a77aeffdcc072810c06d523de7e5440",
+        "integrity_check": "ok",
+        "all_original_values_and_geometry_byte_identical": true,
+        "all_installed_values_match_registry": true,
+        "identifier_indexes_verified": true
+      },
+      "population_density2016_states_pg": {
+        "feature_count": 38,
+        "original_row_digest": "960a274c7f2e3693bc63e406ad950ded2d036b2609eed46c6b81bbdbc2342d13",
+        "geometry_digest": "934683e684f2521a8921eb3a816763404c16d0d0e6b45372096fb6158f7a5787",
+        "integrity_check": "ok",
+        "all_original_values_and_geometry_byte_identical": true,
+        "all_installed_values_match_registry": true,
+        "identifier_indexes_verified": true
+      },
+      "settlements_state_capitals_map2023_pt": {
+        "feature_count": 37,
+        "original_row_digest": "56da67cd004c0e44aa9a22a4a7aa92225276041856674f1c1bab818233735aee",
+        "geometry_digest": "85fd93d6b6bd1bf94a1069869eb339475fb06126d9c0fd0001dbe7c4f291d477",
+        "integrity_check": "ok",
+        "all_original_values_and_geometry_byte_identical": true,
+        "all_installed_values_match_registry": true,
+        "identifier_indexes_verified": true
+      }
+    },
+    "checks": {
+      "admin_states_gadm_pg_source_hash": true,
+      "admin_states_gadm_pg_original_row_digest": true,
+      "admin_states_gadm_pg_geometry_digest": true,
+      "admin_states_gadm_pg_feature_count": true,
+      "admin_states_gadm_pg_installed_values": true,
+      "admin_lgas_gadm_pg_source_hash": true,
+      "admin_lgas_gadm_pg_original_row_digest": true,
+      "admin_lgas_gadm_pg_geometry_digest": true,
+      "admin_lgas_gadm_pg_feature_count": true,
+      "admin_lgas_gadm_pg_installed_values": true,
+      "admin_lga_centroids_pt_source_hash": true,
+      "admin_lga_centroids_pt_original_row_digest": true,
+      "admin_lga_centroids_pt_geometry_digest": true,
+      "admin_lga_centroids_pt_feature_count": true,
+      "admin_lga_centroids_pt_installed_values": true,
+      "admin_wards_pt_source_hash": true,
+      "admin_wards_pt_original_row_digest": true,
+      "admin_wards_pt_geometry_digest": true,
+      "admin_wards_pt_feature_count": true,
+      "admin_wards_pt_installed_values": true,
+      "population_density2016_states_pg_source_hash": true,
+      "population_density2016_states_pg_original_row_digest": true,
+      "population_density2016_states_pg_geometry_digest": true,
+      "population_density2016_states_pg_feature_count": true,
+      "population_density2016_states_pg_installed_values": true,
+      "settlements_state_capitals_map2023_pt_source_hash": true,
+      "settlements_state_capitals_map2023_pt_original_row_digest": true,
+      "settlements_state_capitals_map2023_pt_geometry_digest": true,
+      "settlements_state_capitals_map2023_pt_feature_count": true,
+      "settlements_state_capitals_map2023_pt_installed_values": true
+    }
+  },
+  "cross_border_policy": {
+    "policy_id": "ngmap-cross-border-v1",
+    "schema_version": 1,
+    "policy_path": "config/cross-border-policy.json",
+    "policy_sha256": "dcb89229da1748568de0dad065eb63cc92374c9d3fb06df28f170a6ff7b0da0b",
+    "status": "defined_and_propagated",
+    "source_geometry_changes": 0,
+    "layer_count": 98,
+    "visible_layer_count": 59,
+    "hidden_layer_count": 39,
+    "provenance_layer_count": 19,
+    "class_counts": {
+      "map_sheet": 35,
+      "nigeria_focused": 16,
+      "nigeria_with_context": 13,
+      "raster_window": 11,
+      "regional_reference": 5,
+      "transboundary_system": 18
+    },
+    "visible_class_counts": {
+      "map_sheet": 10,
+      "nigeria_focused": 11,
+      "nigeria_with_context": 10,
+      "raster_window": 11,
+      "regional_reference": 4,
+      "transboundary_system": 13
+    },
+    "all_sources_preserved_unclipped": true
+  },
+  "layer_quality_register": {
+    "layer_count": 98,
+    "visible_layer_count": 59,
+    "hidden_layer_count": 39,
+    "published_layer_count": 59,
+    "hidden_provenance_count": 19,
+    "quality_use_class_counts": {
+      "current_structural_pass": 19,
+      "current_with_documented_limits": 39,
+      "hidden_historical_provenance": 19,
+      "hidden_source_restricted": 20,
+      "review_required": 1
+    },
+    "structural_status_counts": {
+      "historical_defects_retained": 16,
+      "structural_pass": 82
+    },
+    "metadata_status_counts": {
+      "documented": 12,
+      "minimal": 19,
+      "partial": 67
+    },
+    "source_description_status_counts": {
+      "not_recorded": 32,
+      "recorded": 66
+    },
+    "metadata_field_coverage": {
+      "publisher": 53,
+      "dataset": 98,
+      "url": 41,
+      "licence_or_terms": 23,
+      "temporal_coverage": 48,
+      "metadata_reference": 98
+    },
+    "layers_with_metadata_gaps": 86,
+    "layers_missing_licence_terms": [
+      "admin_country_esri_pg",
+      "admin_country_geoboundaries_pg",
+      "admin_international_boundary_map2023_ln",
+      "admin_lga_centroids_identity_original_pt",
+      "admin_lga_centroids_pt",
+      "admin_lgas_gadm_identity_original_pg",
+      "admin_lgas_gadm_pg",
+      "admin_states_gadm_pg",
+      "admin_wards_pt",
+      "climate_prec_annual_worldclim_rst",
+      "climate_srad_annual_worldclim_rst",
+      "climate_tavg_annual_worldclim_rst",
+      "climate_temperature_picture_pg",
+      "climate_temperature_picture_pg_topology_original",
+      "elevation_classes_picture_pg",
+      "elevation_classes_picture_pg_topology_original",
+      "elevation_srtm_terrarium_rst",
+      "ethnic_areas_anthromapper_pg",
+      "ethnic_areas_anthromapper_pg_topology_original",
+      "ethnic_groups_picture_pg",
+      "forest_reserves_water_picture_pg",
+      "forest_reserves_water_picture_pg_topology_original",
+      "geology_admin_boundaries_map2011_ln",
+      "geology_background_map2023_pg",
+      "geology_background_map2023_pg_topology_original",
+      "geology_faults_map2011_ln",
+      "geology_general_picture_code_rst",
+      "geology_general_picture_img",
+      "geology_general_picture_pg",
+      "geology_general_picture_pg_topology_original",
+      "geology_map2011_img",
+      "geology_ridges_map2011_ln",
+      "geology_surficial_usgs_code_rst",
+      "geology_surficial_usgs_pg",
+      "geology_surficial_usgs_pg_topology_original",
+      "geology_unit_boundaries_map2011_ln",
+      "geology_units_map2011_pg",
+      "geology_units_map2011_pg_topology_original",
+      "landcover_cgls2019_pg",
+      "landcover_cgls2019_pg_topology_original",
+      "landcover_picture_pg",
+      "landcover_picture_pg_topology_original",
+      "minerals_division_lines_map2023_ln",
+      "minerals_map2023_img",
+      "minerals_occurrences_map2023_pt",
+      "minerals_unresolved_symbols_map2023_pt",
+      "population_density2016_states_pg",
+      "population_districts_picture_pg",
+      "population_districts_picture_pg_topology_original",
+      "protected_areas_wdpa_pg",
+      "protected_areas_wdpa_pg_topology_original",
+      "reference_graticule_map2011_ln",
+      "reference_graticule_map2023_ln",
+      "settlements_gazetteer_diva_pt",
+      "settlements_state_capitals_map2023_original_pt",
+      "settlements_state_capitals_map2023_pt",
+      "settlements_towns_map2023_pt",
+      "soil_dominant_picture_pg",
+      "soil_dominant_picture_pg_topology_original",
+      "soil_ph_picture_pg",
+      "soil_ph_picture_pg_topology_original",
+      "soil_wrb2006_isric_pg",
+      "soil_wrb2006_isric_pg_topology_original",
+      "transport_railways_diva_ln",
+      "transport_railways_map2011_ln",
+      "transport_railways_map2023_ln",
+      "transport_roads_diva_ln",
+      "transport_roads_map2011_ln",
+      "transport_roads_map2023_ln",
+      "water_areas_diva_pg",
+      "water_areas_diva_pg_topology_original",
+      "water_lines_diva_ln",
+      "water_rivers_major_wfp_ln",
+      "water_rivers_map2011_ln",
+      "water_rivers_map2023_ln"
+    ],
+    "layers_requiring_review": [
+      "groundwater_boreholes_wpdx_pt"
+    ],
+    "structural_review_required": [],
+    "source_commit": "1f77ccc896f5fd38e8199ddf9a5aea4c9d727948",
+    "audit_generated_utc": "2026-11-08T15:57:37.225599+00:00",
+    "metadata_config_sha256": "9aa94c380c5ceb07765dde5471ca1514f0fee09a0a07a16403df70b8e4e344ee",
+    "cross_border_policy_sha256": "dcb89229da1748568de0dad065eb63cc92374c9d3fb06df28f170a6ff7b0da0b"
+  },
   "raster_registration": {
     "class_pairs": [
       {
@@ -1121,7 +2783,8 @@
       "positive_builtup_fraction_among_valid": 1.0,
       "median_builtup_m2_per_cell": 14423.1865234375
     },
-    "population_districts_over_50000km2": [
+    "population_districts_over_50000km2": [],
+    "population_connected_region_exclusions": [
       {
         "district_id": "D0451",
         "class_name": "232,288 - 1,319,571",
@@ -1131,7 +2794,13 @@
           9.001184463500977,
           11.849165916442871,
           13.17402458190918
-        ]
+        ],
+        "classification": "connected_population_class_region_not_administrative_district",
+        "analysis_use": "exclude_from_district_level_analysis_retain_as_picture_region",
+        "reason": "One connected high-population-class picture region crosses 16 states and 124 LGAs. It is not an administrative district; retain its geometry/class as picture evidence rather than shifting, splitting or deleting it.",
+        "state_intersection_count": 16,
+        "lga_intersection_count": 124,
+        "geometry_sha256": "1ca702321995663a344a8c30d2089d41ea8212fc149efdce804f4feafcf7efce"
       }
     ]
   },
@@ -1894,8 +3563,7 @@
     "expected neighbouring-country extraction context": 3104,
     "expected Lake Chad/coastal port context": 38,
     "expected marine/cross-border gazetteer context": 10,
-    "map content in neighbouring country; not a Nigerian coordinate shift": 6,
-    "probable scanned-map legend artefact; review": 1
+    "map content in neighbouring country; not a Nigerian coordinate shift": 6
   },
   "crs": {
     "declarations": [

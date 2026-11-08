@@ -1,0 +1,298 @@
+{
+  "policy_id": "ngmap-cross-border-v1",
+  "schema_version": 1,
+  "title": "Nigeria WebGIS cross-border geographic data policy",
+  "geographic_reference": {
+    "country": "Nigeria",
+    "iso3": "NGA",
+    "diagnostic_land_mask": "Dissolved admin_states_gadm_pg excluding the non-administrative Water body / Lake Chad row",
+    "diagnostic_country_context": "reference_africa_countries_pg (Natural Earth) for neighbouring-country and marine diagnostics",
+    "legal_status": "Diagnostic references only; none is a legal boundary, territorial-sea delineation or proof of sovereignty",
+    "lake_chad_rule": "Do not count Water body / Lake Chad as a Nigerian state or LGA or treat the whole lake as Nigerian land",
+    "marine_rule": "Outside the land mask may mean valid marine or coastal context; it does not by itself mean a coordinate error or an EEZ determination"
+  },
+  "national_aggregation_rules": {
+    "feature_counts": "Use an explicit, named Nigeria analysis mask. Separate wholly inside, intersecting/boundary, foreign-only and marine/unassigned counts; never equate an extraction bounding box with Nigeria.",
+    "point_measurements": "Classify by actual point geometry and report boundary, marine and foreign context separately. Do not assign a foreign point to the nearest Nigerian state or LGA.",
+    "area_and_length": "For a Nigeria-only measurement, intersect a copy with the named analysis mask and label the result as clipped. Preserve the source geometry and also disclose whole-feature totals where relevant.",
+    "transboundary_systems": "Report the whole-system total separately from the Nigeria-only clipped portion. Never add a whole transboundary area or length to a Nigeria total without labelling it.",
+    "rasters": "Use both the analysis mask and the source valid-data mask. NoData outside Nigeria or outside source coverage is not zero and must not be interpolated solely to complete a national total.",
+    "regional_reference": "Exclude regional/global reference and map-sheet furniture from Nigeria thematic totals unless a separate, explicitly clipped derivative is documented.",
+    "current_application": "Catalog metadata states the required interpretation; the generic Area summary is focus-area based and is not an automatic sovereignty or country filter."
+  },
+  "classes": {
+    "nigeria_focused": {
+      "description": "Nigeria is the intended thematic or administrative scope. Boundary/generalisation differences require review, while foreign-only features are not automatically accepted.",
+      "scope_note": "Nigeria-focused; cross-border exceptions require feature-level explanation",
+      "source_retention": "preserve_unclipped",
+      "national_statistics": "explicit_nigeria_filter_required",
+      "foreign_features": "review_before_retaining_as_context"
+    },
+    "nigeria_with_context": {
+      "description": "A Nigeria extraction intentionally includes neighbouring-country, coastal or marine context. Context remains visible and must not become a Nigerian administrative assignment or national total.",
+      "scope_note": "Nigeria extraction with declared neighbouring-country, coastal or marine context",
+      "source_retention": "preserve_unclipped",
+      "national_statistics": "explicit_nigeria_filter_required",
+      "foreign_features": "retain_as_declared_context"
+    },
+    "transboundary_system": {
+      "description": "A natural, cultural or network feature can continue across an international border. Preserve the whole feature and distinguish whole-system from Nigeria-only measurements.",
+      "scope_note": "Transboundary feature; preserve whole-system context and clip only derived Nigeria-only measurements",
+      "source_retention": "preserve_unclipped",
+      "national_statistics": "separate_whole_system_and_nigeria_portion",
+      "foreign_features": "retain_whole_feature"
+    },
+    "regional_reference": {
+      "description": "A regional, continental, global or boundary-reference layer is not a Nigeria-only thematic total.",
+      "scope_note": "Regional/global reference; Nigeria containment and national totals are not implied",
+      "source_retention": "preserve_unclipped",
+      "national_statistics": "not_a_nigeria_total",
+      "foreign_features": "expected_reference_content"
+    },
+    "map_sheet": {
+      "description": "A scanned-sheet derivative or map-sheet furnishing can include neighbouring countries, marginalia, graticules and boundary lines outside the land mask.",
+      "scope_note": "Map-sheet content can extend beyond Nigeria; preserve sheet context and exclude foreign content from Nigeria-only analysis",
+      "source_retention": "preserve_unclipped",
+      "national_statistics": "exclude_foreign_sheet_content_and_clip_measurements",
+      "foreign_features": "retain_sheet_context"
+    },
+    "raster_window": {
+      "description": "A numeric raster has a source grid/window and valid-data mask. Geographic window and NoData semantics take precedence over a rectangular Nigeria assumption.",
+      "scope_note": "Raster window; use the analysis AOI and source valid-data mask rather than treating all window cells as Nigerian observations",
+      "source_retention": "preserve_unclipped",
+      "national_statistics": "use_aoi_and_valid_data_mask",
+      "foreign_features": "respect_source_valid_data_mask"
+    }
+  },
+  "kind_defaults": {
+    "features": "nigeria_focused",
+    "2d-gridded-coverage": "raster_window",
+    "tiles": "map_sheet"
+  },
+  "layers": {
+    "reference_world_countries_pg": {
+      "scope_class": "regional_reference",
+      "scope_note": "global reference; Nigeria containment not applicable"
+    },
+    "reference_africa_countries_pg": {
+      "scope_class": "regional_reference",
+      "scope_note": "continental reference; Nigeria containment not applicable"
+    },
+    "reference_graticule_map2011_ln": {
+      "scope_class": "map_sheet",
+      "scope_note": "map-sheet graticule; extends beyond Nigeria"
+    },
+    "reference_graticule_map2023_ln": {
+      "scope_class": "map_sheet",
+      "scope_note": "map-sheet graticule; extends beyond Nigeria"
+    },
+    "minerals_division_lines_map2023_ln": {
+      "scope_class": "map_sheet",
+      "scope_note": "map-sheet/zone lines; extends beyond Nigeria"
+    },
+    "geology_units_map2011_pg": {
+      "scope_class": "transboundary_system",
+      "scope_note": "geology continues across international borders"
+    },
+    "geology_unit_boundaries_map2011_ln": {
+      "scope_class": "transboundary_system",
+      "scope_note": "geology continues across international borders"
+    },
+    "geology_faults_map2011_ln": {
+      "scope_class": "transboundary_system",
+      "scope_note": "geology continues across international borders"
+    },
+    "geology_ridges_map2011_ln": {
+      "scope_class": "transboundary_system",
+      "scope_note": "geological ridges can continue across international borders"
+    },
+    "geology_surficial_usgs_pg": {
+      "scope_class": "transboundary_system",
+      "scope_note": "surficial geological units can continue across international borders"
+    },
+    "geology_surficial_usgs_code_rst": {
+      "scope_class": "map_sheet",
+      "scope_note": "geological map grid includes the full sheet window; use a Nigeria mask for national class totals"
+    },
+    "geology_background_map2023_pg": {
+      "scope_class": "map_sheet",
+      "scope_note": "geological map-sheet background includes neighbouring countries"
+    },
+    "geology_general_picture_pg": {
+      "scope_class": "map_sheet",
+      "scope_note": "picture-derived geological map polygons can include sheet-edge and neighbouring-country context"
+    },
+    "geology_general_picture_code_rst": {
+      "scope_class": "map_sheet",
+      "scope_note": "geological picture grid includes the full sheet window; use a Nigeria mask for national class totals"
+    },
+    "geology_general_picture_img": {
+      "scope_class": "map_sheet",
+      "scope_note": "geological picture overlay includes the full map-sheet window"
+    },
+    "geology_map2011_img": {
+      "scope_class": "map_sheet",
+      "scope_note": "geological map overlay includes the full sheet and neighbouring-country context"
+    },
+    "minerals_map2023_img": {
+      "scope_class": "map_sheet",
+      "scope_note": "mineral map overlay includes the full sheet and neighbouring-country context"
+    },
+    "groundwater_units_ecowas2022_pg": {
+      "scope_class": "regional_reference",
+      "scope_note": "regional ECOWAS units may cross borders; they are not Nigeria-only polygons"
+    },
+    "groundwater_cover_ecowas2022_pg": {
+      "scope_class": "regional_reference",
+      "scope_note": "regional ECOWAS cover units may cross borders; they are not Nigeria-only polygons"
+    },
+    "groundwater_transboundary_igrac2025_pg": {
+      "scope_class": "transboundary_system",
+      "scope_note": "explicitly transboundary aquifers; report whole-system and Nigeria-only portions separately"
+    },
+    "groundwater_aquifers_bgs2019_pg": {
+      "scope_class": "transboundary_system",
+      "scope_note": "aquifer geometry can continue across international borders"
+    },
+    "water_basins_fao_pg": {
+      "scope_class": "transboundary_system",
+      "scope_note": "drainage basins may cross borders; whole-basin area is not a Nigeria-only area"
+    },
+    "water_lines_diva_ln": {
+      "scope_class": "transboundary_system",
+      "scope_note": "rivers may cross borders or occupy boundary channels"
+    },
+    "water_areas_diva_pg": {
+      "scope_class": "transboundary_system",
+      "scope_note": "boundary lakes and cross-border water bodies are expected; whole-feature area is not automatically Nigerian area"
+    },
+    "water_rivers_major_wfp_ln": {
+      "scope_class": "transboundary_system",
+      "scope_note": "major rivers can cross borders or occupy boundary channels"
+    },
+    "water_rivers_map2011_ln": {
+      "scope_class": "map_sheet",
+      "scope_note": "scanned-map rivers extend beyond the national boundary"
+    },
+    "water_rivers_map2023_ln": {
+      "scope_class": "map_sheet",
+      "scope_note": "scanned-map rivers extend beyond the national boundary"
+    },
+    "protected_areas_wdpa_pg": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "WDPA extraction includes transboundary complexes, neighbouring-country protected areas and coastal/marine areas; review feature scope before Nigerian totals"
+    },
+    "forest_osm_pg": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "OSM forest extraction envelope includes neighbouring-country and border-crossing polygons"
+    },
+    "infrastructure_airports_osm_pt": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "OSM extraction envelope can include neighbouring countries"
+    },
+    "infrastructure_pois_osm_pt": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "OSM extraction envelope can include neighbouring countries and marine/coastal features"
+    },
+    "infrastructure_seaports_osm_pt": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "coastal/offshore facilities and neighbouring-country ports are possible"
+    },
+    "settlements_places_osm_pt": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "OSM extraction envelope can include border settlements and neighbouring-country places"
+    },
+    "settlements_gazetteer_diva_pt": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "gazetteer extraction envelope can include border settlements and marine/cross-border features"
+    },
+    "settlements_extents_grid3_pg": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "settlement extraction can include border-crossing and neighbouring-country extents"
+    },
+    "geology_heatflow_ihfc2024_pt": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "offshore heat-flow measurements are valid marine context, not Nigerian land observations or an EEZ delineation"
+    },
+    "transport_roads_diva_ln": {
+      "scope_class": "transboundary_system",
+      "scope_note": "roads can continue across international borders; clip derived Nigeria-only lengths"
+    },
+    "transport_railways_diva_ln": {
+      "scope_class": "transboundary_system",
+      "scope_note": "railways can continue across international borders; clip derived Nigeria-only lengths"
+    },
+    "transport_roads_map2011_ln": {
+      "scope_class": "map_sheet",
+      "scope_note": "scanned-map roads can continue across international borders"
+    },
+    "transport_roads_map2023_ln": {
+      "scope_class": "map_sheet",
+      "scope_note": "scanned-map roads can continue across international borders"
+    },
+    "transport_railways_map2011_ln": {
+      "scope_class": "map_sheet",
+      "scope_note": "scanned-map railways can continue across international borders"
+    },
+    "transport_railways_map2023_ln": {
+      "scope_class": "map_sheet",
+      "scope_note": "scanned-map railways can continue across international borders"
+    },
+    "admin_international_boundary_map2023_ln": {
+      "scope_class": "regional_reference",
+      "scope_note": "international boundary lines lie on, not necessarily within, the reference polygon; this is not a legal boundary survey"
+    },
+    "geology_admin_boundaries_map2011_ln": {
+      "scope_class": "map_sheet",
+      "scope_note": "administrative boundary lines lie on, not necessarily within, the reference polygon"
+    },
+    "ethnic_areas_anthromapper_pg": {
+      "scope_class": "transboundary_system",
+      "scope_note": "cultural and ethnic areas can continue across international borders"
+    },
+    "hazards_landslide_classes_wb_pg": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "hazard extraction includes border/coastal and limited neighbouring-country context"
+    },
+    "soil_wrb2006_isric_pg": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "soil polygons can cross generalised borders and the extraction can include neighbouring-country context"
+    },
+    "climate_temperature_picture_pg": {
+      "scope_class": "map_sheet",
+      "scope_note": "picture-derived climate polygons retain map-sheet and border context"
+    },
+    "elevation_classes_picture_pg": {
+      "scope_class": "map_sheet",
+      "scope_note": "picture-derived elevation polygons retain map-sheet and border context"
+    },
+    "ethnic_groups_picture_pg": {
+      "scope_class": "map_sheet",
+      "scope_note": "picture-derived ethnic-group polygons retain map-sheet and border context"
+    },
+    "forest_reserves_water_picture_pg": {
+      "scope_class": "map_sheet",
+      "scope_note": "picture-derived forest/water polygons retain map-sheet, border and limited neighbouring-country context"
+    },
+    "landcover_picture_pg": {
+      "scope_class": "map_sheet",
+      "scope_note": "picture-derived land-cover polygons retain map-sheet and border context"
+    },
+    "population_districts_picture_pg": {
+      "scope_class": "map_sheet",
+      "scope_note": "picture-derived population-class regions retain sheet context and are not official administrative districts"
+    },
+    "soil_dominant_picture_pg": {
+      "scope_class": "map_sheet",
+      "scope_note": "picture-derived soil polygons retain map-sheet and border context"
+    },
+    "soil_ph_picture_pg": {
+      "scope_class": "map_sheet",
+      "scope_note": "picture-derived soil-pH polygons retain map-sheet and border context"
+    },
+    "settlements_towns_map2023_pt": {
+      "scope_class": "map_sheet",
+      "scope_note": "scanned-sheet town labels can include neighbouring-country map content; hidden artefacts remain excluded from active data"
+    }
+  }
+}

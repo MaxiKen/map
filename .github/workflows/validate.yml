@@ -1,0 +1,73 @@
+name: Validate geospatial data and site
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Compile, validate artifacts, and run regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install geospatial dependencies
+        run: python -m pip install --disable-pip-version-check -r scripts/requirements.txt
+
+      - name: Compile Python sources
+        run: python -m compileall -q scripts tests
+
+      - name: Validate GeoPackages and generated artifacts
+        run: python scripts/validate_artifacts.py
+
+      - name: Verify the public build is current and reproducible
+        run: python scripts/check_build.py
+
+      - name: Run full regression suite
+        run: python -m unittest discover -s tests -v
+
+      - name: Set up Node.js for real-browser tests
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22.22.3'
+          cache: npm
+
+      - name: Install pinned browser-test dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run Chromium, offline and visual-regression tests
+        run: npm run test:browser
+
+      - name: Upload browser failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-diagnostics
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7

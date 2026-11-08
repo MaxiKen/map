@@ -33,6 +33,9 @@ class TopologyCorrectionTests(unittest.TestCase):
         cls.ledger = rows('topology-correction-ledger.csv')
         cls.verification = json.loads((OUT / 'topology-correction-verification.json').read_text())
         cls.result = json.loads((OUT / 'topology-correction-result.json').read_text())
+        hidden_path = OUT / 'hidden-source-artifact-result.json'
+        cls.hidden_artifact_result = (json.loads(hidden_path.read_text(encoding='utf8'))
+                                      if hidden_path.exists() else None)
         cls.by_layer = {}
         for row in cls.ledger:
             cls.by_layer.setdefault(row['layer'], {})[int(row['fid'])] = row
@@ -73,7 +76,13 @@ class TopologyCorrectionTests(unittest.TestCase):
             saved = self.result['layers'][table]
             current_path = layer_index()[table]['path']
             original_path = ROOT / saved['provenance_path']
-            self.assertEqual(sha256(current_path), saved['after_sha256'])
+            if table == 'population_districts_picture_pg' and self.hidden_artifact_result:
+                self.assertEqual(self.hidden_artifact_result['sources']['population']['before_sha256'],
+                                 saved['after_sha256'])
+                self.assertEqual(sha256(current_path),
+                                 self.hidden_artifact_result['after_sha256']['population'])
+            else:
+                self.assertEqual(sha256(current_path), saved['after_sha256'])
             self.assertEqual(sha256(original_path), saved['provenance_sha256'])
             original_table = saved['provenance_table']
             with sqlite3.connect(f'file:{current_path}?mode=ro', uri=True) as current, \

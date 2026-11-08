@@ -1,4 +1,6 @@
-import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature } from './engine.js?v=0cacf19d76';
+import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature } from './engine.js?v=e65bacf01a';
+import { createLoadScheduler } from './loading.js?v=e65bacf01a';
+import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=e65bacf01a';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -14,6 +16,7 @@ const IC = {
   layers: '<path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 12.5 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
   legend: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>',
+  quality: '<path d="M12 3 4.5 6v5.2c0 4.7 3.2 8.3 7.5 9.8 4.3-1.5 7.5-5.1 7.5-9.8V6Z"/><path d="m8.3 12 2.3 2.3 5-5"/>',
   tools: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
   locate: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7.5"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/>',
@@ -58,6 +61,7 @@ const KIND_LABEL = { point: 'Points', line: 'Lines', polygon: 'Polygons', raster
 // ---------------------------------------------------------------- state
 const map = new GeoMap($('#map'));
 let catalog = null;
+let qualityLayerId = null;
 const L = new Map();          // id -> { meta, on, opacity, loading, obj, sym, labels, filter, reclass, stats }
 const stack = [];             // visible layer ids, bottom -> top (last switched on is on top)
 let baseOrder = [];           // every layer id in list order
@@ -97,14 +101,14 @@ async function start() {
   if (catalog.authorMode === true) AUTHOR = true;
   document.title = catalog.title; $('#title').textContent = catalog.title;
   catalog.layers.forEach((m, i) => L.set(m.id, {
-    meta: m, on: false, opacity: m.opacity ?? (m.kind === 'polygon' ? 0.85 : 1), loading: false, obj: null,
+    meta: m, on: false, opacity: m.opacity ?? (m.kind === 'polygon' ? 0.85 : 1), loading: false, loadPromise: null, obj: null,
     order: i, sym: null, labels: null, filter: null, reclass: null, stats: null,
   }));
   baseOrder = catalog.layers.map((m) => m.id);
   const saved = readProject();
   if (saved) restoreProject(saved);
 
-  buildBasemaps(); renderLayerTools(); buildTools(); buildAbout(); renderAnnotations();
+  buildBasemaps(); renderLayerTools(); buildTools(); buildAbout(); renderQuality(); renderAnnotations();
   $('#layerfilter').addEventListener('input', renderLayerLists);
 
   const h = parseHash();
@@ -158,10 +162,14 @@ async function start() {
 function setupServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   if (!(location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) return;
-  const hadController = !!navigator.serviceWorker.controller;   // false on the very first visit
+  let hadController = !!navigator.serviceWorker.controller;     // false on the very first visit
   let reloading = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!hadController || reloading) return;                    // a first install must not reload the page
+    if (reloading) return;
+    if (!hadController) {                                      // a first install must not reload the page
+      hadController = true;                                    // a later update in this same visit still must
+      return;
+    }
     reloading = true;
     saveProject();
     toast('New version — reloading…', 1600);
@@ -243,13 +251,6 @@ function syncBasemapUI() { for (const b of $$('#basemaps button')) b.classList.t
 function updateAttrib() { $('#attrib').textContent = BASEMAPS[map.basemap]?.attr || ''; }
 
 // ---------------------------------------------------------------- layer loading
-const palette = '#7a7a7a';
-function styleColor(style, props) {
-  if (!style) return palette;
-  if (style.mode === 'color-field') { const v = props[style.field]; return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : style.color; }
-  if (style.mode === 'category') return style.colors[props[style.field]] || '#9aa0a6';
-  return style.color || palette;
-}
 function defaultSym(m) {
   const s = m.style || {};
   return {
@@ -261,19 +262,79 @@ function defaultSym(m) {
 function defaultLabels(m) {
   return { field: (m.style && m.style.labelField) || m.labelField || null, size: 11, color: '', halo: true, bold: true, italic: false, minZoom: m.count > 3000 ? 10 : 8, on: true };
 }
+const scheduleLayerLoad = createLoadScheduler();
+
+function workerVectorFeatures(m) {
+  return new Promise((resolve, reject) => {
+    let worker;
+    try {
+      const url = new URL('./vector-worker.js', import.meta.url);
+      url.searchParams.set('v', BUILD);
+      worker = new Worker(url.href, { type: 'module' });
+    } catch (error) { reject(error); return; }
+    worker.onmessage = (event) => {
+      worker.terminate();
+      if (event.data.error) {
+        const error = new Error(event.data.error);
+        error.workerDataError = true;
+        reject(error);
+      } else resolve(event.data.features);
+    };
+    worker.onerror = () => {
+      worker.terminate();
+      reject(new Error('Vector worker unavailable'));
+    };
+    const compressed = m.loadEncoding === 'gzip' && m.loadFile && typeof DecompressionStream !== 'undefined';
+    // Worker fetches resolve against /js/vector-worker.js, not the document. Anchor catalog
+    // paths at the application root so /js is never incorrectly prefixed to /data.
+    const applicationRoot = new URL('../', import.meta.url);
+    const dataUrl = new URL(compressed ? m.loadFile : m.file, applicationRoot).href;
+    try {
+      worker.postMessage({
+        url: dataUrl,
+        encoding: compressed ? 'gzip' : null,
+        style: m.style,
+      });
+    } catch (error) { worker.terminate(); reject(error); }
+  });
+}
+
+async function mainVectorFeatures(m) {
+  const response = await fetch(m.file);
+  if (!response.ok) throw new Error(`Layer request failed (${response.status})`);
+  const geojson = await response.json();
+  const features = [];
+  let seen = 0;
+  for (const feature of geojson.features || []) {
+    const converted = prepareFeature(feature, m.style, features.length);
+    if (converted) features.push(converted);
+    if (++seen % 1000 === 0) await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  return features;
+}
+
+async function vectorFeatures(m) {
+  if (typeof Worker !== 'undefined') {
+    try { return await workerVectorFeatures(m); }
+    catch (error) { if (error.workerDataError) throw error; }
+  }
+  return mainVectorFeatures(m);
+}
+
 async function loadLayer(st) {
+  if (st.obj) return st.obj;
+  if (st.loadPromise) return st.loadPromise;
+  const pending = scheduleLayerLoad(() => loadLayerData(st));
+  st.loadPromise = pending;
+  try { return await pending; }
+  finally { if (st.loadPromise === pending) st.loadPromise = null; }
+}
+
+async function loadLayerData(st) {
   const m = st.meta;
   if (st.obj) return st.obj;
   if (m.kind === 'polygon' || m.kind === 'line' || m.kind === 'point') {
-    const gj = await (await fetch(m.file)).json();
-    const feats = [];
-    let i = 0;
-    for (const f of gj.features) {
-      const c = convertFeature(f); if (!c) continue;
-      const col = styleColor(m.style, c.props);
-      c.fill = col; c.stroke = col; c.fill0 = col; c.idx = i++;
-      feats.push(c);
-    }
+    const feats = await vectorFeatures(m);
     st.obj = { id: m.id, kind: m.kind, visible: false, opacity: st.opacity, order: st.order, features: feats, style: m.style, labelField: m.labelField, labels: null, sym: null };
   } else if (m.kind === 'raster' || m.kind === 'image') {
     const img = new Image(); img.decoding = 'async'; img.src = m.image;
@@ -409,9 +470,12 @@ function layerRow(id) {
   const st = L.get(id), m = st.meta, row = document.createElement('div');
   row.className = 'lrow'; row.dataset.id = id;
   if (expanded.has(id)) row.classList.add('open');
-  row.dataset.search = `${m.label} ${m.group} ${m.table} ${m.description || ''}`.toLowerCase();
+  const quality = m.quality ? qualityPresentation(m) : null;
+  const qualitySearch = quality ? `${quality.label} ${metadataGapLabels(m.sourceMetadata).join(' ')}` : '';
+  row.dataset.search = `${m.label} ${m.group} ${m.table} ${m.description || ''} ${m.sourceMetadata?.publisher || ''} ${m.sourceMetadata?.dataset || ''} ${qualitySearch}`.toLowerCase();
   const isTable = m.kind === 'table';
   const sub = [KIND_LABEL[m.kind], countText(m)].filter(Boolean).join(' · ');
+  const qualitySub = quality ? ` · <span class="quality-inline q-${quality.tone}" title="${esc(quality.label)}">${esc(quality.short)}</span>` : '';
   const flags = [
     st.filter ? `<span class="chip on">${icon('filter')}Filtered</span>` : '',
     st.reclass ? `<span class="chip on">${icon('sliders')}Classified</span>` : '',
@@ -420,7 +484,7 @@ function layerRow(id) {
   row.innerHTML = `<div class="lmain">
       <button class="grip" aria-label="Drag to reorder">${icon('grip')}</button>
       <span class="kind">${icon(m.kind)}</span>
-      <button class="lt"><b>${esc(m.label)}</b><small>${esc(sub)}</small></button>
+      <button class="lt"><b>${esc(m.label)}</b><small>${esc(sub)}${qualitySub}</small></button>
       ${isTable ? '<button class="chip" data-act="table">Open</button>' : `<button class="sw${st.on ? ' on' : ''}" role="switch" aria-checked="${st.on}" aria-label="Show layer"></button>`}
     </div>
     <div class="lopts">
@@ -431,6 +495,7 @@ function layerRow(id) {
       ${isTable ? '' : `<span class="chip" data-act="sym">${icon('palette')}Symbology</span>`}
       ${isTable ? '' : `<span class="chip" data-act="labels">${icon('tag')}Labels</span>`}
       <span class="chip" data-act="table">${icon('table')}Attributes</span>
+      ${quality ? `<button type="button" class="chip quality-link q-${quality.tone}" data-act="quality">${icon('quality')}Quality &amp; source</button>` : ''}
       ${m.file && m.kind !== 'table' ? `<a class="chip" href="${esc(m.file)}" download>${icon('down')}GeoJSON</a>` : ''}
       ${st.on ? `<span class="chip" data-act="off">${icon('eyeoff')}Hide</span>` : `<span class="chip" data-act="on">${icon('eye')}Show</span>`}
     </div>`;
@@ -446,6 +511,7 @@ function layerRow(id) {
     const act = a.dataset.act;
     if (act === 'zoom') zoomToLayer(m);
     else if (act === 'table') openTable(id);
+    else if (act === 'quality') openQuality(id);
     else if (act === 'sym') toolSymbology(id);
     else if (act === 'labels') toolLabels(id);
     else if (act === 'on') setLayer(id, true);
@@ -532,13 +598,13 @@ function colorOfEntry(st, c) {
   if (s.mode === 'category') return s.colors?.[c.label] || s.colors?.[c.key] || '#9aa0a6';
   if (s.mode === 'color-field') {
     const hit = (s.legend || []).find(([k]) => k === c.label || k === c.key);
-    return hit ? hit[1] : (s.color || palette);
+    return hit ? hit[1] : (s.color || DEFAULT_VECTOR_COLOR);
   }
   if (st.obj?.features) {
     const f = st.obj.features.find((ft) => (m.legendKey ? ft.props[m.legendKey] : ft.props[s.field]) === c.key);
     if (f) return f.fill0;
   }
-  return s.color || palette;
+  return s.color || DEFAULT_VECTOR_COLOR;
 }
 function legendRow(st, color, label, sub, data) {
   const attr = data ? `data-layer="${esc(st.meta.id)}" ${data}` : '';
@@ -583,7 +649,7 @@ async function refreshLegend() {
       } else if (s.mode === 'color-field') {
         const e = s.legend || [];
         rows = e.slice(0, 120).map(([k, c]) => legendRow(st, c, k, '', `data-kind="style" data-key="${esc(k)}" data-field="${esc(s.field)}"`)).join('');
-      } else rows = legendRow(st, s.color || palette, m.label, '');
+      } else rows = legendRow(st, s.color || DEFAULT_VECTOR_COLOR, m.label, '');
     }
     const n = st.filter ? `<span class="n">${st.filterCount}/${m.count} shown</span>` : '';
     out.push(`<div class="lg" data-layer="${m.id}"><button class="lghead">${icon('chev')}<span>${esc(m.label)}</span>${n}</button><div class="lgb">${rows}</div></div>`);
@@ -774,10 +840,11 @@ async function showResults(res, lonlat) {
         <div class="rastv">${esc(label)} <span class="muted">(code ${esc(r.value)}${m.uom ? ' ' + esc(m.uom) : ''})</span></div>
         ${attrRows.length ? `<div class="kv">${attrRows.map(([k, v]) => `<div>${esc(k.replace(/_/g, ' '))}</div><div>${esc(typeof v === 'number' ? fmtNum(v) : v)}</div>`).join('')}</div>` : ''}
         <div class="actions"><button class="btn" data-x="rast-table" data-id="${esc(m.id)}">${icon('table')}Class table</button>
+        <button class="btn" data-x="layer-quality" data-id="${esc(m.id)}">${icon('quality')}Quality</button>
         ${AUTHOR ? `<button class="btn" data-x="rast-label" data-id="${esc(m.id)}" data-text="${esc(label)}">${icon('tag')}Add label</button>` : ''}</div></div>`);
       continue;
     }
-    if (!r.feature) { parts.push(`<div class="card"><header>${icon(m.kind)}${esc(m.label)}<small>picture</small></header><div class="rastv muted">Scanned map picture</div></div>`); continue; }
+    if (!r.feature) { parts.push(`<div class="card"><header>${icon(m.kind)}${esc(m.label)}<small>picture</small></header><div class="rastv muted">Scanned map picture</div><div class="actions"><button class="btn" data-x="layer-quality" data-id="${esc(m.id)}">${icon('quality')}Quality &amp; source</button></div></div>`); continue; }
     const f = r.feature;
     parts.push(`<div class="card" data-id="${esc(m.id)}" data-idx="${f.idx}">
       <header>${icon(m.kind)}${esc(titleOf(st.obj, f))}<small>${esc(KIND_LABEL[m.kind])}</small></header>
@@ -785,6 +852,7 @@ async function showResults(res, lonlat) {
       ${factsHtml(st, f)}
       <div class="actions">
         <button class="btn" data-x="zoom">${icon('zoom')}Zoom</button>
+        <button class="btn" data-x="layer-quality" data-id="${esc(m.id)}">${icon('quality')}Quality</button>
         ${AUTHOR ? `<button class="btn" data-x="label">${icon('tag')}Label</button>` : ''}
         <button class="btn" data-x="copy">${icon('copy')}Copy</button>
         <button class="btn" data-x="json">${icon('down')}JSON</button>
@@ -795,6 +863,7 @@ async function showResults(res, lonlat) {
     b.onclick = () => {
       const x = b.dataset.x;
       const id = b.dataset.id;
+      if (x === 'layer-quality') return openQuality(id);
       if (x === 'rast-table') return openTable(id);
       if (x === 'rast-label') { openLabelEditor(addAnnotation({ text: b.dataset.text, lon: spot[0], lat: spot[1], size: 15 })); return; }
       const card = b.closest('.card'), st = L.get(card.dataset.id), f = st.obj.features[+card.dataset.idx];
@@ -943,9 +1012,37 @@ function renderAnnotations() {
   box.querySelectorAll('[data-del]').forEach((b) => b.onclick = () => { annotations = annotations.filter((x) => x.id !== b.dataset.del); renderAnnotations(); map.render(); saveProject(); });
 }
 
+// ---------------------------------------------------------------- quality / source transparency
+function renderQuality() {
+  const box = $('#quality');
+  if (!box || !catalog) return;
+  box.innerHTML = qualityPanelHTML(catalog, qualityLayerId);
+  const picker = box.querySelector('#quality-layer');
+  if (picker) picker.onchange = () => { qualityLayerId = picker.value || null; renderQuality(); };
+  box.querySelectorAll('[data-quality-layer]').forEach((button) => {
+    button.onclick = () => { qualityLayerId = button.dataset.qualityLayer; renderQuality(); };
+  });
+  box.querySelectorAll('[data-quality-clear]').forEach((button) => {
+    button.onclick = () => { qualityLayerId = null; renderQuality(); };
+  });
+  box.querySelectorAll('[data-quality-copy]').forEach((button) => {
+    button.onclick = async () => {
+      try {
+        if (!navigator.clipboard) throw new Error('Clipboard unavailable');
+        await navigator.clipboard.writeText(button.dataset.qualityCopy);
+        toast('Source SHA-256 copied');
+      } catch { toast('Copy unavailable — select the hash shown above', 4000); }
+    };
+  });
+}
+function openQuality(id = null) {
+  if (id && L.has(id)) qualityLayerId = id;
+  openSheet('quality', true);
+}
+
 // ---------------------------------------------------------------- bottom sheet
 const sheet = $('#sheet'), mobileQ = matchMedia('(max-width:899px)');
-const TITLES = { layers: 'Layers', legend: 'Legend', info: 'Info', tools: 'Tools' };
+const TITLES = { layers: 'Layers', legend: 'Legend', info: 'Info', quality: 'Quality & source', tools: 'Tools' };
 function openSheet(tab, keep) {
   if (tab === activeTab && !sheet.classList.contains('closed') && !keep && !mobileQ.matches) { closeSheet(); return; }
   activeTab = tab;
@@ -956,6 +1053,7 @@ function openSheet(tab, keep) {
   document.body.classList.add('side-open');
   if (tab === 'legend') refreshLegend();
   if (tab === 'layers') renderLayerLists();
+  if (tab === 'quality') renderQuality();
   if (tab === 'tools') renderAnnotations();
 }
 function closeSheet() { sheet.classList.add('closed'); document.body.classList.remove('side-open'); for (const b of $$('.tab')) b.classList.remove('active'); }
@@ -1430,7 +1528,12 @@ document.addEventListener('click', (e) => {
 $('#lyrtools').addEventListener('click', (e) => {
   const b = e.target.closest('[data-x]'); if (!b) return;
   const x = b.dataset.x;
-  if (x === 'showall') { for (const id of baseOrder) if (!isOn(id) && L.get(id).meta.kind !== 'table') setLayer(id, true); }
+  if (x === 'showall') {
+    const ids = baseOrder.filter((id) => !isOn(id) && L.get(id).meta.kind !== 'table');
+    Promise.all(ids.map((id) => setLayer(id, true, { quiet: true }))).then(() => {
+      renderLayerLists(); refreshLegend(); pushHash(); saveProject();
+    });
+  }
   else if (x === 'hideall') { for (const id of [...stack]) setLayer(id, false); }
   else if (x === 'fitall') fitVisible();
   else if (x === 'focus') toolClip();
@@ -2226,8 +2329,10 @@ $('#btn-locate').onclick = () => {
 function buildAbout() {
   $('#about').innerHTML = `<p>${catalog.layers.length} layers in ${catalog.groups.length} groups.<br>Built from the GeoPackages on ${esc(catalog.built)} · build <code>${esc(BUILD)}</code>.</p>
     <p>Every legend now lives inside the attribute table of its own layer, so class names, colours and extra columns show up when you tap a feature. Basemaps need no API key.</p>
+    <p><button class="btn" id="about-quality">${icon('quality')}Quality &amp; source</button> Inspect measured checks, limitations, licences, temporal coverage and metadata gaps without reducing them to a score.</p>
     <p>Readers get the viewing and analysis tools; the owner's content tools appear with <code>?author=1</code>. <b>Clip to an area</b> fades everything outside a box, a polygon or a borrowed boundary, and the analysis tools then count only what is inside it.</p>
     <p>Deploys arrive by themselves: the page checks for a new build when it loads, when you come back to the tab, and every 15 minutes, then reloads once the new version is ready.</p>`;
+  $('#about-quality').onclick = () => openQuality();
   console.info(`${catalog.title} · build ${BUILD}`);
 }
 window.addEventListener('unhandledrejection', (e) => {
@@ -2242,7 +2347,7 @@ window.addEventListener('keydown', (e) => {
 // handy when something needs a closer look from the browser console
 window.__nwg = {
   map, L, build: BUILD, get stack() { return stack; }, get annotations() { return annotations; },
-  rasterClassAnchor, layerRank, showResults,
+  rasterClassAnchor, layerRank, showResults, openQuality,
   // focus / analysis surface (also handy for scripting the map from the console)
   get clip() { return clip; }, get draw() { return draw; }, get author() { return AUTHOR; },
   setFocus, stopFocus, focusFromLonLat, focusFromRect, focusFromFeature, focusAreaKm2, focusPerimeterKm,

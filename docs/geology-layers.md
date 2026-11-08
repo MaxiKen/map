@@ -5,6 +5,12 @@
 > added afterwards because this batch was groundwater-heavy. See
 > **`docs/final-layers.md`**. The catalog is now 59 layers in 18 groups
 > (build `3add8addcb`).
+>
+> **Coverage follow-up 2026-11-08:** the committed EMAG2 derivative has only
+> 90.2% sampled land coverage (90.1% using every cell). It is now explicitly
+> labeled **“Magnetic anomaly (EMAG2 v2, partial coverage)”** in the source
+> metadata and public catalog. Missing cells remain NoData; no interpolation was
+> applied. See `geospatial-audit/magnetic-coverage-reclassification.md`.
 
 Added 2026-11-07. This is the **third** fetch batch. The survey that led to it is
 `docs/geology-associated-layers.md`; the earlier batches are `docs/raster-sources.md`
@@ -78,7 +84,12 @@ sandbox cannot reach these hosts directly (`.github/workflows/fetch-geology-laye
 * **Magnetic anomaly** — a `/vsicurl/` window of the 233 MB global GeoTIFF
   (300 × 375 cells at 2 arc-minutes) is written locally and averaged to 500 × 400
   with `src_nodata=-99999`; fallback is a full download. Values are nanoTesla and
-  may be negative, so no `positive_only` filter is applied.
+  may be negative, so no `positive_only` filter is applied. A later audit found
+  large NoData gaps in the committed derivative. Future fetches must now reach at
+  least 98% valid coverage in the generated Nigeria land mask or the script stops
+  before writing the layer; silent publication as an implicitly complete national
+  raster is no longer permitted. The current partial artifact is disclosed rather
+  than interpolated.
 * **Raster GeoPackages** use `scripts/make_raster_gpkg.write_raster`, producing
   spec-clean `2d-gridded-coverage` tables with nodata `-9999`, EPSG:4326 and
   bbox `2.5, 4.0, 15.0, 14.0`.
@@ -94,6 +105,12 @@ sandbox cannot reach these hosts directly (`.github/workflows/fetch-geology-laye
 | `groundwater_transboundary_igrac2025_pg` | 6 polygons | 0.13 MB | AF052 Lake Chad, AF056 Iullemmeden, AF051 Benue, AF042 Rio del Rey, AF048 Keta, AF054 Volta |
 | `groundwater_water_table_fan2017_rst` | 1000 × 800 float32 | 3.29 MB | 0–380.51 m, mean 19.65 m, median 16.23 m, 60.4% of grid valid (Nigeria outline) |
 | `geophysics_magnetic_emag2_rst` | 500 × 400 float32 | 0.89 MB | −128.67 to +104.05 nT, mean −7.06 nT, 54.7% of grid valid |
+
+The 54.7% whole-grid figure includes the expected area outside the Nigeria mask;
+it is not a land-completeness measure. The subsequent land audit measured 90.2%
+valid sampled cells and 90.1% valid full cells. The current layer is therefore
+classified as partial coverage. Its tile bytes, logical array and public raster
+assets remain hash-identical to the values summarized above.
 
 Published outputs for the site: 2 new `.png` / `.vals.gz` raster pairs and 5 new
 vector `.geojson` files under `public/data/` (9 files). The WPDx GeoJSON is 26.9 MB; that
@@ -116,7 +133,7 @@ These were all probed from CI on 2026-11-07. Sizes are the publisher's
 | GLiM global lithology | `https://doi.org/10.1594/PANGAEA.788537` | Duplicates `geology_units_map2011_pg` + USGS surficial geology. |
 | Geomorpho90m slope / TWI | `https://doi.org/10.1038/s41597-020-0479-6` | Derivable locally from the existing `elevation_srtm_terrarium_rst` — no new source needed. |
 | BGS 2012 quantitative Africa maps (xyz) | `https://earthwise.bgs.ac.uk/index.php/Continental_hydrogeological_maps_of_Africa` | Legacy download endpoints now 404/redirect; the 1 km Fan WTD NetCDF covers depth-to-water at much higher resolution. |
-| NGSA Nigeria airborne magnetics | `https://ngsa.gov.ng/airborne-magnetic-data/` | Only three free 1:50,000 sample sheets; the rest of the national survey is paid. EMAG2 gives free national coverage. |
+| NGSA Nigeria airborne magnetics | `https://ngsa.gov.ng/airborne-magnetic-data/` | Only three free 1:50,000 sample sheets; the rest of the national survey is paid. The EMAG2 source is global and free, but the committed Nigeria derivative remains explicitly partial until a verified complete rebuild. |
 | IGRAC WFS Nigeria hydrogeology layer | `BGS_groundwater:bgs_hydrogeol_nigeria` on `https://ggis.un-igrac.org/geoserver/ows` | WFS query returned HTTP 400 (layer retired); the BGS country ZIP is the authoritative source anyway. |
 
 **Unreachable / verified-dead during the probe:** `https://thredds-gfnl.usc.es/...`
@@ -131,6 +148,7 @@ datasets — the WPDx link must be used directly.
 ```
 gh workflow run fetch-geology-layers.yml      # on the default branch, or
 git push <branch> with a change to scripts/fetch_geology_layers.py
+python scripts/reclassify_magnetic_coverage.py  # verify current metadata-only result
 python scripts/build_site.py                  # data/<group name>/**/*.gpkg -> public/
 ```
 

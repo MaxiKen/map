@@ -52,7 +52,13 @@ class CapitalCorrectionTests(unittest.TestCase):
             rows = list(csv.DictReader(handle))
         result = json.loads(RESULT.read_text(encoding='utf8'))
         digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
-        self.assertEqual(digest(VISIBLE), result['visible_sha256'])
+        admin_path = ROOT / 'docs/geospatial-audit/admin-identifier-result.json'
+        if admin_path.exists():
+            admin = json.loads(admin_path.read_text(encoding='utf8'))
+            self.assertEqual(admin['before_sha256'][TABLE], result['visible_sha256'])
+            self.assertEqual(digest(VISIBLE), admin['after_sha256'][TABLE])
+        else:
+            self.assertEqual(digest(VISIBLE), result['visible_sha256'])
         self.assertEqual(digest(HIDDEN), result['hidden_sha256'])
         index = layer_index()
         self.assertTrue(index[TABLE]['visible'])

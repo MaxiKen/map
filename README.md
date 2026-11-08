@@ -7,9 +7,11 @@ A mobile-friendly, installable map app. No backend, no API keys. Everything is s
   name is shown verbatim in the app. No files belong directly in `data/`. Attribute tables live inside their owning
   GeoPackage, not in standalone `*_tbl.gpkg` files.
 - `scripts/build_site.py` reads every visible `.gpkg` in those group folders and writes the website into `public/`
-  (GeoJSON, images, value grids, `catalog.json`). A filename starting with `hidden_` is skipped. Layer names, fields,
+  (GeoJSON and gzip transport sidecars, images, value grids, `catalog.json`). A filename starting with `hidden_`
+  is skipped. Layer names, fields,
   colours and legends are detected automatically; group membership and group names come only from the folders.
-- A GitHub Action runs the build whenever you push changes to `data/`, `app/`, `scripts/` or `config/`, and commits `public/`.
+- A GitHub Action builds and runs every validation gate whenever you push changes to `data/`, `app/`, `scripts/`
+  or `config/`, and commits `public/` only if the verified output changed.
 - Netlify serves `public/` (no build command needed).
 
 ## Legends live inside their layer
@@ -99,6 +101,15 @@ For scripting and support the console exposes `window.__nwg` (`map`, `L`, `stack
 `setFocus`, `focusFromLonLat`, `stopFocus`, `focusAreaKm2`, `toolAoi`, `runQuery`, `rasterClassAnchor`,
 `layerRank`).
 
+## Loading performance
+
+Vector layers retain their original GeoJSON downloads and also publish deterministic `.geojson.gz` transport
+sidecars. A module worker handles fetching, decompression, JSON parsing and typed-geometry conversion off the UI
+thread; compatible browsers without those APIs use a yielding fallback. A shared scheduler limits all layer loads
+to two at once and deduplicates repeated requests. The current 43 vector sidecars are **83.9% smaller** than their
+original representations. See [map loading performance](docs/map-loading-performance.md) for measurements,
+fallback behavior and the exact round-trip validation gates.
+
 ## Setup
 1. Create a GitHub repo and upload everything in this folder (keep the `.github` folder).
 2. Netlify: Add new site -> Import from GitHub -> pick the repo. Publish directory `public` (already set in `netlify.toml`).
@@ -106,7 +117,9 @@ For scripting and support the console exposes `window.__nwg` (`map`, `L`, `stack
 
 ## Updating
 Create or choose a top-level group folder, then add, replace or edit a `.gpkg` inside it and push. The Action
-rebuilds and Netlify redeploys. For example:
+rebuilds, runs all artifact/Python/Chromium/offline/visual gates, commits a changed `public/`, and Netlify redeploys.
+Before committing, run the same combined gate described in [maintenance and releases](docs/maintenance-and-releases.md).
+For example:
 
 ```text
 data/
@@ -134,6 +147,8 @@ data/
 - Names and columns are not fixed. Optional layer labels, layer order, default-visible layers, label fields and colours
   go in `config/layers.config.json`. Its `groups` section controls **group order only** and is keyed by the exact folder
   name; per-layer `group` overrides are not used.
+- Declare the new layer's geographic scope in `config/cross-border-policy.json` when the safe default is not
+  sufficient. Regenerate the policy register and catalog, and do not silently remove foreign or transboundary features.
 - GitHub rejects files over 100 MB; keep each gpkg below that.
 
 ### Import master layers without publishing them
@@ -163,11 +178,63 @@ Geometry, primary keys and configured legend join keys are preserved, and stale 
 from the layer config. It also uses smaller lossless DEFLATE TIFF tiles when an exact dtype, shape and cell-value
 read-back check passes. Vector geometries and picture overlays are never simplified or recompressed.
 
+### Administrative identifiers
+
+States, LGAs and wards have persistent `ngmap-admin-v1` identifiers that do not depend on display names or
+GeoPackage export FIDs. Use `admin_id` for the entity itself, `state_admin_id` for its state, and
+`lga_admin_id` for a ward's LGA. LGA polygons and centroids share IDs; population-state polygons and
+state capitals reference state IDs. Assigned IDs are exported both as GeoJSON feature `id` members and
+as properties. Water body / Lake Chad remain non-administrative and have null IDs.
+
+The IDs are repository-issued, not statutory codes. A separate INEC crosswalk covers every state/LGA and
+8,589 of 8,809 wards; the other 220 external ward links remain null rather than being guessed. See
+[the identifier guide and stability rules](docs/admin-identifiers/README.md) and
+[the installation evidence](docs/geospatial-audit/admin-identifier-resolution.md). Run
+`python scripts/introduce_admin_identifiers.py` to verify the installed registry without changing data.
+
+### Cross-border geographic scope
+
+`ngmap-cross-border-v1` defines how foreign, transboundary, coastal/marine, regional-reference, map-sheet,
+and raster-window content is retained and aggregated. Sources are never clipped or deleted merely for
+crossing the diagnostic Nigeria boundary. Nigeria-only counts require an explicit analysis mask; national
+area/length measurements use documented clipped derivatives, while whole transboundary totals are reported
+separately. NoData remains unknown, and Water body / Lake Chad is not Nigerian administration or wholesale
+Nigerian land.
+
+Read the [cross-border data policy](docs/cross-border-data-policy.md) and
+[per-layer register](docs/geospatial-audit/cross-border-policy-register.csv) before producing national
+statistics. The public catalog exposes the same rules as `crossBorderPolicy` and per-layer `crossBorder`
+metadata. These fields guide interpretation; the generic focus-area summary is not an automatic country
+filter or a legal sovereignty determination.
+
+### Layer quality and metadata register
+
+`ngmap-layer-quality-v1` consolidates all 98 source layers into
+[JSON](docs/geospatial-audit/layer-quality-register.json),
+[CSV](docs/geospatial-audit/layer-quality-register.csv), and a
+[readable register](docs/geospatial-audit/layer-quality-register.md). Each row records source hashes, CRS,
+bounds, attributes or raster grid details, structural/topology checks, reviewed use limits, publication,
+cross-border rules, attribution, temporal coverage, licence/terms status, and explicit metadata gaps.
+`config/layer-metadata.json` is the curated source registry; hidden originals inherit their active source.
+
+Quality classes are not numeric accuracy scores, structural passes are not survey certification, and
+metadata completeness is not licence clearance. Unknown values remain unrecorded rather than being guessed.
+The public catalog exposes compact `quality` and `sourceMetadata` fields and a register summary/hash. In the map,
+the **Quality & source** tab, per-layer links and feature results expose those checks, limitations, licences,
+temporal coverage and explicit gaps. Users can download the exact hash-covered 98-layer JSON register; published
+and all-source gap counts are labelled separately. See the [quality UI guide](docs/map-quality-ui.md).
+Run `python scripts/layer_quality_register.py` after both audits and before the final public build. Rerun the
+extended audit afterwards so its item 8 summary uses the current register. When the layer inventory changes,
+run one provisional public build before the register so its public-export fields are current, then the final build.
+
 ### Geospatial quality audit
 
 ```bash
 python scripts/audit_geospatial.py
 python scripts/audit_geospatial_extended.py
+python scripts/layer_quality_register.py
+python scripts/audit_geospatial_extended.py  # include the current register in the report
+python scripts/build_site.py
 ```
 
 The two-stage audit covers every visible and hidden GeoPackage: CRS and extent integrity, geometry validity,
@@ -177,6 +244,45 @@ exception CSVs to `docs/geospatial-audit/`. The audit never shifts or repairs so
 
 Read the [current audit report](docs/geospatial-audit/README.md) and its limitations before treating any layer as
 ground truth. In particular, visual overlap and a shared EPSG code are not proof of correct absolute coordinates.
+
+### Automated CI validation
+
+The [Validate geospatial data and site workflow](.github/workflows/validate.yml) runs on pull requests to `main`,
+pushes to `main`, manual dispatch, and as the reusable gate for tag releases. It compiles the Python sources, checks
+every GeoPackage and generated audit/public artifact, independently rebuilds and byte-compares `public/`, and runs the
+full Python/Node and Chromium regression suites.
+
+Run the same checks locally from the repository root:
+
+```bash
+python -m pip install -r scripts/requirements.txt
+python scripts/maintain.py --check-build
+
+# When source or application changes also need a new public build:
+python scripts/maintain.py --build --check-build
+```
+
+`validate_artifacts.py` is read-only. It checks SQLite integrity, source/audit/public inventory consistency, staging
+file absence, JSON and GeoJSON parsing, CSV structure, PNG integrity, and exact cross-border/quality-register
+agreement. The regression suite additionally verifies correction evidence and hashes, source/public geometry
+agreement, source metadata, precision fallbacks, and every published geometry.
+
+With Node.js 22.17 or newer, the real-Chromium suite adds browser interactions, gzip-worker loading, offline reload,
+service-worker deployment updates, and desktop/mobile visual comparisons without external tiles or a browser CDN:
+
+```bash
+npm ci
+npm run test:browser
+```
+
+See [browser, offline and visual-regression testing](docs/browser-testing.md) for focused commands, snapshot update
+procedures, deterministic network/font setup, and failure traces. Node packages are development-only and are not used
+by the published static application.
+
+See **[maintenance and releases](docs/maintenance-and-releases.md)** for reproducible-build semantics, routine update
+order, changelog preparation and stable `vX.Y.Z` releases. The tag workflow reruns the complete validation gate and
+publishes a deterministic static-site ZIP, SHA-256 checksum, per-file manifest and changelog notes with the full source
+commit and public build ID. It does not replace Netlify deployment or require visitors to clear caches.
 
 The reviewed state-capital correction is complete: 32 scanned-map positions were replaced individually with OSM
 city/town nodes and five corroborated gazetteer positions were retained. The original is hidden as

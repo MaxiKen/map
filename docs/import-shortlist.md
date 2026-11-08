@@ -69,8 +69,9 @@ and I drop one.
 
 `settlements_gazetteer_diva_pt` (43,021) is held back: **85 % of its names are already in #7**
 (29,979 of 35,414), so it is largely the same points twice.
-`settlements_towns_map2023_pt` (479) is also held back: 71 % of it is already in #7 — it is the
-2023 sheet's own label set, useful only for cross-checking the picture.
+`settlements_towns_map2023_pt` (478 active points after quarantining one scanned “Tow ns” legend
+artefact) is also held back: 71 % of it is already in #7 — it is the 2023 sheet's own label set,
+useful only for cross-checking the picture.
 
 ### Transport (2)
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import io
 import json
 import sqlite3
@@ -30,6 +31,8 @@ from audit_geospatial import (
     natural_earth_nigeria, nigeria_reference, norm, percentile, shapely_metric,
 )
 import build_site
+import layer_quality_register as layer_quality
+from cross_border_policy import load_policy, resolve_layer
 
 
 def write_csv(path, rows, fieldnames=None):
@@ -259,13 +262,29 @@ def ward_exception_checks(core_admin):
                   (r['assigned_lga'] == 'Illela' and r['containing_state_lga'] == 'Sokoto / Gada')]
     sokoto = [r for r in rows if r['assigned_state'] == 'Sokoto'
               and r['assigned_lga'] in ('Gada', 'Illela')]
+    residual_path = ROOT / 'docs/geospatial-audit/ward-lga-correction-result.json'
+    residual = (json.loads(residual_path.read_text(encoding='utf8'))
+                if residual_path.exists() else None)
+    residual_reviewed = bool(
+        residual and residual.get('status') == 'applied_and_verified' and
+        all(residual['checks'].values()) and
+        residual['post_correction']['residual_exception_count'] == len(rows) and
+        residual['post_correction']['residual_feature_indices'] == [r['feature_index'] for r in rows])
     summary = {
         'total_outside_assigned_lga': len(rows),
         'within_1km_of_assigned_lga': sum(r['distance_to_assigned_lga_km'] <= 1 for r in rows),
         'over_10km_from_assigned_lga': sum(r['distance_to_assigned_lga_km'] > 10 for r in rows),
+        'without_local_container': sum(not r['containing_state_lga'] for r in rows),
         'sokoto_gada_illela_exceptions': len(sokoto),
         'reciprocal_gada_illela_containment': len(reciprocal),
+        'individual_review_complete': residual_reviewed,
+        'pre_review_exception_count': residual['counts']['reviewed_cases'] if residual_reviewed else None,
+        'review_lga_corrections': residual['counts']['lga_corrections'] if residual_reviewed else 0,
+        'review_dispositions': residual['counts']['dispositions'] if residual_reviewed else {},
         'interpretation': (
+            'All 40 residual cases were reviewed individually against INEC and an independent boundary service; '
+            'three LGA attributes were corrected without geometry changes and 37 evidence-documented exceptions remain.'
+            if residual_reviewed else
             'The verified identity correction resolved all 21 reciprocal exceptions without geometry changes; residual exceptions require separate review.'
             if len(reciprocal) == 0 and (ROOT / 'docs/geospatial-audit/gada-illela-correction-result.json').exists() else
             'The reciprocal pattern and same-name town locations indicate an LGA attribute conflict; do not shift ward coordinates to fit the polygons.'),
@@ -429,11 +448,30 @@ def raster_registration_checks():
     }
 
     # Large semantic outliers in the hidden historical district abstraction.
+    # Registered semantic exclusions remain in the picture evidence but are not
+    # misreported as unresolved administrative-district candidates.
+    population_path = layer_index()['population_districts_picture_pg']['path']
+    semantic_reviews = {}
+    with sqlite3.connect(f'file:{population_path}?mode=ro', uri=True) as con:
+        sidecar = 'population_districts_picture_semantic_review_tbl'
+        if con.execute("select 1 from sqlite_master where type='table' and name=?",
+                       (sidecar,)).fetchone():
+            con.row_factory = sqlite3.Row
+            for row in con.execute(
+                    f'select district_id,classification,analysis_use,reason,'
+                    f'state_intersection_count,lga_intersection_count,geometry_sha256 '
+                    f'from {sidecar}'):
+                semantic_reviews[row['district_id']] = dict(row)
     features, _ = load_features('population_districts_picture_pg',
                                 ['district_id', 'class_name', 'area_km2'])
     result['population_districts_over_50000km2'] = [
         {**f['properties'], 'bounds': list(f['geometry'].bounds)}
-        for f in features if (f['properties'].get('area_km2') or 0) > 50000]
+        for f in features if (f['properties'].get('area_km2') or 0) > 50000 and
+        f['properties'].get('district_id') not in semantic_reviews]
+    result['population_connected_region_exclusions'] = [
+        {**f['properties'], 'bounds': list(f['geometry'].bounds),
+         **semantic_reviews[f['properties']['district_id']]}
+        for f in features if f['properties'].get('district_id') in semantic_reviews]
     return result, class_rows, state_rows
 
 
@@ -555,6 +593,85 @@ def crs_checks():
             'contents_geometry_srs_mismatches': mismatches}
 
 
+def magnetic_reclassification_is_current(result, raster):
+    if not result or result.get('status') != 'reclassified_and_verified':
+        return False
+    path = layer_index()['geophysics_magnetic_emag2_rst']['path']
+    return bool(
+        all(result.get('checks', {}).values()) and
+        hashlib.sha256(path.read_bytes()).hexdigest() == result.get('after_sha256') and
+        result['classification'] == 'partial_coverage_no_interpolation' and
+        result['coverage']['sampled_land']['valid_fraction'] ==
+        raster['land_masks']['geophysics_magnetic_emag2_rst']['inside_land_valid_fraction'] and
+        'partial coverage' in result['visible_label'].lower())
+
+
+def hidden_artifact_resolution_is_current(result, core):
+    if not result or result.get('status') != 'resolved_and_verified' or not all(result.get('checks', {}).values()):
+        return False
+    tables = {'towns': 'settlements_towns_map2023_pt',
+              'population': 'population_districts_picture_pg'}
+    for key, table in tables.items():
+        path = layer_index()[table]['path']
+        if (hashlib.sha256(path.read_bytes()).hexdigest() != result['after_sha256'][key] or
+                core['vectors'][table]['feature_count'] != result['planned_counts'][key]):
+            return False
+    return True
+
+
+def admin_identifiers_are_current(result):
+    if not result or result.get('status') != 'installed_and_verified' or not all(result.get('checks', {}).values()):
+        return False
+    for table, expected in result.get('after_sha256', {}).items():
+        if table not in layer_index() or hashlib.sha256(layer_index()[table]['path'].read_bytes()).hexdigest() != expected:
+            return False
+    return True
+
+
+def cross_border_policy_is_current(core):
+    try:
+        policy = load_policy()
+        summary = core.get('cross_border_policy', {})
+        if (summary.get('policy_id') != policy['policy_id'] or
+                summary.get('policy_sha256') != policy['_sha256'] or
+                summary.get('layer_count') != len(layer_index()) or
+                not summary.get('all_sources_preserved_unclipped')):
+            return False
+        for table, meta in layer_index().items():
+            collection = core['vectors'] if meta['kind'] == 'features' else core['rasters']
+            expected = resolve_layer(
+                table, visible=meta['visible'], kind=meta['kind'], policy=policy)
+            if collection[table].get('cross_border_policy') != expected:
+                return False
+        return (ROOT / 'docs/geospatial-audit/cross-border-policy-register.csv').is_file()
+    except (KeyError, OSError, ValueError):
+        return False
+
+
+def layer_quality_is_current(document, core):
+    if not document or document.get('register_id') != 'ngmap-layer-quality-v1':
+        return False
+    summary = document.get('summary', {})
+    try:
+        metadata = layer_quality.load_metadata()
+        if (summary.get('source_commit') != core['source_commit'] or
+                summary.get('audit_generated_utc') != core['generated_utc'] or
+                summary.get('layer_count') != len(layer_index()) or
+                summary.get('metadata_config_sha256') != metadata['_sha256'] or
+                summary.get('cross_border_policy_sha256') != layer_quality.load_policy()['_sha256'] or
+                document.get('methodology', {}).get('quality_score') != 'not_assigned'):
+            return False
+        rows = document.get('layers', [])
+        if len(rows) != len(layer_index()) or {row['layer'] for row in rows} != set(layer_index()):
+            return False
+        return all(
+            row['source_sha256'] == hashlib.sha256(
+                layer_index()[row['layer']]['path'].read_bytes()).hexdigest()
+            for row in rows)
+    except (KeyError, OSError, ValueError):
+        return False
+
+
 def make_layer_review(core, raster, class_rows, named):
     """Return an explicit disposition for every spatial layer, not only exceptions."""
     rows = []
@@ -564,12 +681,41 @@ def make_layer_review(core, raster, class_rows, named):
     gada_result_path = ROOT / 'docs/geospatial-audit/gada-illela-correction-result.json'
     gada_result = (json.loads(gada_result_path.read_text(encoding='utf8'))
                    if gada_result_path.exists() else None)
+    residual_result_path = ROOT / 'docs/geospatial-audit/ward-lga-correction-result.json'
+    residual_result = (json.loads(residual_result_path.read_text(encoding='utf8'))
+                       if residual_result_path.exists() else None)
+    residual_reviewed = bool(
+        residual_result and residual_result.get('status') == 'applied_and_verified' and
+        all(residual_result['checks'].values()) and
+        residual_result['post_correction']['residual_exception_count'] ==
+        core['administrative']['wards']['outside_named_lga'])
+    magnetic_result_path = ROOT / 'docs/geospatial-audit/magnetic-coverage-reclassification-result.json'
+    magnetic_result = (json.loads(magnetic_result_path.read_text(encoding='utf8'))
+                       if magnetic_result_path.exists() else None)
+    magnetic_disclosed = magnetic_reclassification_is_current(magnetic_result, raster)
+    hidden_artifact_path = ROOT / 'docs/geospatial-audit/hidden-source-artifact-result.json'
+    hidden_artifacts = (json.loads(hidden_artifact_path.read_text(encoding='utf8'))
+                        if hidden_artifact_path.exists() else None)
+    hidden_resolved = hidden_artifact_resolution_is_current(hidden_artifacts, core)
+    admin_identifier_path = ROOT / 'docs/geospatial-audit/admin-identifier-result.json'
+    admin_identifiers = (json.loads(admin_identifier_path.read_text(encoding='utf8'))
+                         if admin_identifier_path.exists() else None)
+    admin_identified = admin_identifiers_are_current(admin_identifiers)
     for table, meta in sorted(layer_index().items()):
         is_topology_provenance = table.endswith('_topology_original')
         is_identity_provenance = table.endswith('_identity_original_pg') or table.endswith('_identity_original_pt')
         issues = []
         evidence = []
         action = 'None indicated by the applicable checks'
+        policy_rule = resolve_layer(
+            table, visible=meta['visible'], kind=meta['kind'])
+        if policy_rule['scope_class'] != 'nigeria_focused':
+            evidence.append(
+                f'ngmap-cross-border-v1: {policy_rule["scope_class"]}; '
+                f'{policy_rule["national_statistics"]}')
+            if action == 'None indicated by the applicable checks':
+                action = ('Preserve the unclipped source and apply the cross-border policy before '
+                          'Nigeria-only aggregation')
         if table == 'settlements_state_capitals_map2023_pt':
             action = ('Correction completed: retain the 37-row ledger and hidden original; '
                       'do not apply a blanket translation')
@@ -593,10 +739,18 @@ def make_layer_review(core, raster, class_rows, named):
             if gada_result and all(gada_result['checks'].values()):
                 if table == 'admin_wards_pt':
                     residual = core['administrative']['wards']['outside_named_lga']
-                    issues.append(f'{residual} residual ward/LGA containment exceptions after identity correction')
-                    action = ('Review residual exceptions separately, including Darna/Sabon Gari in '
-                              'Gwadabawa; never force containment by moving wards')
-                    evidence.append('21 reciprocal exceptions resolved; official assignments and coordinates unchanged')
+                    if residual_reviewed:
+                        issues.append(f'{residual} individually reviewed residual ward/LGA containment exceptions')
+                        action = ('Retain the 40-case review and 37 documented exceptions; seek new authoritative '
+                                  'evidence for the two suspect coordinates and Kwambai before any future change; '
+                                  'never force containment by moving wards')
+                        evidence.append('INEC and independent-boundary review; three LGA attributes corrected; '
+                                        'all 8,809 ward geometries byte-identical')
+                    else:
+                        issues.append(f'{residual} residual ward/LGA containment exceptions after identity correction')
+                        action = ('Review residual exceptions separately, including Darna/Sabon Gari in '
+                                  'Gwadabawa; never force containment by moving wards')
+                        evidence.append('21 reciprocal exceptions resolved; official assignments and coordinates unchanged')
                 else:
                     action = ('Identity correction completed; retain INEC/reference evidence, hidden originals '
                               'and the 601-row ledger; no geometry was changed')
@@ -606,15 +760,43 @@ def make_layer_review(core, raster, class_rows, named):
                 action = 'Verify official LGA identities and rebuild derived joins; do not translate wards'
                 evidence.append('reciprocal containment and independent towns')
         if table == 'geophysics_magnetic_emag2_rst':
-            issues.append('incomplete valid-cell coverage')
-            action = 'Refetch/rebuild or describe explicitly as partial coverage'
+            fraction = raster['land_masks'][table]['inside_land_valid_fraction']
+            issues.append(f'partial valid-cell coverage ({fraction:.1%} of sampled land cells)')
+            if magnetic_disclosed:
+                action = ('Partial-coverage classification completed; retain the explicit label and NoData gaps; '
+                          'do not interpolate; a future source rebuild must pass the 98% land-coverage gate')
+                evidence.append('metadata-only reclassification; tile bytes, logical array and public assets unchanged')
+            else:
+                action = 'Refetch/rebuild or describe explicitly as partial coverage'
             evidence.append('valid cells by state')
         if table == 'settlements_towns_map2023_pt':
-            issues.append('hidden “Tow ns” legend artefact in Cameroon')
-            action = 'Remove/correct the source artefact during hidden-layer maintenance'
+            if hidden_resolved:
+                action = ('Hidden-source artifact resolved; retain 478 active cross-check points and the '
+                          'quarantined FID 479 record; never publish the excluded legend text as a settlement')
+                evidence.append('FID 479 alone quarantined with complete original attributes/geometry; '
+                                'all other active rows byte-identical')
+            else:
+                issues.append('hidden “Tow ns” legend artefact in Cameroon')
+                action = 'Remove/correct the source artefact during hidden-layer maintenance'
         if table == 'population_districts_picture_pg':
-            issues.append('hidden connected-region abstraction D0451 exceeds 121,000 km²')
-            action = 'Review vectorisation semantics before any district-level use'
+            if hidden_resolved:
+                action = ('Hidden-source semantics resolved; exclude D0451 from district-level analysis '
+                          'while retaining it as a connected population-class picture region')
+                evidence.append('D0451 intersects 16 states and 124 LGAs; all 504 active features '
+                                'and geometry/attribute rows byte-identical')
+            else:
+                issues.append('hidden connected-region abstraction D0451 exceeds 121,000 km²')
+                action = 'Review vectorisation semantics before any district-level use'
+        if admin_identified and table in admin_identifiers['after_sha256']:
+            evidence.append('ngmap-admin-v1 stable IDs and parent keys; original attributes and geometry byte-identical')
+            if table in ('admin_states_gadm_pg', 'population_density2016_states_pg'):
+                evidence.append('37 state IDs; Water body remains non-administrative with null ID')
+            elif table in ('admin_lgas_gadm_pg', 'admin_lga_centroids_pt'):
+                evidence.append('774 shared LGA IDs and INEC links; Lake Chad remains non-administrative')
+            elif table == 'admin_wards_pt':
+                evidence.append('8,809 unique ward IDs; 8,589 one-to-one INEC links; 220 null external links retained')
+            if action == 'None indicated by the applicable checks':
+                action = 'Use stable admin_id and parent keys for joins; preserve the registry and INEC crosswalk limits'
         if table == 'groundwater_boreholes_wpdx_pt':
             count = named[table]['counts'].get('substantive_mismatch_after_fuzzy_names', 0)
             evidence.append(f'all points contained; {count} non-equivalent LGA-name joins')
@@ -659,10 +841,24 @@ def make_layer_review(core, raster, class_rows, named):
         if is_identity_provenance:
             scope = ('Pre-Gada/Illela-identity-correction source retained only for audit provenance; '
                      'its old labels are not current administration.')
+        if table == 'geophysics_magnetic_emag2_rst' and magnetic_disclosed:
+            scope = ('Explicit partial-coverage product; missing cells remain NoData and are not '
+                     'continuous national coverage or evidence of a coordinate shift.')
+        if table == 'settlements_towns_map2023_pt' and hidden_resolved:
+            scope = ('Hidden 2023 sheet-label cross-check source; one non-settlement legend artefact '
+                     'is quarantined in a registered attributes table, not active spatial data.')
+        if table == 'population_districts_picture_pg' and hidden_resolved:
+            scope = ('Hidden picture-derived population-class regions, not official districts; D0451 '
+                     'has an explicit semantic exclusion and must not be used for district analysis.')
         if scope:
             evidence.append(scope)
-        disposition = 'Action required' if table in (
-            'admin_lgas_gadm_pg', 'admin_lga_centroids_pt', 'admin_wards_pt') and not gada_result else (
+        disposition = (
+            'Artifact quarantined / hidden' if table == 'settlements_towns_map2023_pt' and hidden_resolved else
+            'Scope reclassified / hidden' if table == 'population_districts_picture_pg' and hidden_resolved else
+            'Scope limitation disclosed' if table == 'geophysics_magnetic_emag2_rst' and magnetic_disclosed else
+            'Reviewed with exceptions' if table == 'admin_wards_pt' and residual_reviewed else
+            'Action required' if table in (
+                'admin_lgas_gadm_pg', 'admin_lga_centroids_pt', 'admin_wards_pt') and not gada_result else
             'Review' if issues else ('Context / scope note' if scope else 'No gross registration error detected'))
         rows.append({
             'layer': table, 'path': str(meta['path'].relative_to(ROOT)),
@@ -896,7 +1092,9 @@ def make_figures(out, capital_rows, ward_rows):
 
 
 def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, raster,
-                class_rows, named, outliers, crs, topology_correction=None, gada_correction=None):
+                class_rows, named, outliers, crs, topology_correction=None, gada_correction=None,
+                residual_correction=None, magnetic_reclassification=None, hidden_artifacts=None,
+                admin_identifiers=None, quality_register=None):
     osm = capital['summary']['osm']
     diva = capital['summary']['diva']
     grey = next((v for k, v in capital['by_position_basis'].items() if 'grey square' in k), None)
@@ -938,7 +1136,15 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
     gada_resolved = bool(
         gada_correction and all(gada_correction['checks'].values()) and
         ward_summary['reciprocal_gada_illela_containment'] == 0 and
-        ward_summary['total_outside_assigned_lga'] == 40)
+        ward_summary['sokoto_gada_illela_exceptions'] == 1)
+    residual_resolved = bool(
+        residual_correction and residual_correction.get('status') == 'applied_and_verified' and
+        all(residual_correction['checks'].values()) and
+        ward_summary.get('individual_review_complete') and
+        ward_summary['total_outside_assigned_lga'] == 37)
+    magnetic_resolved = magnetic_reclassification_is_current(magnetic_reclassification, raster)
+    hidden_resolved = hidden_artifact_resolution_is_current(hidden_artifacts, core)
+    admin_identified = admin_identifiers_are_current(admin_identifiers)
     if gada_resolved:
         gada_verification_path = ROOT / 'docs/geospatial-audit/gada-illela-verification.json'
         gada_verification = json.loads(gada_verification_path.read_text(encoding='utf8'))
@@ -968,11 +1174,18 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             'the old containing polygon: 173 boreholes, 97 DIVA places, 303 OSM places and two hidden '
             'scanned-map towns. `previous_lga` is retained. Twenty-two ward-to-centroid distances were '
             'recomputed; OSM Kiri FID 14680 correctly remains Illela.',
-            f'- **Residual ward review:** {ward_summary["total_outside_assigned_lga"]} ward/LGA exceptions '
-            f'remain nationally; {ward_summary["within_1km_of_assigned_lga"]} are within 1 km and only '
-            f'{ward_summary["over_10km_from_assigned_lga"]} exceeds 10 km. Darna/Sabon Gari remains assigned '
-            f'to Illela but contained in Gwadabawa, **{post["darna_sabon_gari"]["distance_to_corrected_illela_km"]:.3f} km** '
-            'outside corrected Illela; it was not moved to force containment.',
+            (f'- **Residual ward review:** the follow-on A3 review is complete. Three LGA attributes were '
+             f'corrected and {ward_summary["total_outside_assigned_lga"]} documented exceptions remain; '
+             f'{ward_summary["within_1km_of_assigned_lga"]} are within 1 km and '
+             f'{ward_summary["over_10km_from_assigned_lga"]} exceed 10 km. Darna/Sabon Gari remains assigned '
+             f'to Illela but contained in Gwadabawa, **{post["darna_sabon_gari"]["distance_to_corrected_illela_km"]:.3f} km** '
+             'outside corrected Illela; it was not moved to force containment.'
+             if residual_resolved else
+             f'- **Residual ward review:** {ward_summary["total_outside_assigned_lga"]} ward/LGA exceptions '
+             f'remain nationally; {ward_summary["within_1km_of_assigned_lga"]} are within 1 km and only '
+             f'{ward_summary["over_10km_from_assigned_lga"]} exceeds 10 km. Darna/Sabon Gari remains assigned '
+             f'to Illela but contained in Gwadabawa, **{post["darna_sabon_gari"]["distance_to_corrected_illela_km"]:.3f} km** '
+             'outside corrected Illela; it was not moved to force containment.'),
             '- **Provenance and evidence:** original LGA/centroid layers are hidden as '
             '`admin_lgas_gadm_identity_original_pg` and `admin_lga_centroids_identity_original_pt`. '
             '`gada-illela-verification.json`, the 601-row correction ledger, result hashes, two-feature '
@@ -996,6 +1209,238 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             'the identities. **Do not move ward points merely to force containment.**',
             '- **Evidence:** `ward-lga-exceptions.csv` and `sokoto-gada-illela.png`.',
         ]
+    if residual_resolved:
+        admin_executive += (
+            ' The follow-on 40-case residual review is also complete: three LGA attributes were corrected '
+            'and 37 evidence-documented exceptions remain, with zero ward geometry changes.')
+        residual_post = residual_correction['post_correction']
+        residual_details = [
+            '### A3 — Resolved with provenance: residual ward/LGA exception review', '',
+            '- **Individual authoritative review:** all 40 cases across 20 states were checked against '
+            'INEC registration-area directories and independent ArcGIS/Michael Bauer Research/NBS 2023 '
+            'point intersections. The 40-row pre-review register is preserved separately.',
+            '- **Three true LGA attribute errors:** FID 4096 Kwarau changed from Kaduna North to Igabi; '
+            "FID 4215 Gidan Waya changed from Sanga to Jema'a; FID 7295 Ward XI E9 I changed from Ibadan "
+            'South East to Ibadan North East. Their derived centroid distances are 25.5, 23.4 and 0.9 km '
+            'respectively. CSV feature indices 4095, 4214 and 7294 are zero-based and are not FIDs.',
+            '- **Thirty-seven reviewed retentions:** 20 boundary-generalisation/source-disagreement cases, '
+            '14 coastal/water cases, two suspect-coordinate cases (Gambaki/Bidir and Ilasa II/Ikun/Araromi), '
+            'and Kwambai with explicit Takum/Ussa delimitation uncertainty. No containing polygon was '
+            'relabeled merely because it contained a point.',
+            f'- **Current residual metrics:** {residual_post["residual_exception_count"]} exceptions; '
+            f'{residual_post["residual_within_1km"]} within 1 km; '
+            f'{residual_post["residual_over_10km"]} over 10 km; '
+            f'{residual_post["residual_without_local_container"]} without a local container. All 8,809 '
+            'ward geometry blobs are byte-identical and all untargeted attributes were verified.',
+            '- **Cautions retained:** Ward XI E9 I has an independent Egbeda disagreement despite INEC '
+            'and local Ibadan North East support. Arak and Panda/Kare have independent support for Sanga '
+            'and Karu. Name variants and Kwambai uncertainty were documented rather than silently changed.',
+            '- **Evidence:** `ward-lga-review-ledger.csv`, `ward-lga-review-verification.json`, '
+            '`ward-lga-correction-result.json`, `ward-lga-review.md`, '
+            '`ward-lga-exceptions-before-residual-review.csv` and '
+            '`references/ward-lga-review-sources.md` preserve every disposition, source URL, query, '
+            'before/after attribute and geometry hash.',
+        ]
+    else:
+        residual_details = []
+    magnetic_fraction = raster['land_masks']['geophysics_magnetic_emag2_rst']['inside_land_valid_fraction']
+    magnetic_state_text = (
+        f'Ekiti {next(r for r in magnetic if r["state"] == "Ekiti")["valid_fraction"]:.1%}, '
+        f'Osun {next(r for r in magnetic if r["state"] == "Osun")["valid_fraction"]:.1%}, '
+        f'Oyo {next(r for r in magnetic if r["state"] == "Oyo")["valid_fraction"]:.1%}, and '
+        f'Sokoto {next(r for r in magnetic if r["state"] == "Sokoto")["valid_fraction"]:.1%}')
+    if magnetic_resolved:
+        full_cell = magnetic_reclassification['coverage']['full_cell_land']
+        magnetic_executive = (
+            f'4. **The magnetic raster is transparently classified as partial coverage.** '
+            f'{magnetic_fraction:.1%} of sampled land cells are valid; {magnetic_state_text}. '
+            'The visible label and source description disclose the limitation. Missing cells remain '
+            'NoData, and no magnetic values were interpolated or shifted.')
+        magnetic_details = [
+            '### B2 — Disclosed scope limitation: EMAG2 partial coverage', '',
+            '- Valid magnetic cells follow the same national grid, so this is not a misregistration '
+            'finding. Whole or large parts of states have no values; those gaps remain explicitly NoData.',
+            f'- **Two coverage denominators are retained:** the published stride-two sample is '
+            f'**{magnetic_fraction:.1%}**, while the independent full-cell calculation is '
+            f'**{full_cell["valid_fraction"]:.1%}** ({full_cell["valid_cells"]:,} of '
+            f'{full_cell["cells"]:,} land cells). They are not contradictory measurements.',
+            f'- **Transparent reclassification:** the visible name is '
+            f'“{magnetic_reclassification["visible_label"]}”. The GeoPackage description begins '
+            '“PARTIAL NIGERIA COVERAGE” and lists the state gaps and no-interpolation rule.',
+            '- **Preservation:** only `gpkg_contents.description` and `last_change` changed. Tile '
+            'bytes, the logical float32 array, every other table and the public PNG/value-grid assets '
+            'are hash-verified unchanged. No scientific values were fabricated.',
+            '- **Future rebuild control:** the EMAG2 fetch path now rejects output below 98% land '
+            'coverage instead of silently publishing it as nationally complete. A verified complete '
+            'source-window rebuild may replace the partial derivative as a separate evidence-led change.',
+            '- **Evidence:** `magnetic-coverage-reclassification-verification.json`, '
+            '`magnetic-coverage-reclassification-result.json`, '
+            '`magnetic-coverage-reclassification.md` and `raster-coverage-by-state.csv`.',
+        ]
+    else:
+        magnetic_executive = (
+            '4. **The visible magnetic raster has real completeness gaps.** '
+            f'Only {magnetic_fraction:.1%} of sampled land cells are valid. {magnetic_state_text}. '
+            'This is missing source/derived data, not evidence that valid cells are shifted.')
+        magnetic_details = [
+            '### B2 — Medium: EMAG2 coverage is incomplete', '',
+            '- Valid magnetic cells follow the same national grid, so this is not a misregistration '
+            'finding. The problem is that whole or large parts of states have no values.',
+            '- **Action:** refetch/rebuild from a verified complete EMAG2 window or replace the '
+            'product. Until then, describe the layer as partial coverage rather than continuous national coverage.',
+            '- **Evidence:** `raster-coverage-by-state.csv`.',
+        ]
+    if hidden_resolved:
+        town = hidden_artifacts['towns']
+        district = hidden_artifacts['population']
+        hidden_executive = (
+            '5. **Both hidden-source artefacts are resolved without coordinate shifts.** FID 479 '
+            '“Tow ns” was quarantined as non-settlement legend text, leaving 478 active hidden '
+            'cross-check points. D0451 was retained byte-for-byte but reclassified as a connected '
+            'population-class region crossing 16 states and 124 LGAs, excluded from district analysis.')
+        hidden_details = [
+            f'- **Resolved — scanned legend text:** FID {town["fid"]} “Tow ns” at '
+            f'{town["longitude"]:.6f} E, {town["latitude"]:.6f} N was removed only from the active '
+            'hidden town-label table (479 → 478). Its complete original attributes and exact geometry '
+            f'blob are preserved in `{hidden_artifacts["sources"]["towns"]["sidecar_table"]}`. '
+            f'The nearest OSM/DIVA settlement is {town["nearest_settlements"]["osm"]["nearest_name"]}, '
+            f'{town["nearest_settlements"]["osm"]["distance_km"]:.3f}/'
+            f'{town["nearest_settlements"]["diva"]["distance_km"]:.3f} km away; the point was not '
+            'renamed or moved as a settlement.',
+            f'- **Resolved — population-region semantics:** D0451/FID {district["fid"]} remains '
+            f'among all {hidden_artifacts["planned_counts"]["population"]} active picture regions '
+            'with identical feature digest, attributes and geometry. It is explicitly a connected '
+            'population-class region, not an administrative district: 16 state and 124 LGA '
+            'intersections support that classification. Its exclusion is registered in '
+            f'`{hidden_artifacts["sources"]["population"]["sidecar_table"]}`; no split, deletion or '
+            'coordinate repair was invented.',
+            '- **Evidence:** `hidden-source-artifact-ledger.csv`, '
+            '`hidden-source-artifact-verification.json`, `hidden-source-artifact-result.json` and '
+            '`hidden-source-artifact-resolution.md`.',
+        ]
+    else:
+        hidden_executive = (
+            '5. **Two hidden-source artefacts still need feature-specific resolution.** The “Tow ns” '
+            'point is probable scanned legend text, while D0451 is an oversized connected-region '
+            'abstraction rather than a plausible ordinary district.')
+        hidden_details = [
+            '- Hidden `settlements_towns_map2023_pt` includes a point named **“Tow ns”** at '
+            '12.434389 E, 5.750015 N, 139.50 km from Nigerian land in Cameroon. Its name and 15.8 pt '
+            'label distance indicate a likely scanned-map legend artefact. It is hidden and not '
+            'published, but should be removed or corrected in the source workflow.',
+        ]
+    if admin_identified:
+        coverage = admin_identifiers['coverage']
+        identifier_executive = (
+            '6. **Stable administrative identifiers are installed.** All 37 states, 774 LGAs and '
+            '8,809 wards have persistent `ngmap-admin-v1` IDs and parent keys. The separate INEC '
+            'crosswalk covers every state/LGA and 8,589/8,809 wards; 220 ambiguous or unmatched '
+            'ward links remain explicitly null rather than guessed.')
+        identifier_details = [
+            '### D — Resolved: stable administrative identifiers', '',
+            '- **Canonical keys:** states use `ngmap:state:NG-AB`, LGAs `ngmap:lga:0001` and wards '
+            '`ngmap:ward:000001`. These are persistent repository-issued IDs, not statutory codes. '
+            'LGA polygons and centroids share keys; wards carry both state and LGA parent keys; '
+            'population-state polygons and capitals reference state keys.',
+            '- **Non-administrative context:** Water body and Lake Chad retain null administrative '
+            'and INEC identifiers. They are not counted as a 38th state or 775th LGA.',
+            f'- **INEC crosswalk:** 37/37 states, 774/774 LGAs and '
+            f'**{coverage["wards_with_inec_id"]:,}/8,809 wards** have one-to-one INEC links. '
+            'The ward links comprise 8,189 exact-name and 400 conservative numeral-normalized matches. '
+            f'The remaining **{coverage["wards_without_inec_id"]}** comprise 198 unmatched names and '
+            '22 rows in 11 duplicate local-label groups; canonical project IDs remain complete.',
+            '- **Name stability:** Gada and Illela retain separate persistent project IDs while their '
+            'INEC codes 04 and 08 are explicit. The Gbonyin/Aiyekire alias demonstrates why labels '
+            'must not be used as identifiers. Existing names and assignments were not rewritten.',
+            '- **Preservation:** only declared identifier columns, indexes and metadata were added. '
+            'All original attributes and geometry blobs passed staged and final byte-for-byte comparisons. '
+            'Hidden pre-correction provenance was not modified.',
+            '- **Evidence:** `admin-identifier-verification.json`, `admin-identifier-result.json`, '
+            '`admin-identifier-resolution.md` and `../admin-identifiers/` contain the 9,622-row registry, '
+            'pinned source manifest, matching rules, coverage and before/after hashes.',
+        ]
+    else:
+        identifier_executive = (
+            '6. **Stable administrative identifiers still need installation.** Names and source-row '
+            'numbers remain the only cross-layer administrative join keys.')
+        identifier_details = []
+    cross_border_defined = cross_border_policy_is_current(core)
+    if cross_border_defined:
+        policy_summary = core['cross_border_policy']
+        class_counts = ', '.join(
+            f'{name} {count}' for name, count in policy_summary['class_counts'].items())
+        cross_border_executive = (
+            f'7. **A cross-border data policy governs all {layer_count} spatial layers.** '
+            '`ngmap-cross-border-v1` preserves complete sources, distinguishes foreign/marine context '
+            'from Nigerian administration, and requires explicit Nigeria-only filters and clipped '
+            'measurements. No source geometry was clipped, moved or deleted for this policy.')
+        cross_border_details = [
+            '### E — Defined: cross-border geographic data policy', '',
+            f'- **Coverage:** {policy_summary["visible_layer_count"]} visible and '
+            f'{policy_summary["hidden_layer_count"]} hidden layers have explicit scope metadata; '
+            f'{policy_summary["provenance_layer_count"]} hidden provenance layers inherit their active '
+            f'layer’s class. Current class counts: {class_counts}.',
+            '- **Retention and publication:** every class requires `preserve_unclipped`. Visibility remains '
+            'unchanged; foreign extraction context, transboundary systems, regional references, map sheets '
+            'and hidden originals are not silently removed or published.',
+            '- **National statistics:** an explicit named Nigeria mask is required. Foreign-only, boundary, '
+            'marine and wholly internal features are separate categories. Nigeria-only polygon areas and '
+            'line lengths are derived clipped measurements; whole transboundary totals are reported separately.',
+            '- **Boundary limits:** GADM and Natural Earth are diagnostic references, not legal sovereignty, '
+            'international-boundary, territorial-sea or EEZ determinations. Water body / Lake Chad is not '
+            'Nigerian administration or wholesale Nigerian land. NoData remains unknown, never zero.',
+            '- **Application contract:** catalog `crossBorder` metadata describes required interpretation; '
+            'the focus-area Area summary is not an automatic country filter. Foreign features never receive '
+            'Nigerian canonical IDs through nearest-distance or fuzzy-name inference.',
+            '- **Evidence:** `../cross-border-data-policy.md`, `../../config/cross-border-policy.json`, '
+            '`cross-border-policy-register.csv`, the core audit policy summary and public catalog metadata '
+            'provide the versioned rules and all 98 layer assignments.',
+        ]
+    else:
+        cross_border_executive = (
+            '7. **A cross-border data policy still needs to be propagated.** Foreign, marine, transboundary '
+            'and map-sheet content requires consistent retention and Nigeria-only aggregation rules.')
+        cross_border_details = []
+    quality_current = layer_quality_is_current(quality_register, core)
+    if quality_current:
+        quality_summary = quality_register['summary']
+        quality_counts = ', '.join(
+            f'{key} {value}' for key, value in quality_summary['quality_use_class_counts'].items())
+        metadata_counts = ', '.join(
+            f'{key} {value}' for key, value in quality_summary['metadata_status_counts'].items())
+        quality_executive = (
+            f'8. **A layer quality and metadata register covers all {layer_count} layers.** '
+            f'{quality_summary["structural_status_counts"].get("structural_pass", 0)} layers pass '
+            'applicable structural checks and 16 hidden topology originals retain historical defects '
+            'as provenance. One WPDx layer still requires source-vintage name-join review. '
+            f'{quality_summary["layers_with_metadata_gaps"]} layers have explicit source-metadata gaps; '
+            'no numeric accuracy score is invented.')
+        quality_details = [
+            '### F — Added: layer quality and metadata register', '',
+            f'- **Quality use classes:** {quality_counts}. These are evidence-based usage categories, '
+            'not quality scores. Structural passes do not certify absolute positional accuracy, '
+            'completeness or legal boundaries.',
+            '- **Current review:** `groundwater_boreholes_wpdx_pt` has all 99,245 points contained but '
+            '314 non-equivalent LGA-name joins requiring source-vintage review; no coordinate shift is '
+            'indicated. Ward, magnetic, hidden-source and cross-border limitations remain separate.',
+            f'- **Metadata completeness:** {metadata_counts}. '
+            f'{quality_summary["layers_with_metadata_gaps"]} layers have at least one gap across publisher, '
+            'dataset, URL, licence/terms, temporal coverage and local reference. Missing values remain '
+            'blank or `not_recorded`; metadata completeness is not licence clearance.',
+            f'- **Lineage:** {len(layer_quality.load_metadata()["sources"])} reusable source records cover '
+            '79 active layers, with 19 hidden originals inheriting their active source. Every row carries '
+            'the current GeoPackage SHA-256, CRS, bounds, attributes/grid, visibility, public export, '
+            'cross-border rule, quality evidence and recommended action.',
+            '- **Publication:** compact `quality` and `sourceMetadata` fields are embedded in the public '
+            'catalog, with a register summary/hash. Hidden layers remain unpublished.',
+            '- **Evidence:** `layer-quality-register.json` / `.csv` / `.md` and '
+            '`../../config/layer-metadata.json` provide the complete register and maintenance procedure.',
+        ]
+    else:
+        quality_executive = (
+            '8. **The layer quality and metadata register needs regeneration.** Current source hashes, '
+            'quality dispositions and source-metadata completeness must be consolidated.')
+        quality_details = []
     topology_resolved = bool(
         topology_correction and topology['total_invalid'] == 0 and
         topology['provenance_invalid'] == topology_correction['repair_count'] and
@@ -1072,7 +1517,10 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             f'positions were retained. Strict held-out DIVA validation across {strict_diva["eligible_capitals"]} '
             f'eligible matches gives median **{strict_diva["median_distance_km"]:.3f} km**, p95 '
             f'**{strict_diva["p95_distance_km"]:.3f} km** and maximum **{strict_diva["maximum_distance_km"]:.3f} km**; '
-            'all 37 outputs also pass named-state containment. Other findings remain open.')
+            'all 37 outputs also pass named-state containment. ' +
+            ('Remaining findings are documented scope limitations.'
+             if hidden_resolved and magnetic_resolved and residual_resolved else
+             'Other findings remain open.'))
         capital_details = [
             '### A1 — Resolved with provenance: state-capital positions', '',
             f'- **Construction:** {correction["corrected_with_osm"]} same-name OSM city/town replacements and '
@@ -1159,7 +1607,92 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             '**Recommended next step:** preserve the completed capital, topology and Gada/Illela provenance. '
             'Review residual ward exceptions—including Darna/Sabon Gari—individually rather than forcing '
             'containment, then address magnetic coverage and hidden-source artefacts independently.')
+    if residual_resolved:
+        correction_note = (
+            'Only the documented capital, reviewed polygon-topology, Gada/Illela identity and three '
+            'evidence-gated residual LGA attribute corrections were applied. Magnetic coverage and hidden '
+            'artefacts remain separate tasks; the 37 reviewed ward exceptions are documented, not forced '
+            'into containment. No blanket translation, ward movement, geometry replacement, magnetic '
+            'infilling or hidden-artefact deletion was performed.')
+        next_step = (
+            '**Recommended next step:** preserve all correction and 40-case review provenance. Seek new '
+            'authoritative evidence before changing the two suspect coordinates or Kwambai; otherwise '
+            'address magnetic coverage and hidden-source artefacts independently.')
+    if magnetic_resolved and residual_resolved:
+        correction_note = (
+            'Only the documented capital, reviewed polygon-topology, Gada/Illela identity, three '
+            'evidence-gated residual LGA attribute corrections and metadata-only magnetic '
+            'partial-coverage reclassification were applied. Hidden artefacts remain a separate task; '
+            'the 37 reviewed ward exceptions are documented, not forced into containment. No blanket '
+            'translation, ward movement, geometry replacement, magnetic infilling or hidden-artefact '
+            'deletion was performed.')
+        next_step = (
+            '**Recommended next step:** preserve all correction, 40-case review and magnetic '
+            'reclassification provenance. Address hidden-source artefacts independently. Replace the '
+            'partial magnetic derivative only with a verified source rebuild that passes the coverage '
+            'gate; never infer missing magnetic values by interpolation.')
+    if hidden_resolved and magnetic_resolved and residual_resolved:
+        correction_note = (
+            'Only the documented capital, reviewed polygon-topology, Gada/Illela identity, three '
+            'evidence-gated residual LGA attribute corrections, metadata-only magnetic '
+            'partial-coverage reclassification and two evidence-gated hidden-artifact resolutions '
+            'were applied. FID 479 was quarantined—not silently deleted—while every D0451 feature '
+            'attribute and geometry byte was retained. No blanket translation, ward movement, '
+            'geometry replacement or magnetic infilling was performed.')
+        next_step = (
+            '**Recommended next step:** no further automatic correction is recommended. Preserve '
+            'all five correction/reclassification evidence chains and the remaining ward/coastal and '
+            'partial-magnetic scope limitations. Reopen a case only for new authoritative evidence '
+            'or a verified complete source rebuild.')
+    if admin_identified and hidden_resolved and magnetic_resolved and residual_resolved:
+        correction_note = (
+            'Only the documented capital, reviewed polygon-topology, Gada/Illela identity, three '
+            'evidence-gated residual LGA attribute corrections, metadata-only magnetic '
+            'partial-coverage reclassification, two evidence-gated hidden-artifact resolutions and '
+            'schema-only stable administrative identifier additions were applied. FID 479 was '
+            'quarantined—not silently deleted—while every D0451 feature attribute and geometry byte '
+            'was retained. Identifier installation preserved every original value and geometry byte. '
+            'No blanket translation, ward movement, geometry replacement or magnetic infilling was performed.')
+        next_step = (
+            '**Recommended next step:** no further automatic correction is recommended. Preserve '
+            'all six correction/reclassification evidence chains and the administrative identifier '
+            'registry. Use canonical IDs for new joins; never backfill the 220 unresolved INEC ward '
+            'links without new authoritative evidence. Reopen a case only for new evidence or a '
+            'verified source rebuild.')
+    if cross_border_defined:
+        correction_note += (
+            ' The cross-border task changed policy, audit and catalog metadata only; it did not alter '
+            'any GeoPackage, feature value or geometry.')
+        next_step = (
+            '**Recommended next step:** no further automatic correction is recommended. Preserve all six '
+            'correction/reclassification evidence chains, the administrative identifier registry and '
+            '`ngmap-cross-border-v1`. Apply the cross-border register before any Nigeria-only aggregation; '
+            'use canonical IDs for new joins and never backfill unresolved INEC links or clip transboundary '
+            'sources without a separately documented derivative.')
+    if quality_current:
+        correction_note += (
+            ' The layer quality/metadata task added curated source documentation and generated registers; '
+            'it did not modify any GeoPackage, feature value or geometry.')
+        next_step = (
+            '**Recommended next step:** preserve all correction evidence and regenerate '
+            '`ngmap-layer-quality-v1` after any source, audit or metadata change. Review the 314 WPDx '
+            'LGA-name joins against source vintages and fill recorded metadata gaps only from traceable '
+            'sources; do not infer licences, dates, coordinates or national totals to make the register '
+            'look complete.')
     executive_status = (
+        'All six prioritized correction/reclassification tasks are complete; the reviewed ward '
+        'exceptions, partial magnetic coverage, unresolved external identifier links and other '
+        'documented scope qualifications remain explicit:'
+        if admin_identified and hidden_resolved and magnetic_resolved and residual_resolved else
+        'All five prioritized correction/reclassification tasks are complete; the reviewed ward '
+        'exceptions, partial magnetic coverage and other documented scope qualifications remain explicit:'
+        if hidden_resolved and magnetic_resolved and residual_resolved else
+        'The capital, polygon-topology, Gada/Illela identity and residual ward/LGA reviews plus the '
+        'magnetic partial-coverage disclosure are complete; hidden-source issues still require separate treatment:'
+        if magnetic_resolved and residual_resolved else
+        'The capital, polygon-topology, Gada/Illela identity and residual ward/LGA reviews are complete; '
+        'magnetic coverage and hidden-source issues still require separate treatment:'
+        if residual_resolved else
         'The capital, polygon-topology and Gada/Illela identity corrections are complete; magnetic coverage '
         'and hidden-source issues still require separate treatment:'
         if gada_resolved else
@@ -1180,28 +1713,31 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
         capital_executive,
         admin_executive,
         topology_executive,
-        '4. **The visible magnetic raster has real completeness gaps.** '
-        f'Only {raster["land_masks"]["geophysics_magnetic_emag2_rst"]["inside_land_valid_fraction"]:.1%} of sampled land cells are valid. '
-        f'Ekiti has {next(r for r in magnetic if r["state"]=="Ekiti")["valid_fraction"]:.1%} coverage, '
-        f'Osun {next(r for r in magnetic if r["state"]=="Osun")["valid_fraction"]:.1%}, '
-        f'Oyo {next(r for r in magnetic if r["state"]=="Oyo")["valid_fraction"]:.1%}, and '
-        f'Sokoto {next(r for r in magnetic if r["state"]=="Sokoto")["valid_fraction"]:.1%}. '
-        'This is missing source/derived data, not evidence that valid cells are shifted.',
+        magnetic_executive,
+        hidden_executive,
+        identifier_executive,
+        cross_border_executive,
+        quality_executive,
         '', correction_note,
         '', '## Prioritized findings', '',
         *capital_details,
         '',
         *admin_details,
         '',
+        *residual_details,
+        '',
         *topology_details,
         '',
-        '### B2 — Medium: EMAG2 coverage is incomplete', '',
-        '- Valid magnetic cells follow the same national grid, so this is not a misregistration finding. The problem is that whole or large parts of states have no values.',
-        '- **Action:** refetch/rebuild from a verified complete EMAG2 window or replace the product. Until then, describe the layer as partial coverage rather than continuous national coverage.',
-        '- **Evidence:** `raster-coverage-by-state.csv`.',
+        *magnetic_details,
         '',
         '### C — Hidden/source-data issues and scope qualifications', '',
-        '- Hidden `settlements_towns_map2023_pt` includes a point named **“Tow ns”** at 12.434389 E, 5.750015 N, 139.50 km from Nigerian land in Cameroon. Its name and 15.8 pt label distance indicate a likely scanned-map legend artefact. It is hidden and not published, but should be removed or corrected in the source workflow.',
+        *hidden_details,
+        '',
+        *identifier_details,
+        '',
+        *cross_border_details,
+        '',
+        *quality_details,
     ]
     if pop_outliers:
         for item in pop_outliers:
@@ -1209,14 +1745,14 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
     lines += [
         '- Visible WDPA includes correctly identified Cameroon features such as Korup, Takamanda and Waza-Logone; the large Gulf of Guinea polygon is explicitly marine; offshore heat-flow records are tagged `domain=marine`. Lake Chad ports are intentionally outside the land-only reference but remain valid water/port context. These are scope issues, not coordinate errors.',
         f'- Classified point-outlier outcomes: ' + '; '.join(f'**{key}: {value}**' for key, value in sorted(classifications.items())) + '.',
-        '- OSM/DIVA extraction envelopes contain neighbouring-country settlements. If the intended product is Nigeria-only, clip or label them as surrounding context rather than moving them.',
+        '- OSM/DIVA extraction envelopes contain neighbouring-country settlements. If the intended product is Nigeria-only, use a separately documented clipped derivative or label them as surrounding context rather than moving them or clipping the source in place.',
         '', '## Checks that support alignment', '',
         '### Coordinate systems, geometry decoding and raster grids', '',
         f'- **{database_count}/{database_count} SQLite integrity checks passed.** All {layer_count} spatial layers declare EPSG:4326 with no contents/geometry-column SRS mismatch.',
         f'- **0 null geometries, 0 empty geometries, 0 non-finite coordinates and 0 out-of-range longitude/latitude geometries** across {len(core["vectors"])} vector layers.',
         f'- **{topology["total_invalid"]} active invalid geometries.** Hidden topology provenance separately retains **{topology["provenance_invalid"]}** historical invalid originals; those copies are not current production data.',
         '- Every computed vector extent agrees with its declared GeoPackage extent to better than 0.001°. All 16 raster/image tile matrices have positive pixel sizes, decodable tiles and bounds consistent with their contents metadata.',
-        f'- Excluding the incomplete magnetic product, sampled valid-data coverage inside Nigerian land is **{min(land_values):.1%}–{max(land_values):.1%}** across the other 12 numeric rasters; outside-land valid fractions are low edge effects. This confirms tile-grid and clipping-mask registration, but is not by itself proof of every cell value’s absolute accuracy.',
+        f'- Excluding the explicitly partial magnetic product, sampled valid-data coverage inside Nigerian land is **{min(land_values):.1%}–{max(land_values):.1%}** across the other 12 numeric rasters; outside-land valid fractions are low edge effects. This confirms tile-grid and clipping-mask registration, but is not by itself proof of every cell value’s absolute accuracy.',
         '',
         '### Exact raster/vector classification pairs', '',
         '| Raster / vector pair | Classes | Agreement range | Interpretation |',
@@ -1255,11 +1791,41 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             'The ArcGIS reference provides independent identity corroboration, but its simplified two-feature '
             'extract was not used as replacement geometry or relabelled as an official GRID3 product.'
            ] if gada_resolved else []),
+        *(['- The residual review uses INEC for assignment and 40 independent point-intersection responses '
+           'for boundary corroboration. Independent disagreements remain visible; no external geometry was '
+           'substituted and no ward coordinate was moved.'
+           ] if residual_resolved else []),
+        *(['- EMAG2 remains a partial derivative despite its global source product name. The 90.2% '
+           'sampled / 90.1% full-cell figures describe data presence, not scientific accuracy. NoData '
+           'must not be interpreted as zero nanoTesla or filled by spatial interpolation.'
+           ] if magnetic_resolved else []),
+        *(['- The hidden town layer remains a scanned-sheet cross-check source, not an authoritative '
+           'settlement gazetteer. Population picture regions are class connected regions, not legal '
+           'districts; D0451’s semantic exclusion must survive any future export or republication.'
+           ] if hidden_resolved else []),
+        *(['- `ngmap-admin-v1` IDs are repository-issued, not official government codes. INEC internal '
+           'IDs and local codes describe electoral registration areas, not legal boundary surveys. '
+           'The 220 null INEC ward links are intentional unresolved evidence gaps, not missing '
+           'canonical IDs; do not infer them from fuzzy names or row order.'
+           ] if admin_identified else []),
+        *(['- Cross-border scope classes govern retention and aggregation, not sovereignty. GADM and '
+           'Natural Earth remain diagnostic references; map inclusion does not prove Nigerian '
+           'administration, a legal boundary, territorial waters or an EEZ. The catalog policy metadata '
+           'does not turn the generic focus-area summary into an automatic country filter.'
+           ] if cross_border_defined else []),
+        *(['- The layer register’s structural pass is limited to applicable integrity, CRS, extent and '
+           'geometry checks; it is not an accuracy or completeness score. Metadata completeness counts '
+           'six source fields and is not licence clearance. Hidden historical defects remain provenance, '
+           'and the WPDx source-vintage name-join review remains open.'
+           ] if quality_current else []),
         '', '## Reproduction and evidence files', '',
         '```bash',
         'python -m pip install -r scripts/requirements.txt',
         'python scripts/audit_geospatial.py',
         'python scripts/audit_geospatial_extended.py',
+        'python scripts/layer_quality_register.py',
+        'python scripts/audit_geospatial_extended.py',
+        'python scripts/build_site.py',
         '```', '',
         '- `audit.json`: full core inventory, per-layer geometry and scope metrics, admin checks, national-boundary and line comparisons.',
         '- `extended-audit.json`: independent capital checks, topology, raster registration/coverage and named-point results.',
@@ -1272,6 +1838,38 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             '601 attribute-only decisions, before/after source and provenance hashes and post-apply checks. '
             '`references/` documents the exact two-feature boundary response and source limitations.'
            ] if gada_resolved else []),
+        *(['- `ward-lga-review-ledger.csv` / `ward-lga-review-verification.json` / '
+           '`ward-lga-correction-result.json`: all 40 individual dispositions, three attribute-only '
+           'corrections, official and independent evidence, before/after hashes and post-apply checks. '
+           '`ward-lga-review.md`, `ward-lga-exceptions-before-residual-review.csv` and '
+           '`references/ward-lga-review-sources.md` preserve the human review and source limitations.'
+           ] if residual_resolved else []),
+        *(['- `magnetic-coverage-reclassification-verification.json` / '
+           '`magnetic-coverage-reclassification-result.json` / '
+           '`magnetic-coverage-reclassification.md`: explicit partial-coverage decision, full-cell '
+           'and sampled coverage, state register, before/after metadata and unchanged-data hashes.'
+           ] if magnetic_resolved else []),
+        *(['- `hidden-source-artifact-ledger.csv` / `hidden-source-artifact-verification.json` / '
+           '`hidden-source-artifact-result.json` / `hidden-source-artifact-resolution.md`: the '
+           'quarantined legend row and D0451 semantic exclusion, nearest-settlement and '
+           'state/LGA-intersection evidence, sidecar provenance and complete before/after digests.'
+           ] if hidden_resolved else []),
+        *(['- `admin-identifier-verification.json` / `admin-identifier-result.json` / '
+           '`admin-identifier-resolution.md` and `../admin-identifiers/`: canonical assignment rules, '
+           'the 9,622-row registry, pinned INEC source manifest, external-link limitations, complete '
+           'original-row/geometry digests and six before/after source hash chains.'
+           ] if admin_identified else []),
+        *(['- `../cross-border-data-policy.md` / `../../config/cross-border-policy.json` / '
+           '`cross-border-policy-register.csv`: versioned retention, publication and aggregation rules, '
+           'diagnostic-boundary limitations and all 98 per-layer scope assignments. Public catalog '
+           '`crossBorderPolicy` and per-layer `crossBorder` fields carry the same policy ID and rules.'
+           ] if cross_border_defined else []),
+        *(['- `layer-quality-register.json` / `.csv` / `.md` and '
+           '`../../config/layer-metadata.json`: all 98 source hashes, structural/topology statuses, '
+           'review dispositions, attributes/grids, public exports, source attribution, temporal coverage, '
+           'licence/terms status and explicit metadata gaps. Public catalog `quality` and '
+           '`sourceMetadata` fields carry the compact register projection.'
+           ] if quality_current else []),
         '- `topology-correction-ledger.csv` / `topology-correction-verification.json` / `topology-correction-result.json`: all 191 feature repairs, four explicit review dispositions, before/after areas and bounds, source/provenance hashes and post-apply checks.',
         '- `topology-exceptions.csv`: current active exceptions; `topology-exceptions-before.csv` preserves all 191 original defects and GEOS reasons.',
         '- `raster-class-agreement.csv`: all 22 exact geology class checks; `raster-class-agreement-before-topology.csv` preserves the pre-repair baseline.',
@@ -1330,12 +1928,34 @@ def main():
     gada_correction_path = out / 'gada-illela-correction-result.json'
     gada_correction = (json.loads(gada_correction_path.read_text(encoding='utf8'))
                        if gada_correction_path.exists() else None)
+    residual_correction_path = out / 'ward-lga-correction-result.json'
+    residual_correction = (json.loads(residual_correction_path.read_text(encoding='utf8'))
+                           if residual_correction_path.exists() else None)
+    magnetic_reclassification_path = out / 'magnetic-coverage-reclassification-result.json'
+    magnetic_reclassification = (
+        json.loads(magnetic_reclassification_path.read_text(encoding='utf8'))
+        if magnetic_reclassification_path.exists() else None)
+    hidden_artifact_path = out / 'hidden-source-artifact-result.json'
+    hidden_artifacts = (json.loads(hidden_artifact_path.read_text(encoding='utf8'))
+                        if hidden_artifact_path.exists() else None)
+    admin_identifier_path = out / 'admin-identifier-result.json'
+    admin_identifiers = (json.loads(admin_identifier_path.read_text(encoding='utf8'))
+                         if admin_identifier_path.exists() else None)
+    quality_register_path = out / 'layer-quality-register.json'
+    quality_register = (json.loads(quality_register_path.read_text(encoding='utf8'))
+                        if quality_register_path.exists() else None)
 
     extended = {
         'source_commit': core['source_commit'], 'capital_cross_source': capital,
         'ward_exceptions': ward_summary, 'topology': topology,
         'topology_correction': topology_correction,
         'gada_illela_correction': gada_correction,
+        'residual_ward_lga_correction': residual_correction,
+        'magnetic_coverage_reclassification': magnetic_reclassification,
+        'hidden_source_artifact_resolution': hidden_artifacts,
+        'administrative_identifiers': admin_identifiers,
+        'cross_border_policy': core.get('cross_border_policy'),
+        'layer_quality_register': quality_register.get('summary') if quality_register else None,
         'raster_registration': raster, 'named_point_containment': named,
         'point_outlier_classifications': dict(Counter(r['classification'] for r in outliers)),
         'crs': crs,
@@ -1344,7 +1964,8 @@ def main():
         json.dumps(extended, indent=2, ensure_ascii=False) + '\n', encoding='utf8')
     report = make_report(core, capital, cap_rows, ward_summary, ward_rows, topology,
                          raster, class_rows, named, outliers, crs, topology_correction,
-                         gada_correction)
+                         gada_correction, residual_correction, magnetic_reclassification,
+                         hidden_artifacts, admin_identifiers, quality_register)
     (out / 'README.md').write_text(report, encoding='utf8')
     print(f'Wrote extended audit and professional report to {out}', flush=True)
 

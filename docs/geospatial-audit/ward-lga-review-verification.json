@@ -1,0 +1,118 @@
+{
+  "status": "ready_for_approved_apply",
+  "created_at": "2026-11-08T11:25:38.368763+00:00",
+  "scope": "40 residual ward/LGA exceptions after the Gada/Illela identity correction",
+  "identifier_rule": "feature_index is zero-based in audit CSV; GeoPackage fid = feature_index + 1",
+  "official_control": {
+    "authority": "Independent National Electoral Commission (INEC)",
+    "directories": {
+      "Abia": "https://inecnigeria.org/documents/resources/rac/ABIA.pdf",
+      "Akwa Ibom": "https://inecnigeria.org/documents/resources/rac/AKWA-IBOM.pdf",
+      "Bauchi": "https://inecnigeria.org/documents/resources/rac/BAUCHI.pdf",
+      "Bayelsa": "https://inecnigeria.org/documents/resources/rac/BAYELSA.pdf",
+      "Borno": "https://inecnigeria.org/documents/resources/rac/BORNO.pdf",
+      "Cross River": "https://inecnigeria.org/documents/resources/rac/CROSS-RIVER.pdf",
+      "Delta": "https://inecnigeria.org/documents/resources/rac/DELTA.pdf",
+      "Ekiti": "https://inecnigeria.org/documents/resources/rac/EKITI.pdf",
+      "Federal Capital Territory": "https://inecnigeria.org/documents/resources/rac/FCT.pdf",
+      "Kaduna": "https://inecnigeria.org/documents/resources/rac/KADUNA.pdf",
+      "Kano": "https://inecnigeria.org/documents/resources/rac/KANO.pdf",
+      "Katsina": "https://inecnigeria.org/documents/resources/rac/KATSINA.pdf",
+      "Kebbi": "https://inecnigeria.org/documents/resources/rac/KEBBI.pdf",
+      "Nasarawa": "https://inecnigeria.org/documents/resources/rac/NASARAWA.pdf",
+      "Osun": "https://inecnigeria.org/documents/resources/rac/OSUN.pdf",
+      "Oyo": "https://inecnigeria.org/documents/resources/rac/OYO.pdf",
+      "Plateau": "https://inecnigeria.org/documents/resources/rac/PLATEAU.pdf",
+      "Rivers": "https://inecnigeria.org/documents/resources/rac/RIVERS.pdf",
+      "Sokoto": "https://inecnigeria.org/documents/resources/rac/SOKOTO.pdf",
+      "Taraba": "https://inecnigeria.org/documents/resources/rac/TARABA.pdf"
+    },
+    "limitation": "Directories control registration-area assignment and naming, not legal polygon geometry."
+  },
+  "independent_boundary_control": {
+    "layer": "https://services8.arcgis.com/oTalEaSXAuyNT7xf/arcgis/rest/services/Nigeria_Local_Government_Area_Boundaries/FeatureServer/0",
+    "item_id": "686ce086434740b3b5c517b732999c47",
+    "credit": "Esri, Michael Bauer Research GmbH 2023, National Bureau of Statistics",
+    "method": "Read-only EPSG:4326 point intersection; OBJECTID, ID and NAME recorded for every case",
+    "limitation": "Independent boundary evidence only; no external geometry replaces production geometry."
+  },
+  "source_path": "data/Administrative boundaries/admin_wards_pt.gpkg",
+  "source_sha256": "97065ca02cf64444cdb5e265e48de4fd462e08c904a37b9fc8999f3f75aca534",
+  "baseline_sha256": "aa9ed5dd9a991eedf2ffa1456e0e3caf5fed6f8caa9eafd037dacbfe34f38dc7",
+  "all_ward_geometry_sha256": "87bd448abc6aabd4c730b6856a5180b59dddfe37e60b5b3fe16cc5d5f65195c8",
+  "disposition_counts": {
+    "correct_lga": 3,
+    "retain_boundary_generalisation": 20,
+    "retain_coastal_water": 14,
+    "retain_suspect_coordinate": 2,
+    "retain_delimitation_uncertainty": 1
+  },
+  "correction_plan": {
+    "4095": {
+      "fid": 4096,
+      "ward": "Kwarau",
+      "previous_lga": "Kaduna North",
+      "new_lga": "Igabi",
+      "previous_attributes": {
+        "dist_to_lga_centroid_km": 17.8,
+        "lga": "Kaduna North",
+        "state": "Kaduna",
+        "ward": "Kwarau"
+      },
+      "new_attributes": {
+        "dist_to_lga_centroid_km": 25.5,
+        "lga": "Igabi",
+        "state": "Kaduna",
+        "ward": "Kwarau"
+      }
+    },
+    "4214": {
+      "fid": 4215,
+      "ward": "Gidan Waya",
+      "previous_lga": "Sanga",
+      "new_lga": "Jema'a",
+      "previous_attributes": {
+        "dist_to_lga_centroid_km": 19.6,
+        "lga": "Sanga",
+        "state": "Kaduna",
+        "ward": "Gidan Waya"
+      },
+      "new_attributes": {
+        "dist_to_lga_centroid_km": 23.4,
+        "lga": "Jema'a",
+        "state": "Kaduna",
+        "ward": "Gidan Waya"
+      }
+    },
+    "7294": {
+      "fid": 7295,
+      "ward": "Ward XI E9 I",
+      "previous_lga": "Ibadan South East",
+      "new_lga": "Ibadan North East",
+      "previous_attributes": {
+        "dist_to_lga_centroid_km": 7.8,
+        "lga": "Ibadan South East",
+        "state": "Oyo",
+        "ward": "Ward XI E9 I"
+      },
+      "new_attributes": {
+        "dist_to_lga_centroid_km": 0.9,
+        "lga": "Ibadan North East",
+        "state": "Oyo",
+        "ward": "Ward XI E9 I"
+      }
+    }
+  },
+  "checks": {
+    "exactly_40_cases": true,
+    "exactly_20_states": true,
+    "exactly_3_lga_corrections": true,
+    "all_other_37_retained": true,
+    "all_geometry_hashes_preserved_in_plan": true,
+    "all_fids_match_zero_based_indices": true,
+    "all_corrected_local_polygons_contain_fixed_points": true,
+    "no_ward_names_changed": true,
+    "kwambai_uncertainty_explicit": true
+  },
+  "ledger_sha256": "981f821fcdab3d633e5006687b4b1fbe313dd02bc956e43d8a98318bea68f43e"
+}

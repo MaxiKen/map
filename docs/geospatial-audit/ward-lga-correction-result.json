@@ -1,0 +1,117 @@
+{
+  "status": "applied_and_verified",
+  "applied_at": "2026-11-08T11:25:53.275482+00:00",
+  "source_path": "data/Administrative boundaries/admin_wards_pt.gpkg",
+  "before_sha256": "97065ca02cf64444cdb5e265e48de4fd462e08c904a37b9fc8999f3f75aca534",
+  "after_sha256": "bf921c01802abcf36fb68f4991eae752246ea248ed3f2b18157e4bc12d0f69db",
+  "baseline_sha256": "aa9ed5dd9a991eedf2ffa1456e0e3caf5fed6f8caa9eafd037dacbfe34f38dc7",
+  "ledger_sha256": "981f821fcdab3d633e5006687b4b1fbe313dd02bc956e43d8a98318bea68f43e",
+  "verification_sha256": "ab0c474245cd317dab6a8873357aabf348f49d2c0fbb7537b8c492c82cbacf77",
+  "all_ward_geometry_sha256": "87bd448abc6aabd4c730b6856a5180b59dddfe37e60b5b3fe16cc5d5f65195c8",
+  "counts": {
+    "reviewed_cases": 40,
+    "lga_corrections": 3,
+    "retained_cases": 37,
+    "ward_geometries_changed": 0,
+    "dispositions": {
+      "correct_lga": 3,
+      "retain_boundary_generalisation": 20,
+      "retain_coastal_water": 14,
+      "retain_suspect_coordinate": 2,
+      "retain_delimitation_uncertainty": 1
+    }
+  },
+  "staged_verification": {
+    "feature_count": 8809,
+    "changed_features": 3,
+    "untargeted_features_verified": 8806,
+    "all_geometry_byte_identical": true,
+    "all_untargeted_attributes_verified": true,
+    "integrity_check": "ok",
+    "contents_metadata_unchanged": true
+  },
+  "post_correction": {
+    "corrected_wards": {
+      "4096": {
+        "feature_index": 4095,
+        "ward": "Kwarau",
+        "previous_lga": "Kaduna North",
+        "new_lga": "Igabi",
+        "dist_to_lga_centroid_km": 25.5,
+        "contained_by_corrected_local_lga": true
+      },
+      "4215": {
+        "feature_index": 4214,
+        "ward": "Gidan Waya",
+        "previous_lga": "Sanga",
+        "new_lga": "Jema'a",
+        "dist_to_lga_centroid_km": 23.4,
+        "contained_by_corrected_local_lga": true
+      },
+      "7295": {
+        "feature_index": 7294,
+        "ward": "Ward XI E9 I",
+        "previous_lga": "Ibadan South East",
+        "new_lga": "Ibadan North East",
+        "dist_to_lga_centroid_km": 0.9,
+        "contained_by_corrected_local_lga": true
+      }
+    },
+    "residual_exception_count": 37,
+    "residual_within_1km": 32,
+    "residual_over_10km": 0,
+    "residual_without_local_container": 15,
+    "residual_feature_indices": [
+      59,
+      472,
+      668,
+      1184,
+      1282,
+      1762,
+      2007,
+      2195,
+      2334,
+      2431,
+      2821,
+      3291,
+      4210,
+      4456,
+      4823,
+      5070,
+      5127,
+      6042,
+      6952,
+      6990,
+      6994,
+      7733,
+      7811,
+      7817,
+      7851,
+      7853,
+      7854,
+      7860,
+      7891,
+      7997,
+      8003,
+      8028,
+      8042,
+      8048,
+      8149,
+      8342,
+      8447
+    ],
+    "all_40_ledger_rows_rechecked": true,
+    "all_8809_geometry_blobs_unchanged": true
+  },
+  "checks": {
+    "source_hash_matches_staged_installation": true,
+    "ledger_and_verification_hashes_preserved": true,
+    "exactly_3_lga_corrections": true,
+    "all_corrected_points_contained": true,
+    "exactly_37_reviewed_residuals": true,
+    "zero_ward_geometries_changed": true,
+    "all_8809_rows_staged_and_verified": true,
+    "untargeted_attributes_unchanged": true,
+    "gpkg_contents_unchanged": true
+  }
+}

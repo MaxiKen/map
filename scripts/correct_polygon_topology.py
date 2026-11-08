@@ -717,10 +717,21 @@ def verify_existing_result():
     by_layer = defaultdict(list)
     for row in rows:
         by_layer[row['layer']].append(row)
+    hidden_artifact_path = OUT / 'hidden-source-artifact-result.json'
+    hidden_artifacts = (json.loads(hidden_artifact_path.read_text(encoding='utf8'))
+                        if hidden_artifact_path.exists() else None)
     for table, saved in result['layers'].items():
         current = layer_index()[table]['path']
         hidden = ROOT / saved['provenance_path']
-        if sha256(current) != saved['after_sha256'] or sha256(hidden) != saved['provenance_sha256']:
+        current_hash = sha256(current)
+        superseded_population = bool(
+            table == 'population_districts_picture_pg' and hidden_artifacts and
+            hidden_artifacts.get('status') == 'resolved_and_verified' and
+            hidden_artifacts['sources']['population']['before_sha256'] == saved['after_sha256'] and
+            hidden_artifacts['after_sha256']['population'] == current_hash and
+            all(hidden_artifacts.get('checks', {}).values()))
+        if ((current_hash != saved['after_sha256'] and not superseded_population) or
+                sha256(hidden) != saved['provenance_sha256']):
             raise RuntimeError(f'{table}: current or provenance hash differs from result')
         verify_against_original(current, table, hidden, saved['provenance_table'], by_layer[table])
     print('Existing topology correction and all provenance hashes verified; nothing reapplied.')

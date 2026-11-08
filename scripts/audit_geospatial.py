@@ -50,42 +50,15 @@ DATA = ROOT / 'data'
 METRIC_CRS = 32632
 NIGERIA_BBOX = (2.5, 3.7, 15.2, 14.2)  # sheet/offshore envelope, not a land boundary
 
-# Layers for which some geometry beyond the GADM land boundary is expected.
-# These layers are still inventoried and checked for impossible coordinates.
-SCOPE_NOTES = {
-    'reference_world_countries_pg': 'global reference; Nigeria containment not applicable',
-    'reference_africa_countries_pg': 'continental reference; Nigeria containment not applicable',
-    'reference_graticule_map2011_ln': 'map-sheet graticule; extends beyond Nigeria',
-    'reference_graticule_map2023_ln': 'map-sheet graticule; extends beyond Nigeria',
-    'minerals_division_lines_map2023_ln': 'map-sheet/zone lines; extends beyond Nigeria',
-    'geology_units_map2011_pg': 'geology continues across international borders',
-    'geology_unit_boundaries_map2011_ln': 'geology continues across international borders',
-    'geology_faults_map2011_ln': 'geology continues across international borders',
-    'geology_background_map2023_pg': 'geological map-sheet background includes neighbouring countries',
-    'groundwater_units_ecowas2022_pg': 'regional ECOWAS units may cross borders',
-    'groundwater_cover_ecowas2022_pg': 'regional ECOWAS units may cross borders',
-    'groundwater_transboundary_igrac2025_pg': 'explicitly transboundary aquifers',
-    'water_basins_fao_pg': 'drainage basins may cross borders',
-    'water_lines_diva_ln': 'rivers may cross borders or occupy boundary channels',
-    'water_areas_diva_pg': 'boundary lakes and cross-border water bodies are expected',
-    'water_rivers_map2011_ln': 'scanned-map rivers extend beyond the national boundary',
-    'water_rivers_map2023_ln': 'scanned-map rivers extend beyond the national boundary',
-    'protected_areas_wdpa_pg': 'transboundary complexes and coastal protected areas require feature-level review',
-    'infrastructure_airports_osm_pt': 'OSM extraction envelope can include neighbouring countries',
-    'infrastructure_pois_osm_pt': 'OSM extraction envelope can include neighbouring countries',
-    'infrastructure_seaports_osm_pt': 'coastal/offshore facilities and neighbouring-country ports are possible',
-    'settlements_places_osm_pt': 'OSM extraction envelope can include border settlements',
-    'settlements_gazetteer_diva_pt': 'gazetteer extraction envelope can include border settlements',
-    'geology_heatflow_ihfc2024_pt': 'offshore heat-flow measurements are valid',
-    'transport_roads_diva_ln': 'roads can continue across international borders',
-    'transport_railways_diva_ln': 'railways can continue across international borders',
-    'transport_roads_map2011_ln': 'scanned-map roads can continue across international borders',
-    'transport_roads_map2023_ln': 'scanned-map roads can continue across international borders',
-    'transport_railways_map2011_ln': 'scanned-map railways can continue across international borders',
-    'transport_railways_map2023_ln': 'scanned-map railways can continue across international borders',
-    'admin_international_boundary_map2023_ln': 'international boundary lines lie on, not necessarily within, the reference polygon',
-    'geology_admin_boundaries_map2011_ln': 'administrative boundary lines lie on, not necessarily within, the reference polygon',
-}
+# Explicit scope notes come from the versioned cross-border policy. Layers using
+# a safe kind default remain fully inventoried and checked for impossible geometry.
+from cross_border_policy import (
+    explicit_scope_notes, load_policy, policy_summary, register_rows,
+    resolve_layer, validate_inventory,
+)
+
+CROSS_BORDER_POLICY = load_policy()
+SCOPE_NOTES = explicit_scope_notes(CROSS_BORDER_POLICY)
 
 # Point layers where being more than 10 km from GADM land deserves individual review.
 POINT_REVIEW_EXEMPT = {
@@ -343,12 +316,15 @@ def audit_vector(table, country, country_metric):
                 no_intersection += 1
         result['features_not_fully_within_gadm_land'] = outside
         result['features_with_no_gadm_land_intersection'] = no_intersection
+    policy_rule = resolve_layer(
+        table, visible=meta['visible'], kind=meta['kind'], policy=CROSS_BORDER_POLICY)
+    result['cross_border_policy'] = policy_rule
     result['scope_note'] = (
         'Hidden pre-topology-correction original; invalid geometries are expected historical evidence, not active data'
         if table.endswith('_topology_original') else
         'Hidden pre-Gada/Illela-identity-correction original; not current administration'
         if result['is_identity_provenance'] else
-        SCOPE_NOTES.get(table, 'Nigeria-focused; exceptions require explanation'))
+        policy_rule['scope_note'])
     return result
 
 
@@ -557,6 +533,9 @@ def audit_raster(table):
             'bounds_max_delta_degrees': bounds_delta(computed_bounds, meta['declared_bounds']),
             'pixel_size_positive': px > 0 and py > 0,
         }
+    result['cross_border_policy'] = resolve_layer(
+        table, visible=meta['visible'], kind=meta['kind'], policy=CROSS_BORDER_POLICY)
+    result['scope_note'] = result['cross_border_policy']['scope_note']
     return result
 
 
@@ -588,6 +567,7 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
 
     index = layer_index()
+    validate_inventory(index, CROSS_BORDER_POLICY)
     feature_tables = sorted(t for t, m in index.items() if m['kind'] == 'features')
     raster_tables = sorted(t for t, m in index.items() if m['kind'] in ('2d-gridded-coverage', 'tiles'))
     print(f'Auditing {len(index)} spatial layers in {len(set(m["path"] for m in index.values()))} GeoPackages')
@@ -673,14 +653,16 @@ def main():
         'identity_provenance_invalid_geometry_count': sum(
             v['invalid_geometry_count'] for v in vectors.values() if v['is_identity_provenance']),
     }
+    cross_border_summary = policy_summary(index, CROSS_BORDER_POLICY)
     report = {
         'generated_utc': datetime.now(timezone.utc).isoformat(),
         'source_commit': commit, 'metric_crs': f'EPSG:{METRIC_CRS}',
+        'cross_border_policy': cross_border_summary,
         'method_limitations': [
             'Internal agreement does not by itself prove absolute ground truth.',
             'Different survey dates, map scales and generalisation can create legitimate residuals.',
             'GADM land is a reference for diagnostics, not a legal or survey-grade boundary.',
-            'Offshore, transboundary and map-sheet features are interpreted with their stated scope.',
+            'Offshore, transboundary and map-sheet features follow ngmap-cross-border-v1; scope is not legal sovereignty or survey certification.',
             'No geometry is automatically repaired by this audit.',
         ],
         'database_integrity': database_integrity, 'vectors': vectors, 'rasters': rasters,
@@ -690,6 +672,15 @@ def main():
         'point_outliers_over_10km': len(outlier_rows),
     }
     (out / 'audit.json').write_text(json.dumps(report, indent=2, ensure_ascii=False) + '\n', encoding='utf8')
+
+    policy_fields = [
+        'layer', 'path', 'visibility', 'kind', 'scope_class', 'source_retention',
+        'publication', 'national_statistics', 'foreign_features', 'provenance_of', 'scope_note',
+    ]
+    with (out / 'cross-border-policy-register.csv').open('w', newline='', encoding='utf8') as f:
+        writer = csv.DictWriter(f, fieldnames=policy_fields)
+        writer.writeheader()
+        writer.writerows(register_rows(index, CROSS_BORDER_POLICY))
 
     fields = sorted({key for row in outlier_rows for key in row})
     with (out / 'point-outliers-over-10km.csv').open('w', newline='', encoding='utf8') as f:
@@ -707,6 +698,7 @@ def main():
         f'- Null geometries: **{sum(v["null_geometry"] for v in vectors.values())}**',
         f'- Empty geometries: **{sum(v["empty_geometry"] for v in vectors.values())}**',
         f'- Active invalid geometries: **{geometry_summary["active_invalid_geometry_count"]}**',
+        f'- Cross-border policy: **{cross_border_summary["policy_id"]}** across {cross_border_summary["layer_count"]} layers; sources preserved unclipped',
         f'- Historical invalid geometries in hidden topology provenance: **{geometry_summary["topology_provenance_invalid_geometry_count"]}**',
         f'- Non-finite or impossible lon/lat geometries: **{sum(v["nonfinite_geometry_count"] + v["outside_longitude_latitude_count"] for v in vectors.values())}**',
         f'- Point instances over 10 km from GADM land: **{len(outlier_rows)}** (includes documented scope exceptions)',

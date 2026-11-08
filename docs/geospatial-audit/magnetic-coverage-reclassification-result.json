@@ -1,0 +1,293 @@
+{
+  "status": "reclassified_and_verified",
+  "classification": "partial_coverage_no_interpolation",
+  "applied_at": "2026-11-08T12:31:45.151394+00:00",
+  "source_path": "data/Geology/geophysics_magnetic_emag2_rst.gpkg",
+  "before_sha256": "ed31c59b846696cf2ccbec6bdae7562b67584d579f5df6b0d3a1bc3df7c5de39",
+  "after_sha256": "9d1474b8c5b92195241bb3fedd5ae8917479c8834b8446c5205cab907a044baa",
+  "verification_sha256": "f30625d96896acf2a2d6cba986805d682d87c868b4eef4f5930e37ea27b6a1ad",
+  "visible_label": "Magnetic anomaly (EMAG2 v2, partial coverage)",
+  "before_description": "EMAG2 Earth Magnetic Anomaly Grid v2, 2 arc-minute global total-field anomaly in nT (NOAA/NCEI / CIRES, free). Averaged to 0.025 degree and masked to Nigeria. EPSG:4326.",
+  "after_description": "PARTIAL NIGERIA COVERAGE: 90.2% of sampled land cells are valid (Ekiti 0.0%, Osun 5.6%, Oyo 30.4%, Sokoto 40.2%). Missing areas remain NoData; no interpolation or magnetic infilling was applied. This is not continuous national coverage. EMAG2 Earth Magnetic Anomaly Grid v2, 2 arc-minute global total-field anomaly in nT (NOAA/NCEI / CIRES, free), averaged to 0.025 degree and masked to Nigeria. EPSG:4326.",
+  "coverage": {
+    "grid": {
+      "width": 500,
+      "height": 400,
+      "cells": 200000,
+      "valid_cells": 109484,
+      "nodata_cells": 90516,
+      "nodata_value": -9999.0
+    },
+    "full_cell_land": {
+      "cells": 119116,
+      "valid_cells": 107357,
+      "valid_fraction": 0.9012811041337856
+    },
+    "sampled_land": {
+      "stride_cells": 2,
+      "cells": 29789,
+      "valid_cells": 26871,
+      "valid_fraction": 0.9020443787975427
+    },
+    "states": [
+      {
+        "state": "Abia",
+        "cells": 613,
+        "valid_cells": 613,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Adamawa",
+        "cells": 4505,
+        "valid_cells": 4497,
+        "valid_fraction": 0.9982241953385128
+      },
+      {
+        "state": "Akwa Ibom",
+        "cells": 878,
+        "valid_cells": 878,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Anambra",
+        "cells": 597,
+        "valid_cells": 597,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Bauchi",
+        "cells": 6503,
+        "valid_cells": 6503,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Bayelsa",
+        "cells": 1282,
+        "valid_cells": 1282,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Benue",
+        "cells": 4100,
+        "valid_cells": 4100,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Borno",
+        "cells": 8795,
+        "valid_cells": 8795,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Cross River",
+        "cells": 2785,
+        "valid_cells": 2784,
+        "valid_fraction": 0.999640933572711
+      },
+      {
+        "state": "Delta",
+        "cells": 2167,
+        "valid_cells": 2167,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Ebonyi",
+        "cells": 812,
+        "valid_cells": 812,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Edo",
+        "cells": 2563,
+        "valid_cells": 2440,
+        "valid_fraction": 0.9520093640265314
+      },
+      {
+        "state": "Ekiti",
+        "cells": 697,
+        "valid_cells": 0,
+        "valid_fraction": 0.0
+      },
+      {
+        "state": "Enugu",
+        "cells": 1009,
+        "valid_cells": 1009,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Federal Capital Territory",
+        "cells": 968,
+        "valid_cells": 968,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Gombe",
+        "cells": 2410,
+        "valid_cells": 2410,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Imo",
+        "cells": 695,
+        "valid_cells": 695,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Jigawa",
+        "cells": 3188,
+        "valid_cells": 3188,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Kaduna",
+        "cells": 5853,
+        "valid_cells": 5853,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Kano",
+        "cells": 2663,
+        "valid_cells": 2663,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Katsina",
+        "cells": 3153,
+        "valid_cells": 3015,
+        "valid_fraction": 0.956232159847764
+      },
+      {
+        "state": "Kebbi",
+        "cells": 4774,
+        "valid_cells": 3677,
+        "valid_fraction": 0.7702136573104315
+      },
+      {
+        "state": "Kogi",
+        "cells": 3790,
+        "valid_cells": 3512,
+        "valid_fraction": 0.9266490765171504
+      },
+      {
+        "state": "Kwara",
+        "cells": 4676,
+        "valid_cells": 3103,
+        "valid_fraction": 0.663601368691189
+      },
+      {
+        "state": "Lagos",
+        "cells": 501,
+        "valid_cells": 458,
+        "valid_fraction": 0.9141716566866267
+      },
+      {
+        "state": "Nasarawa",
+        "cells": 3451,
+        "valid_cells": 3451,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Niger",
+        "cells": 9357,
+        "valid_cells": 9225,
+        "valid_fraction": 0.9858929143956396
+      },
+      {
+        "state": "Ogun",
+        "cells": 2098,
+        "valid_cells": 1256,
+        "valid_fraction": 0.5986653956148713
+      },
+      {
+        "state": "Ondo",
+        "cells": 1897,
+        "valid_cells": 1316,
+        "valid_fraction": 0.6937269372693727
+      },
+      {
+        "state": "Osun",
+        "cells": 1199,
+        "valid_cells": 67,
+        "valid_fraction": 0.05587989991659716
+      },
+      {
+        "state": "Oyo",
+        "cells": 3597,
+        "valid_cells": 1095,
+        "valid_fraction": 0.30442035029190995
+      },
+      {
+        "state": "Plateau",
+        "cells": 3637,
+        "valid_cells": 3637,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Rivers",
+        "cells": 1111,
+        "valid_cells": 1111,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Sokoto",
+        "cells": 4240,
+        "valid_cells": 1705,
+        "valid_fraction": 0.40212264150943394
+      },
+      {
+        "state": "Taraba",
+        "cells": 7911,
+        "valid_cells": 7861,
+        "valid_fraction": 0.993679686512451
+      },
+      {
+        "state": "Water body",
+        "cells": 690,
+        "valid_cells": 690,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Yobe",
+        "cells": 6053,
+        "valid_cells": 6053,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Zamfara",
+        "cells": 4588,
+        "valid_cells": 4561,
+        "valid_fraction": 0.9941150828247602
+      }
+    ]
+  },
+  "tile_rows": 1,
+  "tile_sha256": "5869206b07b14c3f7bdfcacea193f71fbd242150efbe663453885d6688619af0",
+  "array_sha256": "c69542c525b08981ac9b3930944b710d97a7a46da92f608d211d78c5152498ce",
+  "non_contents_sha256": "734aed400455aa433b7876b4a18a49e318fc77f31298d1e56d5e8b371fdbf550",
+  "public_assets_before": {
+    "png_sha256": "921f9d478d84ec52b271deede8b386d22b5d71a21b9cfe3d06e3c6d84a0fd469",
+    "values_sha256": "9711702886e4c83eea7a6b2d9d10edc26832105d0f345627662e50b3db7c0c63"
+  },
+  "staged_verification": {
+    "changed_contents_fields": [
+      "description",
+      "last_change"
+    ],
+    "tile_bytes_unchanged": true,
+    "logical_array_unchanged": true,
+    "all_other_tables_unchanged": true,
+    "coverage_unchanged": true,
+    "integrity_check": "ok"
+  },
+  "checks": {
+    "source_hash_matches_staged_installation": true,
+    "description_is_explicit_partial_coverage": true,
+    "tile_bytes_unchanged": true,
+    "logical_array_unchanged": true,
+    "all_other_tables_unchanged": true,
+    "coverage_unchanged": true,
+    "integrity_check_ok": true,
+    "public_png_unchanged": true,
+    "public_values_unchanged": true
+  }
+}
