@@ -366,6 +366,32 @@ def choose_style(kind, fields, rows, cfg, name):
     return {'mode': 'single', 'color': base}
 
 
+def write_vector_files(out, layer_id, features):
+    """Write lossless GeoJSON plus a deterministic gzip transport sidecar.
+
+    The original remains the public download/fallback. The sidecar is fetched as bytes and
+    decompressed in a worker, avoiding reliance on optional CDN content negotiation.
+    """
+    payload = json.dumps(
+        {'type': 'FeatureCollection', 'features': features},
+        separators=(',', ':'), ensure_ascii=False).encode('utf8')
+    filename = f'{layer_id}.geojson'
+    original_path = os.path.join(out, 'data', filename)
+    with open(original_path, 'wb') as handle:
+        handle.write(payload)
+    compressed_path = original_path + '.gz'
+    with open(compressed_path, 'wb') as raw:
+        with gzip.GzipFile(filename='', mode='wb', fileobj=raw, compresslevel=6, mtime=0) as handle:
+            handle.write(payload)
+    return {
+        'file': 'data/' + filename,
+        'fileBytes': len(payload),
+        'loadFile': 'data/' + filename + '.gz',
+        'loadEncoding': 'gzip',
+        'loadBytes': os.path.getsize(compressed_path),
+    }
+
+
 def build_vector(con, table, row, gcol, geomtype, out, cfg):
     cols = [(r[1], col_kind(r[2])) for r in con.execute(f'pragma table_info("{table}")') if r[1] != gcol and r[1].lower() not in ('fid', 'ogc_fid')]
     hide = {k for k, v in cfg.get('fields', {}).items() if v.get('hidden')}
@@ -399,11 +425,9 @@ def build_vector(con, table, row, gcol, geomtype, out, cfg):
     fields = [{'name': c, 'type': k, 'label': cfg.get('fields', {}).get(c, {}).get('label', pretty(c))} for c, k in cols if c not in hide]
     style = choose_style(row['kind'], fields, rowsd, cfg, table)
     lf = cfg.get('labelField') or next((n for n in NAME_FIELDS if n in [f['name'] for f in fields if f['type'] == 'text']), None)
-    fn = f'{row["id"]}.geojson'
-    with open(os.path.join(out, 'data', fn), 'w', encoding='utf8') as f:
-        json.dump({'type': 'FeatureCollection', 'features': feats}, f, separators=(',', ':'), ensure_ascii=False)
-    result = {'file': 'data/' + fn, 'count': len(feats), 'fields': fields, 'style': style, 'labelField': lf,
+    result = {'count': len(feats), 'fields': fields, 'style': style, 'labelField': lf,
               'bounds': box if box[0] < box[2] + 1e-9 and box[0] < 1e8 else None, 'geometry': geomtype}
+    result.update(write_vector_files(out, row['id'], feats))
     if precision_fallbacks:
         result['geometryPrecisionFallbacks'] = dict(sorted(precision_fallbacks.items()))
         print('  geometry precision fallbacks:', result['geometryPrecisionFallbacks'], flush=True)
@@ -580,8 +604,8 @@ def fold_legends(layers, out, lcfg):
                         v = r[cols.index(c)]
                         if v not in (None, '') and p.get(c) in (None, ''):
                             p[c] = v
-                with open(os.path.join(out, owner['file']), 'w', encoding='utf8') as fh:
-                    json.dump(gj, fh, separators=(',', ':'), ensure_ascii=False)
+                # Keep the optimized transport in sync when legend attributes enrich GeoJSON.
+                owner.update(write_vector_files(out, owner['id'], feats))
                 owner['fields'] = (owner.get('fields') or []) + [
                     {'name': c, 'type': next((a['type'] for a in attrs if a['name'] == c), 'text'), 'label': pretty(c)}
                     for c in extra]
@@ -696,7 +720,8 @@ def main():
     with open(os.path.join(a.out, 'catalog.json'), 'w', encoding='utf8') as f: f.write(blob)
     # the build id covers the data *and* the app shell, so any change gets fresh URLs
     hsh = hashlib.md5(blob.encode())
-    for rel in ('index.html', 'css/app.css', 'js/app.js', 'js/engine.js', 'sw.js', 'manifest.webmanifest'):
+    for rel in ('index.html', 'css/app.css', 'js/app.js', 'js/engine.js', 'js/loading.js',
+                'js/vector-worker.js', 'sw.js', 'manifest.webmanifest'):
         p = os.path.join(a.out, rel)
         if os.path.exists(p): hsh.update(open(p, 'rb').read())
     ver = hsh.hexdigest()[:10]
@@ -713,10 +738,20 @@ def main():
             h = h.replace(before, after)
         h = h.replace('content="dev"', f'content="{ver}"')
         open(idx, 'w', encoding='utf8').write(h)
-    app = os.path.join(a.out, 'js', 'app.js')
-    if os.path.exists(app):
-        t = open(app, encoding='utf8').read().replace("from './engine.js'", f"from './engine.js?v={ver}'")
-        open(app, 'w', encoding='utf8').write(t)
+    for rel in ('js/app.js', 'js/vector-worker.js'):
+        module_path = os.path.join(a.out, rel)
+        if not os.path.exists(module_path):
+            continue
+        text = open(module_path, encoding='utf8').read()
+        for dependency in ('engine.js', 'loading.js'):
+            text = text.replace(f"from './{dependency}'", f"from './{dependency}?v={ver}'")
+        open(module_path, 'w', encoding='utf8').write(text)
+    raw_vector_bytes = sum(layer.get('fileBytes', 0) for layer in layers)
+    gzip_vector_bytes = sum(layer.get('loadBytes', 0) for layer in layers)
+    if raw_vector_bytes:
+        print(f'vector transport: {raw_vector_bytes / 1048576:.1f} MiB -> '
+              f'{gzip_vector_bytes / 1048576:.1f} MiB gzip '
+              f'({100 * (1 - gzip_vector_bytes / raw_vector_bytes):.1f}% smaller)')
     print(f'built {len(layers)} layers from {len(files)} files in {time.time() - t0:.1f}s -> {a.out}/ (version {ver})')
 
 

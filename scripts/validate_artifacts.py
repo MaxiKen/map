@@ -8,6 +8,7 @@ comparisons remain covered by tests in tests/.
 from __future__ import annotations
 
 import csv
+import gzip
 import json
 import sqlite3
 from collections import Counter
@@ -199,6 +200,43 @@ def validate_inventory(paths: list[Path], layers: dict[str, dict]) -> tuple[dict
     return audit, catalog
 
 
+def validate_vector_transport(catalog: dict) -> tuple[int, int, int]:
+    """Verify that optimized downloads are exact, deterministic copies of GeoJSON."""
+    count = original_total = compressed_total = 0
+    vector_kinds = {'point', 'line', 'polygon'}
+    for layer in catalog['layers']:
+        if layer.get('kind') not in vector_kinds:
+            require('loadFile' not in layer and 'loadEncoding' not in layer,
+                    f'public/catalog.json: unexpected vector transport on {layer["id"]}')
+            continue
+        original_path = PUBLIC / layer['file']
+        compressed_path = PUBLIC / layer.get('loadFile', '')
+        require(layer.get('loadEncoding') == 'gzip' and layer['file'].endswith('.geojson') and
+                layer.get('loadFile', '').endswith('.geojson.gz'),
+                f'public/catalog.json: missing gzip vector transport for {layer["id"]}')
+        require(compressed_path.is_file(),
+                f'public/catalog.json: missing compressed layer {layer["loadFile"]}')
+        original = original_path.read_bytes()
+        compressed = compressed_path.read_bytes()
+        try:
+            decompressed = gzip.decompress(compressed)
+        except (OSError, EOFError) as exc:
+            raise ValidationError(f'{relative(compressed_path)}: invalid gzip: {exc}') from exc
+        require(decompressed == original,
+                f'{relative(compressed_path)}: decompressed bytes differ from original GeoJSON')
+        require(layer.get('fileBytes') == len(original) and
+                layer.get('loadBytes') == len(compressed),
+                f'public/catalog.json: stale transport byte counts for {layer["id"]}')
+        require(compressed[4:8] == b'\0\0\0\0',
+                f'{relative(compressed_path)}: gzip timestamp is not deterministic')
+        count += 1
+        original_total += len(original)
+        compressed_total += len(compressed)
+    require(count and compressed_total < original_total,
+            'Compressed vector transport must cover vectors and reduce total bytes')
+    return count, original_total, compressed_total
+
+
 def validate_cross_border_policy(layers: dict[str, dict], audit: dict, catalog: dict) -> None:
     try:
         policy = cross_border.load_policy()
@@ -300,6 +338,7 @@ def main() -> None:
 
     paths, layers = validate_geopackages()
     audit, catalog = validate_inventory(paths, layers)
+    transport_count, transport_raw, transport_gzip = validate_vector_transport(catalog)
     validate_cross_border_policy(layers, audit, catalog)
     validate_layer_quality(layers, audit, catalog)
 
@@ -327,6 +366,11 @@ def main() -> None:
         f'{public_counts["geojson_features"]} published GeoJSON features; '
         f'{len(audit_structured) + len(public_structured)} JSON/GeoJSON files, '
         f'{len(csv_paths)} audit CSVs ({csv_rows} rows), and {len(png_paths)} audit PNGs.'
+    )
+    print(
+        f'Vector transport validated: {transport_count} exact gzip sidecars, '
+        f'{transport_raw / 1048576:.1f} MiB -> {transport_gzip / 1048576:.1f} MiB '
+        f'({100 * (1 - transport_gzip / transport_raw):.1f}% smaller).'
     )
 
 

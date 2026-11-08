@@ -7,7 +7,8 @@ A mobile-friendly, installable map app. No backend, no API keys. Everything is s
   name is shown verbatim in the app. No files belong directly in `data/`. Attribute tables live inside their owning
   GeoPackage, not in standalone `*_tbl.gpkg` files.
 - `scripts/build_site.py` reads every visible `.gpkg` in those group folders and writes the website into `public/`
-  (GeoJSON, images, value grids, `catalog.json`). A filename starting with `hidden_` is skipped. Layer names, fields,
+  (GeoJSON and gzip transport sidecars, images, value grids, `catalog.json`). A filename starting with `hidden_`
+  is skipped. Layer names, fields,
   colours and legends are detected automatically; group membership and group names come only from the folders.
 - A GitHub Action runs the build whenever you push changes to `data/`, `app/`, `scripts/` or `config/`, and commits `public/`.
 - Netlify serves `public/` (no build command needed).
@@ -98,6 +99,15 @@ focus; "Reset the work" (author mode) clears everything.
 For scripting and support the console exposes `window.__nwg` (`map`, `L`, `stack`, `annotations`,
 `setFocus`, `focusFromLonLat`, `stopFocus`, `focusAreaKm2`, `toolAoi`, `runQuery`, `rasterClassAnchor`,
 `layerRank`).
+
+## Loading performance
+
+Vector layers retain their original GeoJSON downloads and also publish deterministic `.geojson.gz` transport
+sidecars. A module worker handles fetching, decompression, JSON parsing and typed-geometry conversion off the UI
+thread; compatible browsers without those APIs use a yielding fallback. A shared scheduler limits all layer loads
+to two at once and deduplicates repeated requests. The current 43 vector sidecars are **83.9% smaller** than their
+original representations. See [map loading performance](docs/map-loading-performance.md) for measurements,
+fallback behavior and the exact round-trip validation gates.
 
 ## Setup
 1. Create a GitHub repo and upload everything in this folder (keep the `.github` folder).

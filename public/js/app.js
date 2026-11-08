@@ -1,4 +1,5 @@
-import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature } from './engine.js?v=d8ae6e6fc1';
+import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature } from './engine.js?v=e1ab0b2e45';
+import { createLoadScheduler } from './loading.js?v=e1ab0b2e45';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -97,7 +98,7 @@ async function start() {
   if (catalog.authorMode === true) AUTHOR = true;
   document.title = catalog.title; $('#title').textContent = catalog.title;
   catalog.layers.forEach((m, i) => L.set(m.id, {
-    meta: m, on: false, opacity: m.opacity ?? (m.kind === 'polygon' ? 0.85 : 1), loading: false, obj: null,
+    meta: m, on: false, opacity: m.opacity ?? (m.kind === 'polygon' ? 0.85 : 1), loading: false, loadPromise: null, obj: null,
     order: i, sym: null, labels: null, filter: null, reclass: null, stats: null,
   }));
   baseOrder = catalog.layers.map((m) => m.id);
@@ -243,13 +244,6 @@ function syncBasemapUI() { for (const b of $$('#basemaps button')) b.classList.t
 function updateAttrib() { $('#attrib').textContent = BASEMAPS[map.basemap]?.attr || ''; }
 
 // ---------------------------------------------------------------- layer loading
-const palette = '#7a7a7a';
-function styleColor(style, props) {
-  if (!style) return palette;
-  if (style.mode === 'color-field') { const v = props[style.field]; return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : style.color; }
-  if (style.mode === 'category') return style.colors[props[style.field]] || '#9aa0a6';
-  return style.color || palette;
-}
 function defaultSym(m) {
   const s = m.style || {};
   return {
@@ -261,19 +255,75 @@ function defaultSym(m) {
 function defaultLabels(m) {
   return { field: (m.style && m.style.labelField) || m.labelField || null, size: 11, color: '', halo: true, bold: true, italic: false, minZoom: m.count > 3000 ? 10 : 8, on: true };
 }
+const scheduleLayerLoad = createLoadScheduler();
+
+function workerVectorFeatures(m) {
+  return new Promise((resolve, reject) => {
+    let worker;
+    try {
+      const url = new URL('./vector-worker.js', import.meta.url);
+      url.searchParams.set('v', BUILD);
+      worker = new Worker(url.href, { type: 'module' });
+    } catch (error) { reject(error); return; }
+    worker.onmessage = (event) => {
+      worker.terminate();
+      if (event.data.error) {
+        const error = new Error(event.data.error);
+        error.workerDataError = true;
+        reject(error);
+      } else resolve(event.data.features);
+    };
+    worker.onerror = () => {
+      worker.terminate();
+      reject(new Error('Vector worker unavailable'));
+    };
+    const compressed = m.loadEncoding === 'gzip' && m.loadFile && typeof DecompressionStream !== 'undefined';
+    try {
+      worker.postMessage({
+        url: compressed ? m.loadFile : m.file,
+        encoding: compressed ? 'gzip' : null,
+        style: m.style,
+      });
+    } catch (error) { worker.terminate(); reject(error); }
+  });
+}
+
+async function mainVectorFeatures(m) {
+  const response = await fetch(m.file);
+  if (!response.ok) throw new Error(`Layer request failed (${response.status})`);
+  const geojson = await response.json();
+  const features = [];
+  let seen = 0;
+  for (const feature of geojson.features || []) {
+    const converted = prepareFeature(feature, m.style, features.length);
+    if (converted) features.push(converted);
+    if (++seen % 1000 === 0) await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  return features;
+}
+
+async function vectorFeatures(m) {
+  if (typeof Worker !== 'undefined') {
+    try { return await workerVectorFeatures(m); }
+    catch (error) { if (error.workerDataError) throw error; }
+  }
+  return mainVectorFeatures(m);
+}
+
 async function loadLayer(st) {
+  if (st.obj) return st.obj;
+  if (st.loadPromise) return st.loadPromise;
+  const pending = scheduleLayerLoad(() => loadLayerData(st));
+  st.loadPromise = pending;
+  try { return await pending; }
+  finally { if (st.loadPromise === pending) st.loadPromise = null; }
+}
+
+async function loadLayerData(st) {
   const m = st.meta;
   if (st.obj) return st.obj;
   if (m.kind === 'polygon' || m.kind === 'line' || m.kind === 'point') {
-    const gj = await (await fetch(m.file)).json();
-    const feats = [];
-    let i = 0;
-    for (const f of gj.features) {
-      const c = convertFeature(f); if (!c) continue;
-      const col = styleColor(m.style, c.props);
-      c.fill = col; c.stroke = col; c.fill0 = col; c.idx = i++;
-      feats.push(c);
-    }
+    const feats = await vectorFeatures(m);
     st.obj = { id: m.id, kind: m.kind, visible: false, opacity: st.opacity, order: st.order, features: feats, style: m.style, labelField: m.labelField, labels: null, sym: null };
   } else if (m.kind === 'raster' || m.kind === 'image') {
     const img = new Image(); img.decoding = 'async'; img.src = m.image;
@@ -1430,7 +1480,12 @@ document.addEventListener('click', (e) => {
 $('#lyrtools').addEventListener('click', (e) => {
   const b = e.target.closest('[data-x]'); if (!b) return;
   const x = b.dataset.x;
-  if (x === 'showall') { for (const id of baseOrder) if (!isOn(id) && L.get(id).meta.kind !== 'table') setLayer(id, true); }
+  if (x === 'showall') {
+    const ids = baseOrder.filter((id) => !isOn(id) && L.get(id).meta.kind !== 'table');
+    Promise.all(ids.map((id) => setLayer(id, true, { quiet: true }))).then(() => {
+      renderLayerLists(); refreshLegend(); pushHash(); saveProject();
+    });
+  }
   else if (x === 'hideall') { for (const id of [...stack]) setLayer(id, false); }
   else if (x === 'fitall') fitVisible();
   else if (x === 'focus') toolClip();

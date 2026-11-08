@@ -581,6 +581,21 @@ export function convertFeature(f) {
   const bb = type === 'point' ? bboxOf([Float64Array.from(parts)]) : type === 'line' ? bboxOf(parts) : bboxOf(parts.flat());
   return { props, type, parts: type === 'point' ? Float64Array.from(parts) : parts, bb };
 }
+export function prepareFeature(f, style, idx) {
+  const c = convertFeature(f);
+  if (!c) return null;
+  let col = '#7a7a7a';
+  if (style) {
+    if (style.mode === 'color-field') {
+      const value = c.props[style.field];
+      col = typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value : style.color;
+    } else if (style.mode === 'category') col = style.colors[c.props[style.field]] || '#9aa0a6';
+    else col = style.color || col;
+  }
+  c.fill = col; c.stroke = col; c.fill0 = col; c.idx = idx;
+  return c;
+}
+
 export function pointInFeature(x, y, f) {
   if (!f) return false;
   if (x < f.bb[0] || x > f.bb[2] || y < f.bb[1] || y > f.bb[3]) return false;
