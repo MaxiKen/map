@@ -1,0 +1,780 @@
+{
+  "status": "ready_for_approved_hidden_artifact_resolution",
+  "sources": {
+    "towns": {
+      "path": "data/Settlements/hidden_settlements_towns_map2023_pt.gpkg",
+      "table": "settlements_towns_map2023_pt",
+      "sidecar_table": "settlements_towns_map2023_excluded_artifacts_tbl",
+      "before_sha256": "3fc93c87244347e290a1638119ef11c50548a2dc4d43a1ab46b7ac2c14b6bea0",
+      "before_feature_count": 479,
+      "before_feature_digest": "62f7ab8539f635d4997b2e067722501664db4967f63813f884c987902a5d1e51"
+    },
+    "population": {
+      "path": "data/Population/hidden_population_districts_picture_pg.gpkg",
+      "table": "population_districts_picture_pg",
+      "sidecar_table": "population_districts_picture_semantic_review_tbl",
+      "before_sha256": "5d2232b747553abb8d29ab82118d78527ae160e558da19a6a6cf5f565a6c34d2",
+      "before_feature_count": 504,
+      "before_feature_digest": "cb1240cd05c0bc9fa237e77e57b5772a15c3603e70c4247abea03293253d6a09"
+    }
+  },
+  "towns": {
+    "fid": 479,
+    "identifier": "Tow ns",
+    "before_attributes": {
+      "name": "Tow ns",
+      "label_dist_pt": 15.8,
+      "state": null,
+      "lga": null,
+      "name_qa": "spacing artefacts of the PDF text layer removed",
+      "previous_lga": null
+    },
+    "geometry_sha256": "8845d4f4f64c942d386bb3f5c9945433df37d75940bf210a2d3232f884b286ef",
+    "longitude": 12.434388988783967,
+    "latitude": 5.750014871603464,
+    "label_dist_pt": 15.8,
+    "nearest_settlements": {
+      "osm": {
+        "nearest_name": "Nver",
+        "distance_km": 133.82067748918462
+      },
+      "diva": {
+        "nearest_name": "Nver",
+        "distance_km": 133.8225722127829
+      }
+    },
+    "disposition": "quarantine_scanned_legend_text_not_a_settlement",
+    "reason": "Generic English plural label text with a 15.8 pt label offset, null state/LGA, and no OSM/DIVA settlement within 100 km; do not rename or move it as a town."
+  },
+  "population": {
+    "fid": 451,
+    "identifier": "D0451",
+    "before_attributes": {
+      "district_id": "D0451",
+      "class_name": "232,288 - 1,319,571",
+      "pop_min": 232288,
+      "pop_max": 1319571,
+      "area_km2": 121139.862,
+      "raster_value": 775929.5
+    },
+    "geometry_sha256": "1ca702321995663a344a8c30d2089d41ea8212fc149efdce804f4feafcf7efce",
+    "current_metric_area_km2": 121249.28013700336,
+    "geometry_type": "MultiPolygon",
+    "polygon_parts": 1,
+    "intersections": {
+      "states": [
+        {
+          "name": "Bauchi",
+          "intersection_km2": 37051.92133170876
+        },
+        {
+          "name": "Kaduna",
+          "intersection_km2": 35276.26035021725
+        },
+        {
+          "name": "Zamfara",
+          "intersection_km2": 17868.34836300768
+        },
+        {
+          "name": "Yobe",
+          "intersection_km2": 9086.366946664333
+        },
+        {
+          "name": "Niger",
+          "intersection_km2": 5359.6159837983505
+        },
+        {
+          "name": "Gombe",
+          "intersection_km2": 5144.706470743512
+        },
+        {
+          "name": "Jigawa",
+          "intersection_km2": 4462.318784534975
+        },
+        {
+          "name": "Kebbi",
+          "intersection_km2": 2865.0914642590333
+        },
+        {
+          "name": "Katsina",
+          "intersection_km2": 1697.7903975300344
+        },
+        {
+          "name": "Kano",
+          "intersection_km2": 1284.843915380476
+        },
+        {
+          "name": "Plateau",
+          "intersection_km2": 939.3815512128231
+        },
+        {
+          "name": "Borno",
+          "intersection_km2": 83.89896874949261
+        },
+        {
+          "name": "Taraba",
+          "intersection_km2": 41.749013339530045
+        },
+        {
+          "name": "Nasarawa",
+          "intersection_km2": 33.64258717210739
+        },
+        {
+          "name": "Federal Capital Territory",
+          "intersection_km2": 20.94067749581983
+        },
+        {
+          "name": "Sokoto",
+          "intersection_km2": 2.5954218575121546
+        }
+      ],
+      "lgas": [
+        {
+          "name": "Maru",
+          "intersection_km2": 7627.775202919674,
+          "state": "Zamfara"
+        },
+        {
+          "name": "Toro",
+          "intersection_km2": 6966.526035288639,
+          "state": "Bauchi"
+        },
+        {
+          "name": "Birnin Gwari",
+          "intersection_km2": 6208.315514668769,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Alkaleri",
+          "intersection_km2": 6037.502479321853,
+          "state": "Bauchi"
+        },
+        {
+          "name": "Ganjuwa",
+          "intersection_km2": 5264.257419042789,
+          "state": "Bauchi"
+        },
+        {
+          "name": "Ningi",
+          "intersection_km2": 5123.2822703663805,
+          "state": "Bauchi"
+        },
+        {
+          "name": "Shiroro",
+          "intersection_km2": 5100.287724869892,
+          "state": "Niger"
+        },
+        {
+          "name": "Fune",
+          "intersection_km2": 4902.445435543504,
+          "state": "Yobe"
+        },
+        {
+          "name": "Chikun",
+          "intersection_km2": 4855.05806117029,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Kachia",
+          "intersection_km2": 4500.35764492359,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Bauchi",
+          "intersection_km2": 3910.32845781881,
+          "state": "Bauchi"
+        },
+        {
+          "name": "Jakusko",
+          "intersection_km2": 3798.550892578385,
+          "state": "Yobe"
+        },
+        {
+          "name": "Igabi",
+          "intersection_km2": 3492.2351295566277,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Gusau",
+          "intersection_km2": 3033.524677975281,
+          "state": "Zamfara"
+        },
+        {
+          "name": "Gamawa",
+          "intersection_km2": 2896.9095072432524,
+          "state": "Bauchi"
+        },
+        {
+          "name": "Danko-Wasagu",
+          "intersection_km2": 2844.845435616476,
+          "state": "Kebbi"
+        },
+        {
+          "name": "Akko",
+          "intersection_km2": 2788.2276436498933,
+          "state": "Gombe"
+        },
+        {
+          "name": "Zurmi",
+          "intersection_km2": 2684.803344117049,
+          "state": "Zamfara"
+        },
+        {
+          "name": "Zangon Kataf",
+          "intersection_km2": 2592.2884914461492,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Darazo",
+          "intersection_km2": 2473.3064321734773,
+          "state": "Bauchi"
+        },
+        {
+          "name": "Kubau",
+          "intersection_km2": 2376.9422813718356,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Lere",
+          "intersection_km2": 2238.8048428147863,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Kagarko",
+          "intersection_km2": 2165.8446580901796,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Soba",
+          "intersection_km2": 2134.8896673514323,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Yamaltu/Deba",
+          "intersection_km2": 2130.5206705531587,
+          "state": "Gombe"
+        },
+        {
+          "name": "Tsafe",
+          "intersection_km2": 2049.5939351312,
+          "state": "Zamfara"
+        },
+        {
+          "name": "Gwaram",
+          "intersection_km2": 1969.5400900570519,
+          "state": "Jigawa"
+        },
+        {
+          "name": "Giwa",
+          "intersection_km2": 1911.6760827849848,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Katagum",
+          "intersection_km2": 1847.2172175486749,
+          "state": "Bauchi"
+        },
+        {
+          "name": "Bungudu",
+          "intersection_km2": 1715.044690314984,
+          "state": "Zamfara"
+        },
+        {
+          "name": "Jema'a",
+          "intersection_km2": 1618.8607224378968,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Kankara",
+          "intersection_km2": 1387.3967919605345,
+          "state": "Katsina"
+        },
+        {
+          "name": "Birnin Kudu",
+          "intersection_km2": 1383.6978265919117,
+          "state": "Jigawa"
+        },
+        {
+          "name": "Misau",
+          "intersection_km2": 1168.843795892364,
+          "state": "Bauchi"
+        },
+        {
+          "name": "Sumaila",
+          "intersection_km2": 1134.567384214357,
+          "state": "Kano"
+        },
+        {
+          "name": "Dutse",
+          "intersection_km2": 971.4997112560945,
+          "state": "Jigawa"
+        },
+        {
+          "name": "Shira",
+          "intersection_km2": 904.4153858508364,
+          "state": "Bauchi"
+        },
+        {
+          "name": "Kaura Namoda",
+          "intersection_km2": 648.7061619067877,
+          "state": "Zamfara"
+        },
+        {
+          "name": "Jos South",
+          "intersection_km2": 413.5927064696848,
+          "state": "Plateau"
+        },
+        {
+          "name": "Jos North",
+          "intersection_km2": 381.58718573298916,
+          "state": "Plateau"
+        },
+        {
+          "name": "Zaria",
+          "intersection_km2": 302.10251545939724,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Sabon Gari",
+          "intersection_km2": 242.17671059184647,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Kauru",
+          "intersection_km2": 127.33929764484648,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Munya",
+          "intersection_km2": 123.33336151284473,
+          "state": "Niger"
+        },
+        {
+          "name": "Kirfi",
+          "intersection_km2": 119.31914407348083,
+          "state": "Bauchi"
+        },
+        {
+          "name": "Kajuru",
+          "intersection_km2": 96.13190147528022,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Giade",
+          "intersection_km2": 91.94933337377685,
+          "state": "Bauchi"
+        },
+        {
+          "name": "Damaturu",
+          "intersection_km2": 91.13320091724152,
+          "state": "Yobe"
+        },
+        {
+          "name": "Kaduna North",
+          "intersection_km2": 87.43694513945402,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Sanga",
+          "intersection_km2": 84.64338867765063,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Faskari",
+          "intersection_km2": 82.00729223040993,
+          "state": "Katsina"
+        },
+        {
+          "name": "Doguwa",
+          "intersection_km2": 81.5487830065858,
+          "state": "Kano"
+        },
+        {
+          "name": "Tarmuwa",
+          "intersection_km2": 72.31532395635425,
+          "state": "Yobe"
+        },
+        {
+          "name": "Bayo",
+          "intersection_km2": 70.49156671031241,
+          "state": "Borno"
+        },
+        {
+          "name": "Dukku",
+          "intersection_km2": 70.34744570707068,
+          "state": "Gombe"
+        },
+        {
+          "name": "Buji",
+          "intersection_km2": 66.46705146370843,
+          "state": "Jigawa"
+        },
+        {
+          "name": "Damban",
+          "intersection_km2": 65.0481451252694,
+          "state": "Bauchi"
+        },
+        {
+          "name": "Kaura",
+          "intersection_km2": 61.19870950938489,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Kaduna South",
+          "intersection_km2": 59.86654053924249,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Bassa",
+          "intersection_km2": 56.690265631217315,
+          "state": "Plateau"
+        },
+        {
+          "name": "Nangere",
+          "intersection_km2": 53.236843975638024,
+          "state": "Yobe"
+        },
+        {
+          "name": "Kiyawa",
+          "intersection_km2": 52.125966939382806,
+          "state": "Jigawa"
+        },
+        {
+          "name": "Dass",
+          "intersection_km2": 51.003369148465474,
+          "state": "Bauchi"
+        },
+        {
+          "name": "Warji",
+          "intersection_km2": 49.80984160826039,
+          "state": "Bauchi"
+        },
+        {
+          "name": "Birnin Magaji/Kiyaw",
+          "intersection_km2": 49.311435206057084,
+          "state": "Zamfara"
+        },
+        {
+          "name": "Billiri",
+          "intersection_km2": 48.9173059896915,
+          "state": "Gombe"
+        },
+        {
+          "name": "Bade",
+          "intersection_km2": 48.58014937973736,
+          "state": "Yobe"
+        },
+        {
+          "name": "Rafi",
+          "intersection_km2": 47.89223293946591,
+          "state": "Niger"
+        },
+        {
+          "name": "Takai",
+          "intersection_km2": 44.50161126178552,
+          "state": "Kano"
+        },
+        {
+          "name": "Gujba",
+          "intersection_km2": 44.25213477984144,
+          "state": "Yobe"
+        },
+        {
+          "name": "Jos East",
+          "intersection_km2": 44.12155263879436,
+          "state": "Plateau"
+        },
+        {
+          "name": "Karim Lamido",
+          "intersection_km2": 41.749013339530045,
+          "state": "Taraba"
+        },
+        {
+          "name": "Jaba",
+          "intersection_km2": 41.739257286992995,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Sabuwa",
+          "intersection_km2": 40.851415852929485,
+          "state": "Katsina"
+        },
+        {
+          "name": "Bosso",
+          "intersection_km2": 39.9944820369805,
+          "state": "Niger"
+        },
+        {
+          "name": "Tafawa Balewa",
+          "intersection_km2": 38.86107075719512,
+          "state": "Bauchi"
+        },
+        {
+          "name": "Kudan",
+          "intersection_km2": 38.30099789866009,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Musawa",
+          "intersection_km2": 36.085137457746775,
+          "state": "Katsina"
+        },
+        {
+          "name": "Mariga",
+          "intersection_km2": 35.25385505373721,
+          "state": "Niger"
+        },
+        {
+          "name": "Fika",
+          "intersection_km2": 33.78625686837514,
+          "state": "Yobe"
+        },
+        {
+          "name": "Karu",
+          "intersection_km2": 32.20374118152567,
+          "state": "Nasarawa"
+        },
+        {
+          "name": "Ikara",
+          "intersection_km2": 31.838729697826984,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Dan Musa",
+          "intersection_km2": 30.045126590661177,
+          "state": "Katsina"
+        },
+        {
+          "name": "Jibia",
+          "intersection_km2": 29.82269369097383,
+          "state": "Katsina"
+        },
+        {
+          "name": "Kwami",
+          "intersection_km2": 29.622609068951604,
+          "state": "Gombe"
+        },
+        {
+          "name": "Malumfashi",
+          "intersection_km2": 28.880712810135797,
+          "state": "Katsina"
+        },
+        {
+          "name": "Shongom",
+          "intersection_km2": 26.909236019448077,
+          "state": "Gombe"
+        },
+        {
+          "name": "Batsari",
+          "intersection_km2": 24.953148922303598,
+          "state": "Katsina"
+        },
+        {
+          "name": "Bukkuyum",
+          "intersection_km2": 22.009432808741455,
+          "state": "Zamfara"
+        },
+        {
+          "name": "Potiskum",
+          "intersection_km2": 21.397877462145075,
+          "state": "Yobe"
+        },
+        {
+          "name": "Kaltungo",
+          "intersection_km2": 20.99118963808266,
+          "state": "Gombe"
+        },
+        {
+          "name": "Bwari",
+          "intersection_km2": 20.94067749581983,
+          "state": "Federal Capital Territory"
+        },
+        {
+          "name": "Sakaba",
+          "intersection_km2": 19.824335080645586,
+          "state": "Kebbi"
+        },
+        {
+          "name": "Zaki",
+          "intersection_km2": 19.295458800165818,
+          "state": "Bauchi"
+        },
+        {
+          "name": "Jahun",
+          "intersection_km2": 18.919711197239433,
+          "state": "Jigawa"
+        },
+        {
+          "name": "Itas/Gadau",
+          "intersection_km2": 18.879478557574167,
+          "state": "Bauchi"
+        },
+        {
+          "name": "Barkin Ladi",
+          "intersection_km2": 18.852626598951463,
+          "state": "Plateau"
+        },
+        {
+          "name": "Bursari",
+          "intersection_km2": 17.332727511536692,
+          "state": "Yobe"
+        },
+        {
+          "name": "Riyom",
+          "intersection_km2": 16.711348734673017,
+          "state": "Plateau"
+        },
+        {
+          "name": "Maradun",
+          "intersection_km2": 15.129294892036658,
+          "state": "Zamfara"
+        },
+        {
+          "name": "Garko",
+          "intersection_km2": 15.038154084713664,
+          "state": "Kano"
+        },
+        {
+          "name": "Balanga",
+          "intersection_km2": 14.31126553517558,
+          "state": "Gombe"
+        },
+        {
+          "name": "Shani",
+          "intersection_km2": 13.407313314619138,
+          "state": "Borno"
+        },
+        {
+          "name": "Gombe",
+          "intersection_km2": 12.299768080863831,
+          "state": "Gombe"
+        },
+        {
+          "name": "Safana",
+          "intersection_km2": 12.15896783317294,
+          "state": "Katsina"
+        },
+        {
+          "name": "Bakori",
+          "intersection_km2": 11.94144979820166,
+          "state": "Katsina"
+        },
+        {
+          "name": "Anka",
+          "intersection_km2": 10.558474737596553,
+          "state": "Zamfara"
+        },
+        {
+          "name": "Shinkafi",
+          "intersection_km2": 9.94737165527289,
+          "state": "Zamfara"
+        },
+        {
+          "name": "Danja",
+          "intersection_km2": 9.93275537442951,
+          "state": "Katsina"
+        },
+        {
+          "name": "Paikoro",
+          "intersection_km2": 9.698401135146385,
+          "state": "Niger"
+        },
+        {
+          "name": "Makarfi",
+          "intersection_km2": 8.174338618011001,
+          "state": "Kaduna"
+        },
+        {
+          "name": "Kanam",
+          "intersection_km2": 7.818062250723758,
+          "state": "Plateau"
+        },
+        {
+          "name": "Jama'are",
+          "intersection_km2": 5.101071462198971,
+          "state": "Bauchi"
+        },
+        {
+          "name": "Tudun Wada",
+          "intersection_km2": 4.757497255010782,
+          "state": "Kano"
+        },
+        {
+          "name": "Gulani",
+          "intersection_km2": 3.3235771509240943,
+          "state": "Yobe"
+        },
+        {
+          "name": "Tafa",
+          "intersection_km2": 3.161659321297726,
+          "state": "Niger"
+        },
+        {
+          "name": "Gaya",
+          "intersection_km2": 2.8348262799565553,
+          "state": "Kano"
+        },
+        {
+          "name": "Isa",
+          "intersection_km2": 2.5954218575047374,
+          "state": "Sokoto"
+        },
+        {
+          "name": "Nafada",
+          "intersection_km2": 2.546009474323457,
+          "state": "Gombe"
+        },
+        {
+          "name": "Funtua",
+          "intersection_km2": 2.442294215308601,
+          "state": "Katsina"
+        },
+        {
+          "name": "Talata Mafara",
+          "intersection_km2": 1.8730233664411304,
+          "state": "Zamfara"
+        },
+        {
+          "name": "Albasu",
+          "intersection_km2": 1.5885546826487174,
+          "state": "Kano"
+        },
+        {
+          "name": "Kokona",
+          "intersection_km2": 1.4389148698750713,
+          "state": "Nasarawa"
+        },
+        {
+          "name": "DanDume",
+          "intersection_km2": 1.2619213296413294,
+          "state": "Katsina"
+        }
+      ]
+    },
+    "state_intersection_count": 16,
+    "lga_intersection_count": 124,
+    "disposition": "retain_as_connected_population_class_region_exclude_from_district_analysis",
+    "reason": "One connected high-population-class picture region crosses 16 states and 124 LGAs. It is not an administrative district; retain its geometry/class as picture evidence rather than shifting, splitting or deleting it."
+  },
+  "descriptions_after": {
+    "towns": "Hidden reviewed 2023 sheet town-label cross-check points. FID 479 generic 'Tow ns' legend text was excluded from the active table on 2026-11-08; its complete original record and geometry are quarantined in settlements_towns_map2023_excluded_artifacts_tbl. Not a settlement reference or for publication.",
+    "population": "Hidden picture-derived population-class connected regions, not official administrative districts. D0451 (FID 451) has stated area 121,139.862 km2 and intersects 16 states and 124 LGAs; it is excluded from district-level analysis in population_districts_picture_semantic_review_tbl. Geometry and class attributes are unchanged."
+  },
+  "planned_counts": {
+    "towns": 478,
+    "population": 504
+  },
+  "checks": {
+    "both_source_integrity_checks_ok": true,
+    "no_stale_sidecars": true,
+    "town_feature_count_479": true,
+    "population_feature_count_504": true,
+    "town_target_exact": true,
+    "town_has_no_admin_assignment": true,
+    "no_reference_settlement_within_100km": true,
+    "population_target_exact": true,
+    "population_class_retained": true,
+    "not_a_single_district": true,
+    "population_geometry_retained_in_plan": true
+  }
+}

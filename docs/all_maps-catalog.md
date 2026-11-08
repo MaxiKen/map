@@ -80,7 +80,7 @@ The biggest row counts in the bundle, but cheap in bytes because points are smal
 |---|---|---|---|---|---|---|
 | D1 | `settlements_places_osm_pt` | point | 51,230 | 3.1 MB | OSM places: name, place type, state, LGA | largest layer in the bundle |
 | D2 | `settlements_gazetteer_diva_pt` | point | 43,021 | 3.6 MB | DIVA gazetteer: name, class, designation, state, LGA | overlaps D1 heavily |
-| D3 | `settlements_towns_map2023_pt` | point | 479 | 0.04 MB | towns labelled on the 2023 sheet + name QA | ✅ light, picture-accurate |
+| D3 | `settlements_towns_map2023_pt` | point | 478 active + 1 quarantined | 0.04 MB | towns labelled on the 2023 sheet + name QA; “Tow ns” legend text excluded | ✅ light, picture-accurate |
 | D4 | `settlements_state_capitals_map2023_pt` | point | 37 | ~0 | 37 reviewed capitals + previous coordinates, correction sources and QA | ✅ recommend |
 
 **One concept, three forms:** settlements are offered as OSM (D1), gazetteer (D2) and the 479
@@ -150,7 +150,7 @@ unreliable in `meta_accuracy_check_tbl`, prefer the ISRIC raster that isn't in t
 | pick | layer | type | rows | size | contains |
 |---|---|---|---|---|---|
 | I1 | `population_density2016_states_pg` | polygon | 38 | 3.2 MB | pop 2016, area, people/km² per state (= C2) |
-| I2 | `population_districts_picture_pg` | polygon | 504 | 0.36 MB | 504 drawn districts with population **class bands** |
+| I2 | `population_districts_picture_pg` | polygon | 504 | 0.36 MB | 504 picture-derived population-**class connected regions**, not official districts; D0451 excluded from district analysis |
 
 **Overlap warning:** I1 *is* C2 (same layer, same file). Pick it once — as C2 if you take the admin
 group, else as I1.

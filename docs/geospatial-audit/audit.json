@@ -1,6 +1,6 @@
 {
-  "generated_utc": "2026-11-08T12:46:29.519928+00:00",
-  "source_commit": "3a1ad98d54d0d60c35f4231181b967c724b58b51",
+  "generated_utc": "2026-11-08T13:24:27.554373+00:00",
+  "source_commit": "ff9f57c4c83e6f64714c3b39fd7394f44fc7c01e",
   "metric_crs": "EPSG:32632",
   "method_limitations": [
     "Internal agreement does not by itself prove absolute ground truth.",
@@ -3238,7 +3238,7 @@
       "path": "data/Settlements/hidden_settlements_towns_map2023_pt.gpkg",
       "geometry_column": "geom",
       "geometry_type": "POINT",
-      "feature_count": 479,
+      "feature_count": 478,
       "null_geometry": 0,
       "is_topology_provenance": false,
       "is_identity_provenance": false,
@@ -3255,22 +3255,22 @@
       ],
       "declared_extent_max_delta_degrees": 3.552713678800501e-15,
       "geometry_types": {
-        "Point": 479
+        "Point": 478
       },
       "segments_over_500km": 0,
       "max_segment_km": 0.0,
       "point_distance_to_gadm_land": {
-        "n": 479,
+        "n": 478,
         "median_km": 0.0,
         "p90_km": 0.0,
         "p95_km": 0.0,
-        "max_km": 139.49942962187916,
-        "within_1km": 0.964509394572025,
-        "within_5km": 0.9749478079331941,
-        "within_10km": 0.9853862212943633
+        "max_km": 38.636272330404516,
+        "within_1km": 0.9665271966527197,
+        "within_5km": 0.9769874476987448,
+        "within_10km": 0.9874476987447699
       },
-      "over_10km": 7,
-      "over_50km": 1,
+      "over_10km": 6,
+      "over_50km": 0,
       "over_200km": 0,
       "duplicate_point_instances": 0,
       "locations_with_duplicates": 0,
@@ -5591,5 +5591,5 @@
       }
     }
   ],
-  "point_outliers_over_10km": 3198
+  "point_outliers_over_10km": 3197
 }

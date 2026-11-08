@@ -1,20 +1,21 @@
 # Professional geospatial alignment and plausibility audit
 
-Audited source commit: `3a1ad98d54d0d60c35f4231181b967c724b58b51`
+Audited source commit: `ff9f57c4c83e6f64714c3b39fd7394f44fc7c01e`
 Scope: **all 98 GeoPackages — 82 vector layers, 13 numeric rasters and 3 georeferenced image overlays; visible and hidden data included.**
 
 See `layer-review.md` for the explicit disposition and evidence level of every layer.
 
 ## Executive conclusion
 
-**The layers must not receive a blanket “all aligned” certification.** The audit found no evidence of a repository-wide CRS error, latitude/longitude swap, null-island coordinates or a single national translation. Most layers pass structural and gross-registration checks, and several independent pairs align strongly. The capital, polygon-topology, Gada/Illela identity and residual ward/LGA reviews plus the magnetic partial-coverage disclosure are complete; hidden-source issues still require separate treatment:
+**The layers must not receive a blanket “all aligned” certification.** The audit found no evidence of a repository-wide CRS error, latitude/longitude swap, null-island coordinates or a single national translation. Most layers pass structural and gross-registration checks, and several independent pairs align strongly. All five prioritized correction/reclassification tasks are complete; the reviewed ward exceptions, partial magnetic coverage and other documented scope qualifications remain explicit:
 
-1. **The state-capital correction is complete and reproducible.** 32 scanned-map positions were replaced individually with reviewed OSM city/town nodes and 5 corroborated gazetteer positions were retained. Strict held-out DIVA validation across 30 eligible matches gives median **1.244 km**, p95 **4.918 km** and maximum **5.272 km**; all 37 outputs also pass named-state containment. Other findings remain open.
+1. **The state-capital correction is complete and reproducible.** 32 scanned-map positions were replaced individually with reviewed OSM city/town nodes and 5 corroborated gazetteer positions were retained. Strict held-out DIVA validation across 30 eligible matches gives median **1.244 km**, p95 **4.918 km** and maximum **5.272 km**; all 37 outputs also pass named-state containment. Remaining findings are documented scope limitations.
 2. **The Gada/Illela reciprocal identity conflict is resolved without moving geometry.** All 11 Gada wards and 10 of 11 Illela wards now fall inside their corrected named polygons; 21 former reciprocal exceptions are resolved. Darna/Sabon Gari remains a separate Gwadabawa exception 0.242 km outside corrected Illela. No ward, polygon, centroid or derived-feature geometry was changed. The follow-on 40-case residual review is also complete: three LGA attributes were corrected and 37 evidence-documented exceptions remain, with zero ward geometry changes.
 3. **The reviewed polygon-topology correction is complete with zero active invalid geometries.** All 191 former exceptions across 16 layers are valid MultiPolygons. 5,635 untargeted geometry blobs and every attribute are unchanged; 191 invalid originals remain only in hidden provenance.
 4. **The magnetic raster is transparently classified as partial coverage.** 90.2% of sampled land cells are valid; Ekiti 0.0%, Osun 5.6%, Oyo 30.4%, and Sokoto 40.2%. The visible label and source description disclose the limitation. Missing cells remain NoData, and no magnetic values were interpolated or shifted.
+5. **Both hidden-source artefacts are resolved without coordinate shifts.** FID 479 “Tow ns” was quarantined as non-settlement legend text, leaving 478 active hidden cross-check points. D0451 was retained byte-for-byte but reclassified as a connected population-class region crossing 16 states and 124 LGAs, excluded from district analysis.
 
-Only the documented capital, reviewed polygon-topology, Gada/Illela identity, three evidence-gated residual LGA attribute corrections and metadata-only magnetic partial-coverage reclassification were applied. Hidden artefacts remain a separate task; the 37 reviewed ward exceptions are documented, not forced into containment. No blanket translation, ward movement, geometry replacement, magnetic infilling or hidden-artefact deletion was performed.
+Only the documented capital, reviewed polygon-topology, Gada/Illela identity, three evidence-gated residual LGA attribute corrections, metadata-only magnetic partial-coverage reclassification and two evidence-gated hidden-artifact resolutions were applied. FID 479 was quarantined—not silently deleted—while every D0451 feature attribute and geometry byte was retained. No blanket translation, ward movement, geometry replacement or magnetic infilling was performed.
 
 ## Prioritized findings
 
@@ -69,10 +70,11 @@ Only the documented capital, reviewed polygon-topology, Gada/Illela identity, th
 
 ### C — Hidden/source-data issues and scope qualifications
 
-- Hidden `settlements_towns_map2023_pt` includes a point named **“Tow ns”** at 12.434389 E, 5.750015 N, 139.50 km from Nigerian land in Cameroon. Its name and 15.8 pt label distance indicate a likely scanned-map legend artefact. It is hidden and not published, but should be removed or corrected in the source workflow.
-- Hidden population district **D0451** has a stated area of **121,140 km²**. That is not a plausible ordinary district polygon and indicates a connected-region/vectorisation abstraction problem, not something to repair by shifting coordinates.
+- **Resolved — scanned legend text:** FID 479 “Tow ns” at 12.434389 E, 5.750015 N was removed only from the active hidden town-label table (479 → 478). Its complete original attributes and exact geometry blob are preserved in `settlements_towns_map2023_excluded_artifacts_tbl`. The nearest OSM/DIVA settlement is Nver, 133.821/133.823 km away; the point was not renamed or moved as a settlement.
+- **Resolved — population-region semantics:** D0451/FID 451 remains among all 504 active picture regions with identical feature digest, attributes and geometry. It is explicitly a connected population-class region, not an administrative district: 16 state and 124 LGA intersections support that classification. Its exclusion is registered in `population_districts_picture_semantic_review_tbl`; no split, deletion or coordinate repair was invented.
+- **Evidence:** `hidden-source-artifact-ledger.csv`, `hidden-source-artifact-verification.json`, `hidden-source-artifact-result.json` and `hidden-source-artifact-resolution.md`.
 - Visible WDPA includes correctly identified Cameroon features such as Korup, Takamanda and Waza-Logone; the large Gulf of Guinea polygon is explicitly marine; offshore heat-flow records are tagged `domain=marine`. Lake Chad ports are intentionally outside the land-only reference but remain valid water/port context. These are scope issues, not coordinate errors.
-- Classified point-outlier outcomes: **expected Lake Chad/coastal port context: 38**; **expected marine/coastal extraction context: 3**; **expected marine/cross-border gazetteer context: 10**; **expected neighbouring-country extraction context: 3104**; **expected offshore measurement: 36**; **map content in neighbouring country; not a Nigerian coordinate shift: 6**; **probable scanned-map legend artefact; review: 1**.
+- Classified point-outlier outcomes: **expected Lake Chad/coastal port context: 38**; **expected marine/coastal extraction context: 3**; **expected marine/cross-border gazetteer context: 10**; **expected neighbouring-country extraction context: 3104**; **expected offshore measurement: 36**; **map content in neighbouring country; not a Nigerian coordinate shift: 6**.
 - OSM/DIVA extraction envelopes contain neighbouring-country settlements. If the intended product is Nigeria-only, clip or label them as surrounding context rather than moving them.
 
 ## Checks that support alignment
@@ -121,6 +123,7 @@ Only the documented capital, reviewed polygon-topology, Gada/Illela identity, th
 - INEC controls ward-to-LGA assignments and ward names; its directory is not a legal polygon survey. The ArcGIS reference provides independent identity corroboration, but its simplified two-feature extract was not used as replacement geometry or relabelled as an official GRID3 product.
 - The residual review uses INEC for assignment and 40 independent point-intersection responses for boundary corroboration. Independent disagreements remain visible; no external geometry was substituted and no ward coordinate was moved.
 - EMAG2 remains a partial derivative despite its global source product name. The 90.2% sampled / 90.1% full-cell figures describe data presence, not scientific accuracy. NoData must not be interpreted as zero nanoTesla or filled by spatial interpolation.
+- The hidden town layer remains a scanned-sheet cross-check source, not an authoritative settlement gazetteer. Population picture regions are class connected regions, not legal districts; D0451’s semantic exclusion must survive any future export or republication.
 
 ## Reproduction and evidence files
 
@@ -139,10 +142,11 @@ python scripts/audit_geospatial_extended.py
 - `gada-illela-correction-ledger.csv` / `gada-illela-verification.json` / `gada-illela-correction-result.json`: official controls, independent identity direction, all 601 attribute-only decisions, before/after source and provenance hashes and post-apply checks. `references/` documents the exact two-feature boundary response and source limitations.
 - `ward-lga-review-ledger.csv` / `ward-lga-review-verification.json` / `ward-lga-correction-result.json`: all 40 individual dispositions, three attribute-only corrections, official and independent evidence, before/after hashes and post-apply checks. `ward-lga-review.md`, `ward-lga-exceptions-before-residual-review.csv` and `references/ward-lga-review-sources.md` preserve the human review and source limitations.
 - `magnetic-coverage-reclassification-verification.json` / `magnetic-coverage-reclassification-result.json` / `magnetic-coverage-reclassification.md`: explicit partial-coverage decision, full-cell and sampled coverage, state register, before/after metadata and unchanged-data hashes.
+- `hidden-source-artifact-ledger.csv` / `hidden-source-artifact-verification.json` / `hidden-source-artifact-result.json` / `hidden-source-artifact-resolution.md`: the quarantined legend row and D0451 semantic exclusion, nearest-settlement and state/LGA-intersection evidence, sidecar provenance and complete before/after digests.
 - `topology-correction-ledger.csv` / `topology-correction-verification.json` / `topology-correction-result.json`: all 191 feature repairs, four explicit review dispositions, before/after areas and bounds, source/provenance hashes and post-apply checks.
 - `topology-exceptions.csv`: current active exceptions; `topology-exceptions-before.csv` preserves all 191 original defects and GEOS reasons.
 - `raster-class-agreement.csv`: all 22 exact geology class checks; `raster-class-agreement-before-topology.csv` preserves the pre-repair baseline.
 - `raster-coverage-by-state.csv`: magnetic valid-cell fraction by state.
 - `point-outliers-classified.csv`: offshore/neighbouring-country/review interpretation for every point over 10 km from land.
 
-**Recommended next step:** preserve all correction, 40-case review and magnetic reclassification provenance. Address hidden-source artefacts independently. Replace the partial magnetic derivative only with a verified source rebuild that passes the coverage gate; never infer missing magnetic values by interpolation.
+**Recommended next step:** no further automatic correction is recommended. Preserve all five correction/reclassification evidence chains and the remaining ward/coastal and partial-magnetic scope limitations. Reopen a case only for new authoritative evidence or a verified complete source rebuild.

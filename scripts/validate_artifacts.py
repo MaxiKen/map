@@ -40,6 +40,10 @@ REQUIRED_AUDIT_FILES = (
     'magnetic-coverage-reclassification-verification.json',
     'magnetic-coverage-reclassification-result.json',
     'magnetic-coverage-reclassification.md',
+    'hidden-source-artifact-ledger.csv',
+    'hidden-source-artifact-verification.json',
+    'hidden-source-artifact-result.json',
+    'hidden-source-artifact-resolution.md',
 )
 
 

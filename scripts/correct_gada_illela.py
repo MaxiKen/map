@@ -746,6 +746,9 @@ def verify_existing_result():
     residual_path = OUT / 'ward-lga-correction-result.json'
     residual = (json.loads(residual_path.read_text(encoding='utf8'))
                 if residual_path.exists() else None)
+    hidden_path = OUT / 'hidden-source-artifact-result.json'
+    hidden = (json.loads(hidden_path.read_text(encoding='utf8'))
+              if hidden_path.exists() else None)
     for table, expected in result['after_sha256'].items():
         current_hash = sha256(source_path(table))
         if current_hash == expected:
@@ -759,7 +762,13 @@ def verify_existing_result():
             residual.get('before_sha256') == expected and
             residual.get('after_sha256') == current_hash and
             all(residual.get('checks', {}).values()))
-        if not superseded_wards:
+        superseded_towns = bool(
+            table == 'settlements_towns_map2023_pt' and hidden and
+            hidden.get('status') == 'resolved_and_verified' and
+            hidden['sources']['towns']['before_sha256'] == expected and
+            hidden['after_sha256']['towns'] == current_hash and
+            all(hidden.get('checks', {}).values()))
+        if not superseded_wards and not superseded_towns:
             raise RuntimeError(f'{table}: current hash differs from correction result')
     for table, saved in result['provenance'].items():
         if sha256(ROOT / saved['path']) != saved['sha256']:

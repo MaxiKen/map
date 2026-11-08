@@ -446,11 +446,30 @@ def raster_registration_checks():
     }
 
     # Large semantic outliers in the hidden historical district abstraction.
+    # Registered semantic exclusions remain in the picture evidence but are not
+    # misreported as unresolved administrative-district candidates.
+    population_path = layer_index()['population_districts_picture_pg']['path']
+    semantic_reviews = {}
+    with sqlite3.connect(f'file:{population_path}?mode=ro', uri=True) as con:
+        sidecar = 'population_districts_picture_semantic_review_tbl'
+        if con.execute("select 1 from sqlite_master where type='table' and name=?",
+                       (sidecar,)).fetchone():
+            con.row_factory = sqlite3.Row
+            for row in con.execute(
+                    f'select district_id,classification,analysis_use,reason,'
+                    f'state_intersection_count,lga_intersection_count,geometry_sha256 '
+                    f'from {sidecar}'):
+                semantic_reviews[row['district_id']] = dict(row)
     features, _ = load_features('population_districts_picture_pg',
                                 ['district_id', 'class_name', 'area_km2'])
     result['population_districts_over_50000km2'] = [
         {**f['properties'], 'bounds': list(f['geometry'].bounds)}
-        for f in features if (f['properties'].get('area_km2') or 0) > 50000]
+        for f in features if (f['properties'].get('area_km2') or 0) > 50000 and
+        f['properties'].get('district_id') not in semantic_reviews]
+    result['population_connected_region_exclusions'] = [
+        {**f['properties'], 'bounds': list(f['geometry'].bounds),
+         **semantic_reviews[f['properties']['district_id']]}
+        for f in features if f['properties'].get('district_id') in semantic_reviews]
     return result, class_rows, state_rows
 
 
@@ -585,6 +604,19 @@ def magnetic_reclassification_is_current(result, raster):
         'partial coverage' in result['visible_label'].lower())
 
 
+def hidden_artifact_resolution_is_current(result, core):
+    if not result or result.get('status') != 'resolved_and_verified' or not all(result.get('checks', {}).values()):
+        return False
+    tables = {'towns': 'settlements_towns_map2023_pt',
+              'population': 'population_districts_picture_pg'}
+    for key, table in tables.items():
+        path = layer_index()[table]['path']
+        if (hashlib.sha256(path.read_bytes()).hexdigest() != result['after_sha256'][key] or
+                core['vectors'][table]['feature_count'] != result['planned_counts'][key]):
+            return False
+    return True
+
+
 def make_layer_review(core, raster, class_rows, named):
     """Return an explicit disposition for every spatial layer, not only exceptions."""
     rows = []
@@ -606,6 +638,10 @@ def make_layer_review(core, raster, class_rows, named):
     magnetic_result = (json.loads(magnetic_result_path.read_text(encoding='utf8'))
                        if magnetic_result_path.exists() else None)
     magnetic_disclosed = magnetic_reclassification_is_current(magnetic_result, raster)
+    hidden_artifact_path = ROOT / 'docs/geospatial-audit/hidden-source-artifact-result.json'
+    hidden_artifacts = (json.loads(hidden_artifact_path.read_text(encoding='utf8'))
+                        if hidden_artifact_path.exists() else None)
+    hidden_resolved = hidden_artifact_resolution_is_current(hidden_artifacts, core)
     for table, meta in sorted(layer_index().items()):
         is_topology_provenance = table.endswith('_topology_original')
         is_identity_provenance = table.endswith('_identity_original_pg') or table.endswith('_identity_original_pt')
@@ -666,11 +702,23 @@ def make_layer_review(core, raster, class_rows, named):
                 action = 'Refetch/rebuild or describe explicitly as partial coverage'
             evidence.append('valid cells by state')
         if table == 'settlements_towns_map2023_pt':
-            issues.append('hidden “Tow ns” legend artefact in Cameroon')
-            action = 'Remove/correct the source artefact during hidden-layer maintenance'
+            if hidden_resolved:
+                action = ('Hidden-source artifact resolved; retain 478 active cross-check points and the '
+                          'quarantined FID 479 record; never publish the excluded legend text as a settlement')
+                evidence.append('FID 479 alone quarantined with complete original attributes/geometry; '
+                                'all other active rows byte-identical')
+            else:
+                issues.append('hidden “Tow ns” legend artefact in Cameroon')
+                action = 'Remove/correct the source artefact during hidden-layer maintenance'
         if table == 'population_districts_picture_pg':
-            issues.append('hidden connected-region abstraction D0451 exceeds 121,000 km²')
-            action = 'Review vectorisation semantics before any district-level use'
+            if hidden_resolved:
+                action = ('Hidden-source semantics resolved; exclude D0451 from district-level analysis '
+                          'while retaining it as a connected population-class picture region')
+                evidence.append('D0451 intersects 16 states and 124 LGAs; all 504 active features '
+                                'and geometry/attribute rows byte-identical')
+            else:
+                issues.append('hidden connected-region abstraction D0451 exceeds 121,000 km²')
+                action = 'Review vectorisation semantics before any district-level use'
         if table == 'groundwater_boreholes_wpdx_pt':
             count = named[table]['counts'].get('substantive_mismatch_after_fuzzy_names', 0)
             evidence.append(f'all points contained; {count} non-equivalent LGA-name joins')
@@ -718,9 +766,17 @@ def make_layer_review(core, raster, class_rows, named):
         if table == 'geophysics_magnetic_emag2_rst' and magnetic_disclosed:
             scope = ('Explicit partial-coverage product; missing cells remain NoData and are not '
                      'continuous national coverage or evidence of a coordinate shift.')
+        if table == 'settlements_towns_map2023_pt' and hidden_resolved:
+            scope = ('Hidden 2023 sheet-label cross-check source; one non-settlement legend artefact '
+                     'is quarantined in a registered attributes table, not active spatial data.')
+        if table == 'population_districts_picture_pg' and hidden_resolved:
+            scope = ('Hidden picture-derived population-class regions, not official districts; D0451 '
+                     'has an explicit semantic exclusion and must not be used for district analysis.')
         if scope:
             evidence.append(scope)
         disposition = (
+            'Artifact quarantined / hidden' if table == 'settlements_towns_map2023_pt' and hidden_resolved else
+            'Scope reclassified / hidden' if table == 'population_districts_picture_pg' and hidden_resolved else
             'Scope limitation disclosed' if table == 'geophysics_magnetic_emag2_rst' and magnetic_disclosed else
             'Reviewed with exceptions' if table == 'admin_wards_pt' and residual_reviewed else
             'Action required' if table in (
@@ -959,7 +1015,7 @@ def make_figures(out, capital_rows, ward_rows):
 
 def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, raster,
                 class_rows, named, outliers, crs, topology_correction=None, gada_correction=None,
-                residual_correction=None, magnetic_reclassification=None):
+                residual_correction=None, magnetic_reclassification=None, hidden_artifacts=None):
     osm = capital['summary']['osm']
     diva = capital['summary']['diva']
     grey = next((v for k, v in capital['by_position_basis'].items() if 'grey square' in k), None)
@@ -1008,6 +1064,7 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
         ward_summary.get('individual_review_complete') and
         ward_summary['total_outside_assigned_lga'] == 37)
     magnetic_resolved = magnetic_reclassification_is_current(magnetic_reclassification, raster)
+    hidden_resolved = hidden_artifact_resolution_is_current(hidden_artifacts, core)
     if gada_resolved:
         gada_verification_path = ROOT / 'docs/geospatial-audit/gada-illela-verification.json'
         gada_verification = json.loads(gada_verification_path.read_text(encoding='utf8'))
@@ -1153,6 +1210,45 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             'product. Until then, describe the layer as partial coverage rather than continuous national coverage.',
             '- **Evidence:** `raster-coverage-by-state.csv`.',
         ]
+    if hidden_resolved:
+        town = hidden_artifacts['towns']
+        district = hidden_artifacts['population']
+        hidden_executive = (
+            '5. **Both hidden-source artefacts are resolved without coordinate shifts.** FID 479 '
+            '“Tow ns” was quarantined as non-settlement legend text, leaving 478 active hidden '
+            'cross-check points. D0451 was retained byte-for-byte but reclassified as a connected '
+            'population-class region crossing 16 states and 124 LGAs, excluded from district analysis.')
+        hidden_details = [
+            f'- **Resolved — scanned legend text:** FID {town["fid"]} “Tow ns” at '
+            f'{town["longitude"]:.6f} E, {town["latitude"]:.6f} N was removed only from the active '
+            'hidden town-label table (479 → 478). Its complete original attributes and exact geometry '
+            f'blob are preserved in `{hidden_artifacts["sources"]["towns"]["sidecar_table"]}`. '
+            f'The nearest OSM/DIVA settlement is {town["nearest_settlements"]["osm"]["nearest_name"]}, '
+            f'{town["nearest_settlements"]["osm"]["distance_km"]:.3f}/'
+            f'{town["nearest_settlements"]["diva"]["distance_km"]:.3f} km away; the point was not '
+            'renamed or moved as a settlement.',
+            f'- **Resolved — population-region semantics:** D0451/FID {district["fid"]} remains '
+            f'among all {hidden_artifacts["planned_counts"]["population"]} active picture regions '
+            'with identical feature digest, attributes and geometry. It is explicitly a connected '
+            'population-class region, not an administrative district: 16 state and 124 LGA '
+            'intersections support that classification. Its exclusion is registered in '
+            f'`{hidden_artifacts["sources"]["population"]["sidecar_table"]}`; no split, deletion or '
+            'coordinate repair was invented.',
+            '- **Evidence:** `hidden-source-artifact-ledger.csv`, '
+            '`hidden-source-artifact-verification.json`, `hidden-source-artifact-result.json` and '
+            '`hidden-source-artifact-resolution.md`.',
+        ]
+    else:
+        hidden_executive = (
+            '5. **Two hidden-source artefacts still need feature-specific resolution.** The “Tow ns” '
+            'point is probable scanned legend text, while D0451 is an oversized connected-region '
+            'abstraction rather than a plausible ordinary district.')
+        hidden_details = [
+            '- Hidden `settlements_towns_map2023_pt` includes a point named **“Tow ns”** at '
+            '12.434389 E, 5.750015 N, 139.50 km from Nigerian land in Cameroon. Its name and 15.8 pt '
+            'label distance indicate a likely scanned-map legend artefact. It is hidden and not '
+            'published, but should be removed or corrected in the source workflow.',
+        ]
     topology_resolved = bool(
         topology_correction and topology['total_invalid'] == 0 and
         topology['provenance_invalid'] == topology_correction['repair_count'] and
@@ -1229,7 +1325,10 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             f'positions were retained. Strict held-out DIVA validation across {strict_diva["eligible_capitals"]} '
             f'eligible matches gives median **{strict_diva["median_distance_km"]:.3f} km**, p95 '
             f'**{strict_diva["p95_distance_km"]:.3f} km** and maximum **{strict_diva["maximum_distance_km"]:.3f} km**; '
-            'all 37 outputs also pass named-state containment. Other findings remain open.')
+            'all 37 outputs also pass named-state containment. ' +
+            ('Remaining findings are documented scope limitations.'
+             if hidden_resolved and magnetic_resolved and residual_resolved else
+             'Other findings remain open.'))
         capital_details = [
             '### A1 — Resolved with provenance: state-capital positions', '',
             f'- **Construction:** {correction["corrected_with_osm"]} same-name OSM city/town replacements and '
@@ -1340,7 +1439,23 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             'reclassification provenance. Address hidden-source artefacts independently. Replace the '
             'partial magnetic derivative only with a verified source rebuild that passes the coverage '
             'gate; never infer missing magnetic values by interpolation.')
+    if hidden_resolved and magnetic_resolved and residual_resolved:
+        correction_note = (
+            'Only the documented capital, reviewed polygon-topology, Gada/Illela identity, three '
+            'evidence-gated residual LGA attribute corrections, metadata-only magnetic '
+            'partial-coverage reclassification and two evidence-gated hidden-artifact resolutions '
+            'were applied. FID 479 was quarantined—not silently deleted—while every D0451 feature '
+            'attribute and geometry byte was retained. No blanket translation, ward movement, '
+            'geometry replacement or magnetic infilling was performed.')
+        next_step = (
+            '**Recommended next step:** no further automatic correction is recommended. Preserve '
+            'all five correction/reclassification evidence chains and the remaining ward/coastal and '
+            'partial-magnetic scope limitations. Reopen a case only for new authoritative evidence '
+            'or a verified complete source rebuild.')
     executive_status = (
+        'All five prioritized correction/reclassification tasks are complete; the reviewed ward '
+        'exceptions, partial magnetic coverage and other documented scope qualifications remain explicit:'
+        if hidden_resolved and magnetic_resolved and residual_resolved else
         'The capital, polygon-topology, Gada/Illela identity and residual ward/LGA reviews plus the '
         'magnetic partial-coverage disclosure are complete; hidden-source issues still require separate treatment:'
         if magnetic_resolved and residual_resolved else
@@ -1368,6 +1483,7 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
         admin_executive,
         topology_executive,
         magnetic_executive,
+        hidden_executive,
         '', correction_note,
         '', '## Prioritized findings', '',
         *capital_details,
@@ -1381,7 +1497,7 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
         *magnetic_details,
         '',
         '### C — Hidden/source-data issues and scope qualifications', '',
-        '- Hidden `settlements_towns_map2023_pt` includes a point named **“Tow ns”** at 12.434389 E, 5.750015 N, 139.50 km from Nigerian land in Cameroon. Its name and 15.8 pt label distance indicate a likely scanned-map legend artefact. It is hidden and not published, but should be removed or corrected in the source workflow.',
+        *hidden_details,
     ]
     if pop_outliers:
         for item in pop_outliers:
@@ -1443,6 +1559,10 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
            'sampled / 90.1% full-cell figures describe data presence, not scientific accuracy. NoData '
            'must not be interpreted as zero nanoTesla or filled by spatial interpolation.'
            ] if magnetic_resolved else []),
+        *(['- The hidden town layer remains a scanned-sheet cross-check source, not an authoritative '
+           'settlement gazetteer. Population picture regions are class connected regions, not legal '
+           'districts; D0451’s semantic exclusion must survive any future export or republication.'
+           ] if hidden_resolved else []),
         '', '## Reproduction and evidence files', '',
         '```bash',
         'python -m pip install -r scripts/requirements.txt',
@@ -1471,6 +1591,11 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
            '`magnetic-coverage-reclassification.md`: explicit partial-coverage decision, full-cell '
            'and sampled coverage, state register, before/after metadata and unchanged-data hashes.'
            ] if magnetic_resolved else []),
+        *(['- `hidden-source-artifact-ledger.csv` / `hidden-source-artifact-verification.json` / '
+           '`hidden-source-artifact-result.json` / `hidden-source-artifact-resolution.md`: the '
+           'quarantined legend row and D0451 semantic exclusion, nearest-settlement and '
+           'state/LGA-intersection evidence, sidecar provenance and complete before/after digests.'
+           ] if hidden_resolved else []),
         '- `topology-correction-ledger.csv` / `topology-correction-verification.json` / `topology-correction-result.json`: all 191 feature repairs, four explicit review dispositions, before/after areas and bounds, source/provenance hashes and post-apply checks.',
         '- `topology-exceptions.csv`: current active exceptions; `topology-exceptions-before.csv` preserves all 191 original defects and GEOS reasons.',
         '- `raster-class-agreement.csv`: all 22 exact geology class checks; `raster-class-agreement-before-topology.csv` preserves the pre-repair baseline.',
@@ -1536,6 +1661,9 @@ def main():
     magnetic_reclassification = (
         json.loads(magnetic_reclassification_path.read_text(encoding='utf8'))
         if magnetic_reclassification_path.exists() else None)
+    hidden_artifact_path = out / 'hidden-source-artifact-result.json'
+    hidden_artifacts = (json.loads(hidden_artifact_path.read_text(encoding='utf8'))
+                        if hidden_artifact_path.exists() else None)
 
     extended = {
         'source_commit': core['source_commit'], 'capital_cross_source': capital,
@@ -1544,6 +1672,7 @@ def main():
         'gada_illela_correction': gada_correction,
         'residual_ward_lga_correction': residual_correction,
         'magnetic_coverage_reclassification': magnetic_reclassification,
+        'hidden_source_artifact_resolution': hidden_artifacts,
         'raster_registration': raster, 'named_point_containment': named,
         'point_outlier_classifications': dict(Counter(r['classification'] for r in outliers)),
         'crs': crs,
@@ -1552,7 +1681,8 @@ def main():
         json.dumps(extended, indent=2, ensure_ascii=False) + '\n', encoding='utf8')
     report = make_report(core, capital, cap_rows, ward_summary, ward_rows, topology,
                          raster, class_rows, named, outliers, crs, topology_correction,
-                         gada_correction, residual_correction, magnetic_reclassification)
+                         gada_correction, residual_correction, magnetic_reclassification,
+                         hidden_artifacts)
     (out / 'README.md').write_text(report, encoding='utf8')
     print(f'Wrote extended audit and professional report to {out}', flush=True)
 

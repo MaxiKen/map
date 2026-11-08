@@ -41,6 +41,9 @@ class GadaIllelaCorrectionTests(unittest.TestCase):
         residual_path = OUT / 'ward-lga-correction-result.json'
         cls.residual_result = (json.loads(residual_path.read_text(encoding='utf8'))
                                if residual_path.exists() else None)
+        hidden_path = OUT / 'hidden-source-artifact-result.json'
+        cls.hidden_artifact_result = (json.loads(hidden_path.read_text(encoding='utf8'))
+                                      if hidden_path.exists() else None)
         cls.by_layer = {}
         for row in cls.ledger:
             cls.by_layer.setdefault(row['layer'], {})[int(row['fid'])] = row
@@ -81,6 +84,10 @@ class GadaIllelaCorrectionTests(unittest.TestCase):
                 self.assertEqual(self.residual_result['before_sha256'],
                                  self.result['after_sha256'][table])
                 self.assertEqual(sha256(path), self.residual_result['after_sha256'])
+            elif table == 'settlements_towns_map2023_pt' and self.hidden_artifact_result:
+                self.assertEqual(self.hidden_artifact_result['sources']['towns']['before_sha256'],
+                                 self.result['after_sha256'][table])
+                self.assertEqual(sha256(path), self.hidden_artifact_result['after_sha256']['towns'])
             else:
                 self.assertEqual(sha256(path), self.result['after_sha256'][table])
             with sqlite3.connect(f'file:{path}?mode=ro', uri=True) as con:
