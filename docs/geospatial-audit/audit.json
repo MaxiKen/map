@@ -1,0 +1,5616 @@
+{
+  "generated_utc": "2026-11-08T07:36:28.965918+00:00",
+  "source_commit": "19b85f365365ab8ce5ab90cc083da64be6116491",
+  "metric_crs": "EPSG:32632",
+  "method_limitations": [
+    "Internal agreement does not by itself prove absolute ground truth.",
+    "Different survey dates, map scales and generalisation can create legitimate residuals.",
+    "GADM land is a reference for diagnostics, not a legal or survey-grade boundary.",
+    "Offshore, transboundary and map-sheet features are interpreted with their stated scope.",
+    "No geometry is automatically repaired by this audit."
+  ],
+  "database_integrity": [
+    {
+      "path": "data/Administrative boundaries/admin_country_geoboundaries_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Administrative boundaries/admin_lga_centroids_pt.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Administrative boundaries/admin_lgas_gadm_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Administrative boundaries/admin_states_gadm_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Administrative boundaries/admin_wards_pt.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Administrative boundaries/hidden_admin_country_esri_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Administrative boundaries/hidden_admin_international_boundary_map2023_ln.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Administrative boundaries/hidden_admin_lga_centroids_identity_original_pt.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Administrative boundaries/hidden_admin_lgas_gadm_identity_original_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Climate/climate_prec_annual_worldclim_rst.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Climate/climate_srad_annual_worldclim_rst.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Climate/climate_tavg_annual_worldclim_rst.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Climate/hidden_climate_temperature_picture_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Climate/hidden_climate_temperature_picture_pg_topology_original.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Elevation - DEM/elevation_srtm_terrarium_rst.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Elevation - DEM/hidden_elevation_classes_picture_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Elevation - DEM/hidden_elevation_classes_picture_pg_topology_original.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Ethnic groups/ethnic_areas_anthromapper_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Ethnic groups/hidden_ethnic_areas_anthromapper_pg_topology_original.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Ethnic groups/hidden_ethnic_groups_picture_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Forest/forest_osm_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Forest/forest_reserves_water_picture_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Forest/hidden_forest_reserves_water_picture_pg_topology_original.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Geology/geology_admin_boundaries_map2011_ln.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Geology/geology_background_map2023_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Geology/geology_faults_map2011_ln.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Geology/geology_general_picture_code_rst.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Geology/geology_general_picture_img.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Geology/geology_general_picture_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Geology/geology_heatflow_ihfc2024_pt.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Geology/geology_map2011_img.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Geology/geology_ridges_map2011_ln.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Geology/geology_surficial_usgs_code_rst.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Geology/geology_surficial_usgs_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Geology/geology_unit_boundaries_map2011_ln.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Geology/geology_units_map2011_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Geology/geophysics_magnetic_emag2_rst.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Geology/hidden_geology_background_map2023_pg_topology_original.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Geology/hidden_geology_general_picture_pg_topology_original.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Geology/hidden_geology_surficial_usgs_pg_topology_original.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Geology/hidden_geology_units_map2011_pg_topology_original.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Groundwater & hydrogeology/groundwater_aquifers_bgs2019_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Groundwater & hydrogeology/groundwater_boreholes_wpdx_pt.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Groundwater & hydrogeology/groundwater_cover_ecowas2022_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Groundwater & hydrogeology/groundwater_transboundary_igrac2025_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Groundwater & hydrogeology/groundwater_units_ecowas2022_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Groundwater & hydrogeology/groundwater_water_table_fan2017_rst.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Infrastructure & services/infrastructure_airports_osm_pt.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Infrastructure & services/infrastructure_pois_osm_pt.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Infrastructure & services/infrastructure_seaports_osm_pt.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Land cover/hidden_landcover_cgls2019_pg_topology_original.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Land cover/hidden_landcover_picture_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Land cover/hidden_landcover_picture_pg_topology_original.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Land cover/landcover_cgls2019_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Mineral resources/minerals_division_lines_map2023_ln.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Mineral resources/minerals_map2023_img.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Mineral resources/minerals_occurrences_map2023_pt.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Mineral resources/minerals_unresolved_symbols_map2023_pt.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Natural hazards/hazards_flood_aqueduct_rst.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Natural hazards/hazards_landslide_classes_wb_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Natural hazards/hazards_landslide_rainfall_wb_rst.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Population/hidden_population_districts_picture_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Population/hidden_population_districts_picture_pg_topology_original.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Population/population_density2016_states_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Population/population_worldpop2025_rst.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Protected areas/hidden_protected_areas_wdpa_pg_topology_original.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Protected areas/protected_areas_wdpa_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Reference/hidden_reference_graticule_map2011_ln.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Reference/hidden_reference_graticule_map2023_ln.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Reference/reference_africa_countries_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Reference/reference_world_countries_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Settlements/hidden_settlements_gazetteer_diva_pt.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Settlements/hidden_settlements_state_capitals_map2023_original_pt.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Settlements/hidden_settlements_towns_map2023_pt.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Settlements/settlements_builtup_ghsl2020_rst.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Settlements/settlements_extents_grid3_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Settlements/settlements_places_osm_pt.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Settlements/settlements_state_capitals_map2023_pt.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Soils/hidden_soil_dominant_picture_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Soils/hidden_soil_dominant_picture_pg_topology_original.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Soils/hidden_soil_ph_picture_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Soils/hidden_soil_ph_picture_pg_topology_original.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Soils/hidden_soil_wrb2006_isric_pg_topology_original.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Soils/soil_ph_0_5cm_isric_rst.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Soils/soil_wrb2006_isric_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Transport/hidden_transport_railways_map2011_ln.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Transport/hidden_transport_railways_map2023_ln.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Transport/hidden_transport_roads_map2011_ln.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Transport/hidden_transport_roads_map2023_ln.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Transport/transport_railways_diva_ln.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Transport/transport_roads_diva_ln.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Water/hidden_water_areas_diva_pg_topology_original.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Water/hidden_water_rivers_major_wfp_ln.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Water/hidden_water_rivers_map2011_ln.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Water/hidden_water_rivers_map2023_ln.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Water/water_areas_diva_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Water/water_basins_fao_pg.gpkg",
+      "integrity_check": "ok"
+    },
+    {
+      "path": "data/Water/water_lines_diva_ln.gpkg",
+      "integrity_check": "ok"
+    }
+  ],
+  "vectors": {
+    "admin_country_esri_pg": {
+      "table": "admin_country_esri_pg",
+      "group": "Administrative boundaries",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.668431043624935,
+        4.270418167114315,
+        14.67641544342041,
+        13.89200973510759
+      ],
+      "path": "data/Administrative boundaries/hidden_admin_country_esri_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 1,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6684310436249348,
+        4.270418167114315,
+        14.67641544342041,
+        13.892009735107592
+      ],
+      "declared_extent_max_delta_degrees": 1.7763568394002505e-15,
+      "geometry_types": {
+        "MultiPolygon": 1
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 12.50503213672172,
+      "features_not_fully_within_gadm_land": 1,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "admin_country_geoboundaries_pg": {
+      "table": "admin_country_geoboundaries_pg",
+      "group": "Administrative boundaries",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.692612538038247,
+        4.270203986225056,
+        14.67796775420857,
+        13.88571398711088
+      ],
+      "path": "data/Administrative boundaries/admin_country_geoboundaries_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 1,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.692612538038247,
+        4.270203986225056,
+        14.677967754208566,
+        13.885713987110876
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "MultiPolygon": 1
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 21.130139754628278,
+      "features_not_fully_within_gadm_land": 1,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "admin_international_boundary_map2023_ln": {
+      "table": "admin_international_boundary_map2023_ln",
+      "group": "Administrative boundaries",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.67271970177665,
+        4.743907639593909,
+        14.68079493020305,
+        13.89325725888325
+      ],
+      "path": "data/Administrative boundaries/hidden_admin_international_boundary_map2023_ln.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "LINESTRING",
+      "feature_count": 5,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.67271970177665,
+        4.743907639593909,
+        14.680794930203046,
+        13.89325725888325
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "LineString": 5
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 33.422731841488655,
+      "features_not_fully_within_gadm_land": 5,
+      "features_with_no_gadm_land_intersection": 1,
+      "scope_note": "international boundary lines lie on, not necessarily within, the reference polygon"
+    },
+    "admin_lga_centroids_identity_original_pt": {
+      "table": "admin_lga_centroids_identity_original_pt",
+      "group": "Administrative boundaries",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.85,
+        4.315,
+        14.464896,
+        13.68669332522241
+      ],
+      "path": "data/Administrative boundaries/hidden_admin_lga_centroids_identity_original_pt.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "POINT",
+      "feature_count": 774,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": true,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.85,
+        4.315,
+        14.464896,
+        13.686693325222409
+      ],
+      "declared_extent_max_delta_degrees": 1.7763568394002505e-15,
+      "geometry_types": {
+        "Point": 774
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 0.0,
+      "point_distance_to_gadm_land": {
+        "n": 774,
+        "median_km": 0.0,
+        "p90_km": 0.0,
+        "p95_km": 0.0,
+        "max_km": 0.0,
+        "within_1km": 1.0,
+        "within_5km": 1.0,
+        "within_10km": 1.0
+      },
+      "over_10km": 0,
+      "over_50km": 0,
+      "over_200km": 0,
+      "duplicate_point_instances": 0,
+      "locations_with_duplicates": 0,
+      "scope_note": "Hidden pre-Gada/Illela-identity-correction original; not current administration"
+    },
+    "admin_lga_centroids_pt": {
+      "table": "admin_lga_centroids_pt",
+      "group": "Administrative boundaries",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.85,
+        4.315,
+        14.464896,
+        13.68669332522241
+      ],
+      "path": "data/Administrative boundaries/admin_lga_centroids_pt.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "POINT",
+      "feature_count": 774,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.85,
+        4.315,
+        14.464896,
+        13.686693325222409
+      ],
+      "declared_extent_max_delta_degrees": 1.7763568394002505e-15,
+      "geometry_types": {
+        "Point": 774
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 0.0,
+      "point_distance_to_gadm_land": {
+        "n": 774,
+        "median_km": 0.0,
+        "p90_km": 0.0,
+        "p95_km": 0.0,
+        "max_km": 0.0,
+        "within_1km": 1.0,
+        "within_5km": 1.0,
+        "within_10km": 1.0
+      },
+      "over_10km": 0,
+      "over_50km": 0,
+      "over_200km": 0,
+      "duplicate_point_instances": 0,
+      "locations_with_duplicates": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "admin_lgas_gadm_identity_original_pg": {
+      "table": "admin_lgas_gadm_identity_original_pg",
+      "group": "Administrative boundaries",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.668431043624935,
+        4.270418167114315,
+        14.67641544342041,
+        13.89200973510742
+      ],
+      "path": "data/Administrative boundaries/hidden_admin_lgas_gadm_identity_original_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 775,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": true,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6684310436249348,
+        4.270418167114315,
+        14.67641544342041,
+        13.892009735107422
+      ],
+      "declared_extent_max_delta_degrees": 1.7763568394002505e-15,
+      "geometry_types": {
+        "MultiPolygon": 775
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 62.42729819519506,
+      "features_not_fully_within_gadm_land": 17,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Hidden pre-Gada/Illela-identity-correction original; not current administration"
+    },
+    "admin_lgas_gadm_pg": {
+      "table": "admin_lgas_gadm_pg",
+      "group": "Administrative boundaries",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.668431043624935,
+        4.270418167114315,
+        14.67641544342041,
+        13.89200973510742
+      ],
+      "path": "data/Administrative boundaries/admin_lgas_gadm_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 775,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6684310436249348,
+        4.270418167114315,
+        14.67641544342041,
+        13.892009735107422
+      ],
+      "declared_extent_max_delta_degrees": 1.7763568394002505e-15,
+      "geometry_types": {
+        "MultiPolygon": 775
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 62.42729819519506,
+      "features_not_fully_within_gadm_land": 17,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "admin_states_gadm_pg": {
+      "table": "admin_states_gadm_pg",
+      "group": "Administrative boundaries",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.668431043624935,
+        4.270418167114315,
+        14.67641544342041,
+        13.89200973510742
+      ],
+      "path": "data/Administrative boundaries/admin_states_gadm_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 38,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6684310436249348,
+        4.270418167114315,
+        14.67641544342041,
+        13.892009735107422
+      ],
+      "declared_extent_max_delta_degrees": 1.7763568394002505e-15,
+      "geometry_types": {
+        "MultiPolygon": 38
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 50.063620085456016,
+      "features_not_fully_within_gadm_land": 1,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "admin_wards_pt": {
+      "table": "admin_wards_pt",
+      "group": "Administrative boundaries",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.733581338,
+        4.313030483,
+        14.58566976,
+        13.82724035
+      ],
+      "path": "data/Administrative boundaries/admin_wards_pt.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "POINT",
+      "feature_count": 8809,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.733581338,
+        4.313030483,
+        14.58566976,
+        13.82724035
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "Point": 8809
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 0.0,
+      "point_distance_to_gadm_land": {
+        "n": 8809,
+        "median_km": 0.0,
+        "p90_km": 0.0,
+        "p95_km": 0.0,
+        "max_km": 1.0669206076075382,
+        "within_1km": 0.999886479736633,
+        "within_5km": 1.0,
+        "within_10km": 1.0
+      },
+      "over_10km": 0,
+      "over_50km": 0,
+      "over_200km": 0,
+      "duplicate_point_instances": 0,
+      "locations_with_duplicates": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "climate_temperature_picture_pg": {
+      "table": "climate_temperature_picture_pg",
+      "group": "Climate",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.696229934692383,
+        4.286713600158691,
+        14.65821361541748,
+        13.92188167572021
+      ],
+      "path": "data/Climate/hidden_climate_temperature_picture_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 8,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.696229934692383,
+        4.286713600158691,
+        14.65821361541748,
+        13.921881675720215
+      ],
+      "declared_extent_max_delta_degrees": 5.329070518200751e-15,
+      "geometry_types": {
+        "MultiPolygon": 8
+      },
+      "segments_over_500km": 21,
+      "max_segment_km": 892.7371840097308,
+      "features_not_fully_within_gadm_land": 8,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "climate_temperature_picture_pg_topology_original": {
+      "table": "climate_temperature_picture_pg_topology_original",
+      "group": "Climate",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.696229934692383,
+        4.286713600158691,
+        14.65821361541748,
+        13.92188167572021
+      ],
+      "path": "data/Climate/hidden_climate_temperature_picture_pg_topology_original.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 8,
+      "null_geometry": 0,
+      "is_topology_provenance": true,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 5,
+      "invalid_feature_indices": [
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.696229934692383,
+        4.286713600158691,
+        14.65821361541748,
+        13.921881675720215
+      ],
+      "declared_extent_max_delta_degrees": 5.329070518200751e-15,
+      "geometry_types": {
+        "MultiPolygon": 8
+      },
+      "segments_over_500km": 22,
+      "max_segment_km": 951.2156640993788,
+      "features_not_fully_within_gadm_land": 8,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Hidden pre-topology-correction original; invalid geometries are expected historical evidence, not active data"
+    },
+    "elevation_classes_picture_pg": {
+      "table": "elevation_classes_picture_pg",
+      "group": "Elevation - DEM",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.672902565002441,
+        4.368067588806152,
+        14.65359066009522,
+        13.97702964782715
+      ],
+      "path": "data/Elevation - DEM/hidden_elevation_classes_picture_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 7,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6729025650024414,
+        4.368067588806152,
+        14.653590660095215,
+        13.977029647827148
+      ],
+      "declared_extent_max_delta_degrees": 5.329070518200751e-15,
+      "geometry_types": {
+        "MultiPolygon": 7
+      },
+      "segments_over_500km": 6,
+      "max_segment_km": 922.113175147271,
+      "features_not_fully_within_gadm_land": 6,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "elevation_classes_picture_pg_topology_original": {
+      "table": "elevation_classes_picture_pg_topology_original",
+      "group": "Elevation - DEM",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.672902565002441,
+        4.368067588806152,
+        14.65359066009522,
+        13.97702964782715
+      ],
+      "path": "data/Elevation - DEM/hidden_elevation_classes_picture_pg_topology_original.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 7,
+      "null_geometry": 0,
+      "is_topology_provenance": true,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 6,
+      "invalid_feature_indices": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6729025650024414,
+        4.368067588806152,
+        14.653590660095215,
+        13.977029647827148
+      ],
+      "declared_extent_max_delta_degrees": 5.329070518200751e-15,
+      "geometry_types": {
+        "MultiPolygon": 7
+      },
+      "segments_over_500km": 7,
+      "max_segment_km": 1012.272441582116,
+      "features_not_fully_within_gadm_land": 6,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Hidden pre-topology-correction original; invalid geometries are expected historical evidence, not active data"
+    },
+    "ethnic_areas_anthromapper_pg": {
+      "table": "ethnic_areas_anthromapper_pg",
+      "group": "Ethnic groups",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.668431044000044,
+        4.269325625000022,
+        14.68006992300008,
+        13.89200973500004
+      ],
+      "path": "data/Ethnic groups/ethnic_areas_anthromapper_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 118,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6684310440000445,
+        4.269325625000022,
+        14.680069923000076,
+        13.892009735000045
+      ],
+      "declared_extent_max_delta_degrees": 5.329070518200751e-15,
+      "geometry_types": {
+        "MultiPolygon": 118
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 91.47607777236676,
+      "features_not_fully_within_gadm_land": 49,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "ethnic_areas_anthromapper_pg_topology_original": {
+      "table": "ethnic_areas_anthromapper_pg_topology_original",
+      "group": "Ethnic groups",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.668431044000044,
+        4.269325625000022,
+        14.68006992300008,
+        13.89200973500004
+      ],
+      "path": "data/Ethnic groups/hidden_ethnic_areas_anthromapper_pg_topology_original.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 118,
+      "null_geometry": 0,
+      "is_topology_provenance": true,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 7,
+      "invalid_feature_indices": [
+        0,
+        16,
+        19,
+        27,
+        72,
+        73,
+        74
+      ],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6684310440000445,
+        4.269325625000022,
+        14.680069923000076,
+        13.892009735000045
+      ],
+      "declared_extent_max_delta_degrees": 5.329070518200751e-15,
+      "geometry_types": {
+        "MultiPolygon": 118
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 91.47607777236676,
+      "features_not_fully_within_gadm_land": 49,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Hidden pre-topology-correction original; invalid geometries are expected historical evidence, not active data"
+    },
+    "ethnic_groups_picture_pg": {
+      "table": "ethnic_groups_picture_pg",
+      "group": "Ethnic groups",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.675188541412354,
+        4.271889686584473,
+        14.65682792663574,
+        13.88551235198975
+      ],
+      "path": "data/Ethnic groups/hidden_ethnic_groups_picture_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 34,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6751885414123535,
+        4.271889686584473,
+        14.656827926635742,
+        13.885512351989746
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "MultiPolygon": 34
+      },
+      "segments_over_500km": 1,
+      "max_segment_km": 568.5770067707788,
+      "features_not_fully_within_gadm_land": 22,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "forest_osm_pg": {
+      "table": "forest_osm_pg",
+      "group": "Forest",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        3.068583899814685,
+        4.607485000055195,
+        14.18937425076066,
+        13.72400678027842
+      ],
+      "path": "data/Forest/forest_osm_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 757,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        3.0685838998146853,
+        4.6074850000551955,
+        14.18937425076066,
+        13.724006780278419
+      ],
+      "declared_extent_max_delta_degrees": 1.7763568394002505e-15,
+      "geometry_types": {
+        "MultiPolygon": 757
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 11.114560920480137,
+      "features_not_fully_within_gadm_land": 167,
+      "features_with_no_gadm_land_intersection": 137,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "forest_reserves_water_picture_pg": {
+      "table": "forest_reserves_water_picture_pg",
+      "group": "Forest",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.019805431365967,
+        4.306008338928223,
+        14.68267726898193,
+        13.76992130279541
+      ],
+      "path": "data/Forest/forest_reserves_water_picture_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 1120,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.019805431365967,
+        4.306008338928223,
+        14.682677268981934,
+        13.76992130279541
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "MultiPolygon": 1120
+      },
+      "segments_over_500km": 2,
+      "max_segment_km": 568.4587286889085,
+      "features_not_fully_within_gadm_land": 67,
+      "features_with_no_gadm_land_intersection": 2,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "forest_reserves_water_picture_pg_topology_original": {
+      "table": "forest_reserves_water_picture_pg_topology_original",
+      "group": "Forest",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.019805431365967,
+        4.306008338928223,
+        14.68267726898193,
+        13.76992130279541
+      ],
+      "path": "data/Forest/hidden_forest_reserves_water_picture_pg_topology_original.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 1120,
+      "null_geometry": 0,
+      "is_topology_provenance": true,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 7,
+      "invalid_feature_indices": [
+        20,
+        242,
+        794,
+        796,
+        892,
+        992,
+        1105
+      ],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.019805431365967,
+        4.306008338928223,
+        14.682677268981934,
+        13.76992130279541
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "MultiPolygon": 1120
+      },
+      "segments_over_500km": 2,
+      "max_segment_km": 568.4587286889085,
+      "features_not_fully_within_gadm_land": 67,
+      "features_with_no_gadm_land_intersection": 2,
+      "scope_note": "Hidden pre-topology-correction original; invalid geometries are expected historical evidence, not active data"
+    },
+    "geology_admin_boundaries_map2011_ln": {
+      "table": "geology_admin_boundaries_map2011_ln",
+      "group": "Geology",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.6711037622129172,
+        4.274027404822336,
+        14.678076627331556,
+        13.895299612944163
+      ],
+      "path": "data/Geology/geology_admin_boundaries_map2011_ln.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "LINESTRING",
+      "feature_count": 66,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6711037622129172,
+        4.274027404822336,
+        14.678076627331556,
+        13.895299612944163
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "LineString": 66
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 58.85311010508516,
+      "features_not_fully_within_gadm_land": 47,
+      "features_with_no_gadm_land_intersection": 22,
+      "scope_note": "administrative boundary lines lie on, not necessarily within, the reference polygon"
+    },
+    "geology_background_map2023_pg": {
+      "table": "geology_background_map2023_pg",
+      "group": "Geology",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.479820489883423,
+        4.274999618530273,
+        14.699058532714844,
+        13.917598724365234
+      ],
+      "path": "data/Geology/geology_background_map2023_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 305,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.479820489883423,
+        4.274999618530273,
+        14.699058532714844,
+        13.917598724365234
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "MultiPolygon": 305
+      },
+      "segments_over_500km": 10,
+      "max_segment_km": 788.1138580230794,
+      "features_not_fully_within_gadm_land": 125,
+      "features_with_no_gadm_land_intersection": 60,
+      "scope_note": "geological map-sheet background includes neighbouring countries"
+    },
+    "geology_background_map2023_pg_topology_original": {
+      "table": "geology_background_map2023_pg_topology_original",
+      "group": "Geology",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.479820489883423,
+        4.274999618530273,
+        14.699058532714844,
+        13.917598724365234
+      ],
+      "path": "data/Geology/hidden_geology_background_map2023_pg_topology_original.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 305,
+      "null_geometry": 0,
+      "is_topology_provenance": true,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 18,
+      "invalid_feature_indices": [
+        0,
+        17,
+        48,
+        51,
+        55,
+        57,
+        70,
+        83,
+        87,
+        143,
+        178,
+        214,
+        217,
+        233,
+        264,
+        286,
+        287,
+        288
+      ],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.479820489883423,
+        4.274999618530273,
+        14.699058532714844,
+        13.917598724365234
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "MultiPolygon": 305
+      },
+      "segments_over_500km": 11,
+      "max_segment_km": 1047.3722278312428,
+      "features_not_fully_within_gadm_land": 125,
+      "features_with_no_gadm_land_intersection": 60,
+      "scope_note": "Hidden pre-topology-correction original; invalid geometries are expected historical evidence, not active data"
+    },
+    "geology_faults_map2011_ln": {
+      "table": "geology_faults_map2011_ln",
+      "group": "Geology",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.6711037622129172,
+        4.274027404822336,
+        14.678076627331556,
+        13.895299612944163
+      ],
+      "path": "data/Geology/geology_faults_map2011_ln.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "LINESTRING",
+      "feature_count": 11638,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6711037622129172,
+        4.274027404822336,
+        14.678076627331556,
+        13.895299612944163
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "LineString": 11638
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 19.85990356702762,
+      "features_not_fully_within_gadm_land": 1362,
+      "features_with_no_gadm_land_intersection": 713,
+      "scope_note": "geology continues across international borders"
+    },
+    "geology_general_picture_pg": {
+      "table": "geology_general_picture_pg",
+      "group": "Geology",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.6891870498657227,
+        4.256638526916504,
+        14.674701690673828,
+        13.910280227661133
+      ],
+      "path": "data/Geology/geology_general_picture_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 8,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6891870498657227,
+        4.256638526916504,
+        14.674701690673828,
+        13.910280227661133
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "MultiPolygon": 8
+      },
+      "segments_over_500km": 3,
+      "max_segment_km": 694.8559703445088,
+      "features_not_fully_within_gadm_land": 7,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "geology_general_picture_pg_topology_original": {
+      "table": "geology_general_picture_pg_topology_original",
+      "group": "Geology",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.6891870498657227,
+        4.256638526916504,
+        14.674701690673828,
+        13.910280227661133
+      ],
+      "path": "data/Geology/hidden_geology_general_picture_pg_topology_original.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 8,
+      "null_geometry": 0,
+      "is_topology_provenance": true,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 5,
+      "invalid_feature_indices": [
+        0,
+        3,
+        5,
+        6,
+        7
+      ],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6891870498657227,
+        4.256638526916504,
+        14.674701690673828,
+        13.910280227661133
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "MultiPolygon": 8
+      },
+      "segments_over_500km": 3,
+      "max_segment_km": 697.1701725740448,
+      "features_not_fully_within_gadm_land": 7,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Hidden pre-topology-correction original; invalid geometries are expected historical evidence, not active data"
+    },
+    "geology_heatflow_ihfc2024_pt": {
+      "table": "geology_heatflow_ihfc2024_pt",
+      "group": "Geology",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.631667,
+        4.008,
+        8.7725,
+        13.9333
+      ],
+      "path": "data/Geology/geology_heatflow_ihfc2024_pt.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "POINT",
+      "feature_count": 176,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.631667,
+        4.008,
+        8.7725,
+        13.9333
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "Point": 176
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 0.0,
+      "point_distance_to_gadm_land": {
+        "n": 176,
+        "median_km": 0.0,
+        "p90_km": 28.091187723383193,
+        "p95_km": 43.12912728554187,
+        "max_km": 232.57481403767443,
+        "within_1km": 0.7159090909090909,
+        "within_5km": 0.75,
+        "within_10km": 0.7954545454545454
+      },
+      "over_10km": 36,
+      "over_50km": 4,
+      "over_200km": 1,
+      "duplicate_point_instances": 71,
+      "locations_with_duplicates": 61,
+      "scope_note": "offshore heat-flow measurements are valid"
+    },
+    "geology_ridges_map2011_ln": {
+      "table": "geology_ridges_map2011_ln",
+      "group": "Geology",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        11.893888389798247,
+        11.298114289340102,
+        13.99972441314554,
+        13.150633527918782
+      ],
+      "path": "data/Geology/geology_ridges_map2011_ln.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "LINESTRING",
+      "feature_count": 14,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        11.893888389798247,
+        11.298114289340102,
+        13.99972441314554,
+        13.150633527918782
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "LineString": 14
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 27.58528480834651,
+      "features_not_fully_within_gadm_land": 1,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "geology_surficial_usgs_pg": {
+      "table": "geology_surficial_usgs_pg",
+      "group": "Geology",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.6680002212524414,
+        4.267999649047852,
+        14.678001403808594,
+        13.892000198364258
+      ],
+      "path": "data/Geology/geology_surficial_usgs_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 14,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6680002212524414,
+        4.267999649047852,
+        14.678001403808594,
+        13.892000198364258
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "MultiPolygon": 14
+      },
+      "segments_over_500km": 1,
+      "max_segment_km": 523.3991337963091,
+      "features_not_fully_within_gadm_land": 13,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "geology_surficial_usgs_pg_topology_original": {
+      "table": "geology_surficial_usgs_pg_topology_original",
+      "group": "Geology",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.6680002212524414,
+        4.267999649047852,
+        14.678001403808594,
+        13.892000198364258
+      ],
+      "path": "data/Geology/hidden_geology_surficial_usgs_pg_topology_original.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 14,
+      "null_geometry": 0,
+      "is_topology_provenance": true,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 4,
+      "invalid_feature_indices": [
+        3,
+        4,
+        7,
+        11
+      ],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6680002212524414,
+        4.267999649047852,
+        14.678001403808594,
+        13.892000198364258
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "MultiPolygon": 14
+      },
+      "segments_over_500km": 1,
+      "max_segment_km": 523.3991337963091,
+      "features_not_fully_within_gadm_land": 13,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Hidden pre-topology-correction original; invalid geometries are expected historical evidence, not active data"
+    },
+    "geology_unit_boundaries_map2011_ln": {
+      "table": "geology_unit_boundaries_map2011_ln",
+      "group": "Geology",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.73506792285243,
+        4.41337345177665,
+        13.867260855221417,
+        13.895299612944163
+      ],
+      "path": "data/Geology/geology_unit_boundaries_map2011_ln.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "LINESTRING",
+      "feature_count": 22851,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.73506792285243,
+        4.41337345177665,
+        13.867260855221417,
+        13.895299612944163
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "LineString": 22851
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 38.93221848221483,
+      "features_not_fully_within_gadm_land": 87,
+      "features_with_no_gadm_land_intersection": 19,
+      "scope_note": "geology continues across international borders"
+    },
+    "geology_units_map2011_pg": {
+      "table": "geology_units_map2011_pg",
+      "group": "Geology",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.4039461612701416,
+        4.295368194580078,
+        14.680307388305664,
+        13.895622253417969
+      ],
+      "path": "data/Geology/geology_units_map2011_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 1485,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.4039461612701416,
+        4.295368194580078,
+        14.680307388305664,
+        13.895622253417969
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "MultiPolygon": 1485
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 343.60310637388585,
+      "features_not_fully_within_gadm_land": 81,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "geology continues across international borders"
+    },
+    "geology_units_map2011_pg_topology_original": {
+      "table": "geology_units_map2011_pg_topology_original",
+      "group": "Geology",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.4039461612701416,
+        4.295368194580078,
+        14.680307388305664,
+        13.895622253417969
+      ],
+      "path": "data/Geology/hidden_geology_units_map2011_pg_topology_original.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 1485,
+      "null_geometry": 0,
+      "is_topology_provenance": true,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 5,
+      "invalid_feature_indices": [
+        9,
+        40,
+        145,
+        158,
+        1236
+      ],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.4039461612701416,
+        4.295368194580078,
+        14.680307388305664,
+        13.895622253417969
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "MultiPolygon": 1485
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 343.60310637388585,
+      "features_not_fully_within_gadm_land": 81,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Hidden pre-topology-correction original; invalid geometries are expected historical evidence, not active data"
+    },
+    "groundwater_aquifers_bgs2019_pg": {
+      "table": "groundwater_aquifers_bgs2019_pg",
+      "group": "Groundwater & hydrogeology",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.668431039999891,
+        4.319086189975707,
+        14.67621898999991,
+        13.8920097399999
+      ],
+      "path": "data/Groundwater & hydrogeology/groundwater_aquifers_bgs2019_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 196,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6684310399998914,
+        4.319086189975707,
+        14.67621898999991,
+        13.8920097399999
+      ],
+      "declared_extent_max_delta_degrees": 4.440892098500626e-16,
+      "geometry_types": {
+        "MultiPolygon": 196
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 457.4840338966598,
+      "features_not_fully_within_gadm_land": 68,
+      "features_with_no_gadm_land_intersection": 1,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "groundwater_boreholes_wpdx_pt": {
+      "table": "groundwater_boreholes_wpdx_pt",
+      "group": "Groundwater & hydrogeology",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.707441,
+        4.3018117,
+        14.2182849,
+        13.865675
+      ],
+      "path": "data/Groundwater & hydrogeology/groundwater_boreholes_wpdx_pt.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "POINT",
+      "feature_count": 99245,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.707441,
+        4.3018117,
+        14.2182849,
+        13.865675
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "Point": 99245
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 0.0,
+      "point_distance_to_gadm_land": {
+        "n": 99245,
+        "median_km": 0.0,
+        "p90_km": 0.0,
+        "p95_km": 0.0,
+        "max_km": 0.0,
+        "within_1km": 1.0,
+        "within_5km": 1.0,
+        "within_10km": 1.0
+      },
+      "over_10km": 0,
+      "over_50km": 0,
+      "over_200km": 0,
+      "duplicate_point_instances": 0,
+      "locations_with_duplicates": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "groundwater_cover_ecowas2022_pg": {
+      "table": "groundwater_cover_ecowas2022_pg",
+      "group": "Groundwater & hydrogeology",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.5,
+        4.640945609252586,
+        14.67621899011438,
+        14.0
+      ],
+      "path": "data/Groundwater & hydrogeology/groundwater_cover_ecowas2022_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 7,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.5,
+        4.6409456092525865,
+        14.676218990114378,
+        14.0
+      ],
+      "declared_extent_max_delta_degrees": 1.7763568394002505e-15,
+      "geometry_types": {
+        "MultiPolygon": 7
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 431.5419297908536,
+      "features_not_fully_within_gadm_land": 7,
+      "features_with_no_gadm_land_intersection": 1,
+      "scope_note": "regional ECOWAS units may cross borders"
+    },
+    "groundwater_transboundary_igrac2025_pg": {
+      "table": "groundwater_transboundary_igrac2025_pg",
+      "group": "Groundwater & hydrogeology",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.5,
+        4.27284493,
+        15.0,
+        14.0
+      ],
+      "path": "data/Groundwater & hydrogeology/groundwater_transboundary_igrac2025_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 6,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.5,
+        4.27284493,
+        15.0,
+        14.0
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "MultiPolygon": 6
+      },
+      "segments_over_500km": 2,
+      "max_segment_km": 721.4606211309496,
+      "features_not_fully_within_gadm_land": 6,
+      "features_with_no_gadm_land_intersection": 1,
+      "scope_note": "explicitly transboundary aquifers"
+    },
+    "groundwater_units_ecowas2022_pg": {
+      "table": "groundwater_units_ecowas2022_pg",
+      "group": "Groundwater & hydrogeology",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.5,
+        4.270418170723133,
+        14.67621899011436,
+        14.0
+      ],
+      "path": "data/Groundwater & hydrogeology/groundwater_units_ecowas2022_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 644,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.5,
+        4.270418170723133,
+        14.676218990114364,
+        14.0
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "MultiPolygon": 644
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 341.97285304097284,
+      "features_not_fully_within_gadm_land": 198,
+      "features_with_no_gadm_land_intersection": 121,
+      "scope_note": "regional ECOWAS units may cross borders"
+    },
+    "hazards_landslide_classes_wb_pg": {
+      "table": "hazards_landslide_classes_wb_pg",
+      "group": "Natural hazards",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.691666666641467,
+        4.266666667974397,
+        14.68333333173149,
+        13.89166666668122
+      ],
+      "path": "data/Natural hazards/hazards_landslide_classes_wb_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "POLYGON",
+      "feature_count": 1500,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6916666666414666,
+        4.2666666679743965,
+        14.683333331731488,
+        13.891666666681221
+      ],
+      "declared_extent_max_delta_degrees": 1.7763568394002505e-15,
+      "geometry_types": {
+        "Polygon": 1500
+      },
+      "segments_over_500km": 480,
+      "max_segment_km": 1054.992327051286,
+      "features_not_fully_within_gadm_land": 147,
+      "features_with_no_gadm_land_intersection": 5,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "infrastructure_airports_osm_pt": {
+      "table": "infrastructure_airports_osm_pt",
+      "group": "Infrastructure & services",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        3.163771263669771,
+        4.298333,
+        13.92078250743543,
+        13.19071104643936
+      ],
+      "path": "data/Infrastructure & services/infrastructure_airports_osm_pt.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "POINT",
+      "feature_count": 1571,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        3.1637712636697706,
+        4.2983329999999995,
+        13.920782507435426,
+        13.19071104643936
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "Point": 1571
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 0.0,
+      "point_distance_to_gadm_land": {
+        "n": 1571,
+        "median_km": 0.0,
+        "p90_km": 0.0,
+        "p95_km": 0.0,
+        "max_km": 0.009151037888452769,
+        "within_1km": 1.0,
+        "within_5km": 1.0,
+        "within_10km": 1.0
+      },
+      "over_10km": 0,
+      "over_50km": 0,
+      "over_200km": 0,
+      "duplicate_point_instances": 82,
+      "locations_with_duplicates": 82,
+      "scope_note": "OSM extraction envelope can include neighbouring countries"
+    },
+    "infrastructure_pois_osm_pt": {
+      "table": "infrastructure_pois_osm_pt",
+      "group": "Infrastructure & services",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.6234474,
+        4.301027361211431,
+        14.6365377,
+        13.9501546453226
+      ],
+      "path": "data/Infrastructure & services/infrastructure_pois_osm_pt.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "POINT",
+      "feature_count": 60490,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6234474,
+        4.301027361211431,
+        14.6365377,
+        13.950154645322597
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "Point": 60490
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 0.0,
+      "point_distance_to_gadm_land": {
+        "n": 60490,
+        "median_km": 0.0,
+        "p90_km": 0.0,
+        "p95_km": 0.0,
+        "max_km": 69.07061029700397,
+        "within_1km": 0.9944122995536452,
+        "within_5km": 0.9984460241362209,
+        "within_10km": 0.9992064804099852
+      },
+      "over_10km": 48,
+      "over_50km": 1,
+      "over_200km": 0,
+      "duplicate_point_instances": 2278,
+      "locations_with_duplicates": 2269,
+      "scope_note": "OSM extraction envelope can include neighbouring countries"
+    },
+    "infrastructure_seaports_osm_pt": {
+      "table": "infrastructure_seaports_osm_pt",
+      "group": "Infrastructure & services",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.6234474,
+        4.3041805,
+        14.2416643,
+        13.4138316
+      ],
+      "path": "data/Infrastructure & services/infrastructure_seaports_osm_pt.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "POINT",
+      "feature_count": 451,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6234474,
+        4.3041805,
+        14.2416643,
+        13.4138316
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "Point": 451
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 0.0,
+      "point_distance_to_gadm_land": {
+        "n": 451,
+        "median_km": 0.0,
+        "p90_km": 9.052292901583753,
+        "p95_km": 14.832299377517936,
+        "max_km": 30.480741927214797,
+        "within_1km": 0.8824833702882483,
+        "within_5km": 0.8913525498891353,
+        "within_10km": 0.9157427937915743
+      },
+      "over_10km": 38,
+      "over_50km": 0,
+      "over_200km": 0,
+      "duplicate_point_instances": 62,
+      "locations_with_duplicates": 62,
+      "scope_note": "coastal/offshore facilities and neighbouring-country ports are possible"
+    },
+    "landcover_cgls2019_pg": {
+      "table": "landcover_cgls2019_pg",
+      "group": "Land cover",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.698412656784058,
+        4.267856597900391,
+        14.67261981964111,
+        13.88095283508301
+      ],
+      "path": "data/Land cover/landcover_cgls2019_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 14,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6984126567840576,
+        4.267856597900391,
+        14.672619819641113,
+        13.880952835083008
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "MultiPolygon": 14
+      },
+      "segments_over_500km": 673,
+      "max_segment_km": 941.3817608529417,
+      "features_not_fully_within_gadm_land": 12,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "landcover_cgls2019_pg_topology_original": {
+      "table": "landcover_cgls2019_pg_topology_original",
+      "group": "Land cover",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.698412656784058,
+        4.267856597900391,
+        14.67261981964111,
+        13.88095283508301
+      ],
+      "path": "data/Land cover/hidden_landcover_cgls2019_pg_topology_original.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 14,
+      "null_geometry": 0,
+      "is_topology_provenance": true,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 13,
+      "invalid_feature_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6984126567840576,
+        4.267856597900391,
+        14.672619819641113,
+        13.880952835083008
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "MultiPolygon": 14
+      },
+      "segments_over_500km": 683,
+      "max_segment_km": 941.3817086039529,
+      "features_not_fully_within_gadm_land": 12,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Hidden pre-topology-correction original; invalid geometries are expected historical evidence, not active data"
+    },
+    "landcover_picture_pg": {
+      "table": "landcover_picture_pg",
+      "group": "Land cover",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.708333253860474,
+        4.861653327941895,
+        14.62500095367432,
+        13.86165332794189
+      ],
+      "path": "data/Land cover/hidden_landcover_picture_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 14,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.7083332538604736,
+        4.8616533279418945,
+        14.625000953674316,
+        13.861653327941895
+      ],
+      "declared_extent_max_delta_degrees": 5.329070518200751e-15,
+      "geometry_types": {
+        "MultiPolygon": 14
+      },
+      "segments_over_500km": 21,
+      "max_segment_km": 1040.2285485864306,
+      "features_not_fully_within_gadm_land": 13,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "landcover_picture_pg_topology_original": {
+      "table": "landcover_picture_pg_topology_original",
+      "group": "Land cover",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.708333253860474,
+        4.861653327941895,
+        14.62500095367432,
+        13.86165332794189
+      ],
+      "path": "data/Land cover/hidden_landcover_picture_pg_topology_original.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 14,
+      "null_geometry": 0,
+      "is_topology_provenance": true,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 11,
+      "invalid_feature_indices": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.7083332538604736,
+        4.8616533279418945,
+        14.625000953674316,
+        13.861653327941895
+      ],
+      "declared_extent_max_delta_degrees": 5.329070518200751e-15,
+      "geometry_types": {
+        "MultiPolygon": 14
+      },
+      "segments_over_500km": 23,
+      "max_segment_km": 1046.0375294866708,
+      "features_not_fully_within_gadm_land": 13,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Hidden pre-topology-correction original; invalid geometries are expected historical evidence, not active data"
+    },
+    "minerals_division_lines_map2023_ln": {
+      "table": "minerals_division_lines_map2023_ln",
+      "group": "Mineral resources",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.480568527918781,
+        3.8074944162436535,
+        15.024984771573605,
+        14.016885279187816
+      ],
+      "path": "data/Mineral resources/minerals_division_lines_map2023_ln.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "LINESTRING",
+      "feature_count": 6,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.480568527918781,
+        3.8074944162436535,
+        15.024984771573605,
+        14.016885279187816
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "LineString": 6
+      },
+      "segments_over_500km": 3,
+      "max_segment_km": 1382.858686340075,
+      "features_not_fully_within_gadm_land": 6,
+      "features_with_no_gadm_land_intersection": 1,
+      "scope_note": "map-sheet/zone lines; extends beyond Nigeria"
+    },
+    "minerals_occurrences_map2023_pt": {
+      "table": "minerals_occurrences_map2023_pt",
+      "group": "Mineral resources",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.73480081332997,
+        4.478009569968821,
+        14.109800002372829,
+        13.872168802716194
+      ],
+      "path": "data/Mineral resources/minerals_occurrences_map2023_pt.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "POINT",
+      "feature_count": 1547,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.73480081332997,
+        4.478009569968821,
+        14.109800002372829,
+        13.872168802716194
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "Point": 1547
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 0.0,
+      "point_distance_to_gadm_land": {
+        "n": 1547,
+        "median_km": 0.0,
+        "p90_km": 0.0,
+        "p95_km": 0.0,
+        "max_km": 8.77310040190451,
+        "within_1km": 0.9961215255332903,
+        "within_5km": 0.9993535875888817,
+        "within_10km": 1.0
+      },
+      "over_10km": 0,
+      "over_50km": 0,
+      "over_200km": 0,
+      "duplicate_point_instances": 30,
+      "locations_with_duplicates": 28,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "minerals_unresolved_symbols_map2023_pt": {
+      "table": "minerals_unresolved_symbols_map2023_pt",
+      "group": "Mineral resources",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.7640679187817256,
+        5.08071388324873,
+        12.507174530456853,
+        13.243116421319797
+      ],
+      "path": "data/Mineral resources/minerals_unresolved_symbols_map2023_pt.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "POINT",
+      "feature_count": 63,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.7640679187817256,
+        5.08071388324873,
+        12.507174530456853,
+        13.243116421319797
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "Point": 63
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 0.0,
+      "point_distance_to_gadm_land": {
+        "n": 63,
+        "median_km": 0.0,
+        "p90_km": 0.0,
+        "p95_km": 0.0,
+        "max_km": 0.885830669135169,
+        "within_1km": 1.0,
+        "within_5km": 1.0,
+        "within_10km": 1.0
+      },
+      "over_10km": 0,
+      "over_50km": 0,
+      "over_200km": 0,
+      "duplicate_point_instances": 1,
+      "locations_with_duplicates": 1,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "population_density2016_states_pg": {
+      "table": "population_density2016_states_pg",
+      "group": "Population",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.668431043624932,
+        4.270418167114308,
+        14.67641544342044,
+        13.89200973510743
+      ],
+      "path": "data/Population/population_density2016_states_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 38,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.668431043624932,
+        4.2704181671143076,
+        14.676415443420444,
+        13.892009735107427
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "MultiPolygon": 38
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 50.06362008545366,
+      "features_not_fully_within_gadm_land": 22,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "population_districts_picture_pg": {
+      "table": "population_districts_picture_pg",
+      "group": "Population",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.676471948623657,
+        4.262182235717773,
+        14.68355083465576,
+        13.84503364562988
+      ],
+      "path": "data/Population/hidden_population_districts_picture_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 504,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6764719486236572,
+        4.262182235717773,
+        14.683550834655762,
+        13.845033645629883
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "MultiPolygon": 504
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 367.0090650706798,
+      "features_not_fully_within_gadm_land": 98,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "population_districts_picture_pg_topology_original": {
+      "table": "population_districts_picture_pg_topology_original",
+      "group": "Population",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.676471948623657,
+        4.262182235717773,
+        14.68355083465576,
+        13.84503364562988
+      ],
+      "path": "data/Population/hidden_population_districts_picture_pg_topology_original.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 504,
+      "null_geometry": 0,
+      "is_topology_provenance": true,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 63,
+      "invalid_feature_indices": [
+        2,
+        5,
+        29,
+        42,
+        83,
+        86,
+        87,
+        89,
+        93,
+        94,
+        96,
+        99,
+        113,
+        116,
+        120,
+        124,
+        129,
+        131,
+        132,
+        142,
+        146,
+        148,
+        158,
+        160,
+        163,
+        165,
+        166,
+        168,
+        169,
+        170,
+        171,
+        172,
+        174,
+        176,
+        178,
+        185,
+        189,
+        191,
+        192,
+        193,
+        202,
+        203,
+        205,
+        206,
+        213,
+        219,
+        227,
+        228,
+        235,
+        238,
+        254,
+        256,
+        272,
+        306,
+        316,
+        321,
+        323,
+        325,
+        333,
+        338,
+        356,
+        377,
+        412
+      ],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6764719486236572,
+        4.262182235717773,
+        14.683550834655762,
+        13.845033645629883
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "MultiPolygon": 504
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 367.0090650706798,
+      "features_not_fully_within_gadm_land": 98,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Hidden pre-topology-correction original; invalid geometries are expected historical evidence, not active data"
+    },
+    "protected_areas_wdpa_pg": {
+      "table": "protected_areas_wdpa_pg",
+      "group": "Protected areas",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.604589999773154,
+        4.341918598978713,
+        15.1408564483107,
+        13.77177999982351
+      ],
+      "path": "data/Protected areas/protected_areas_wdpa_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 967,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.604589999773154,
+        4.3419185989787135,
+        15.140856448310702,
+        13.771779999823512
+      ],
+      "declared_extent_max_delta_degrees": 1.7763568394002505e-15,
+      "geometry_types": {
+        "MultiPolygon": 967
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 62.282626713850576,
+      "features_not_fully_within_gadm_land": 34,
+      "features_with_no_gadm_land_intersection": 3,
+      "scope_note": "transboundary complexes and coastal protected areas require feature-level review"
+    },
+    "protected_areas_wdpa_pg_topology_original": {
+      "table": "protected_areas_wdpa_pg_topology_original",
+      "group": "Protected areas",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.604589999773154,
+        4.341918598978713,
+        15.1408564483107,
+        13.77177999982351
+      ],
+      "path": "data/Protected areas/hidden_protected_areas_wdpa_pg_topology_original.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 967,
+      "null_geometry": 0,
+      "is_topology_provenance": true,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 1,
+      "invalid_feature_indices": [
+        147
+      ],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.604589999773154,
+        4.3419185989787135,
+        15.140856448310702,
+        13.771779999823512
+      ],
+      "declared_extent_max_delta_degrees": 1.7763568394002505e-15,
+      "geometry_types": {
+        "MultiPolygon": 967
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 62.282626713850576,
+      "features_not_fully_within_gadm_land": 34,
+      "features_with_no_gadm_land_intersection": 3,
+      "scope_note": "Hidden pre-topology-correction original; invalid geometries are expected historical evidence, not active data"
+    },
+    "reference_africa_countries_pg": {
+      "table": "reference_africa_countries_pg",
+      "group": "Reference",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        -25.36055495836481,
+        -46.96972609623752,
+        63.49575408969711,
+        37.34040909040127
+      ],
+      "path": "data/Reference/reference_africa_countries_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 54,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        -25.360554958364812,
+        -46.969726096237515,
+        63.49575408969711,
+        37.34040909040127
+      ],
+      "declared_extent_max_delta_degrees": 7.105427357601002e-15,
+      "geometry_types": {
+        "MultiPolygon": 54
+      },
+      "segments_over_500km": 2,
+      "max_segment_km": 1649.4334594401955,
+      "features_not_fully_within_gadm_land": 54,
+      "features_with_no_gadm_land_intersection": 50,
+      "scope_note": "continental reference; Nigeria containment not applicable"
+    },
+    "reference_graticule_map2011_ln": {
+      "table": "reference_graticule_map2011_ln",
+      "group": "Reference",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.326227636086791,
+        3.741800837563453,
+        14.77629048344119,
+        13.90672588832487
+      ],
+      "path": "data/Reference/hidden_reference_graticule_map2011_ln.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "LINESTRING",
+      "feature_count": 22,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.326227636086791,
+        3.741800837563453,
+        14.776290483441187,
+        13.906725888324873
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "LineString": 22
+      },
+      "segments_over_500km": 22,
+      "max_segment_km": 1382.565047388795,
+      "features_not_fully_within_gadm_land": 22,
+      "features_with_no_gadm_land_intersection": 1,
+      "scope_note": "map-sheet graticule; extends beyond Nigeria"
+    },
+    "reference_graticule_map2023_ln": {
+      "table": "reference_graticule_map2023_ln",
+      "group": "Reference",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.441244644670051,
+        3.797707804568528,
+        15.06249702411167,
+        14.08410830583756
+      ],
+      "path": "data/Reference/hidden_reference_graticule_map2023_ln.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "LINESTRING",
+      "feature_count": 125,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.441244644670051,
+        3.797707804568528,
+        15.062497024111675,
+        14.084108305837564
+      ],
+      "declared_extent_max_delta_degrees": 5.329070518200751e-15,
+      "geometry_types": {
+        "LineString": 125
+      },
+      "segments_over_500km": 11,
+      "max_segment_km": 1391.0980767149842,
+      "features_not_fully_within_gadm_land": 125,
+      "features_with_no_gadm_land_intersection": 114,
+      "scope_note": "map-sheet graticule; extends beyond Nigeria"
+    },
+    "reference_world_countries_pg": {
+      "table": "reference_world_countries_pg",
+      "group": "Reference",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        -179.9999885408441,
+        -89.0,
+        179.9999885408441,
+        83.62360016227024
+      ],
+      "path": "data/Reference/reference_world_countries_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 251,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        -179.99998854084413,
+        -89.0,
+        179.99998854084413,
+        83.62360016227024
+      ],
+      "declared_extent_max_delta_degrees": 2.842170943040401e-14,
+      "geometry_types": {
+        "MultiPolygon": 251
+      },
+      "segments_over_500km": 3,
+      "max_segment_km": 1650.3759379581732,
+      "features_not_fully_within_gadm_land": 251,
+      "features_with_no_gadm_land_intersection": 247,
+      "scope_note": "global reference; Nigeria containment not applicable"
+    },
+    "settlements_extents_grid3_pg": {
+      "table": "settlements_extents_grid3_pg",
+      "group": "Settlements",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.70574601200002,
+        4.290422244000069,
+        14.47425641000007,
+        13.87091854800008
+      ],
+      "path": "data/Settlements/settlements_extents_grid3_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "POLYGON",
+      "feature_count": 12000,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.70574601200002,
+        4.290422244000069,
+        14.474256410000066,
+        13.870918548000077
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "Polygon": 12000
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 55.77561877239123,
+      "features_not_fully_within_gadm_land": 149,
+      "features_with_no_gadm_land_intersection": 8,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "settlements_gazetteer_diva_pt": {
+      "table": "settlements_gazetteer_diva_pt",
+      "group": "Settlements",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.6666,
+        4.25,
+        14.65,
+        13.8666
+      ],
+      "path": "data/Settlements/hidden_settlements_gazetteer_diva_pt.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "POINT",
+      "feature_count": 43021,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6666,
+        4.25,
+        14.65,
+        13.8666
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "Point": 43021
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 0.0,
+      "point_distance_to_gadm_land": {
+        "n": 43021,
+        "median_km": 0.0,
+        "p90_km": 0.0,
+        "p95_km": 0.0,
+        "max_km": 20.126081857647762,
+        "within_1km": 0.9967225308570233,
+        "within_5km": 0.999046977057716,
+        "within_10km": 0.9997675553799308
+      },
+      "over_10km": 10,
+      "over_50km": 0,
+      "over_200km": 0,
+      "duplicate_point_instances": 11644,
+      "locations_with_duplicates": 8359,
+      "scope_note": "gazetteer extraction envelope can include border settlements"
+    },
+    "settlements_places_osm_pt": {
+      "table": "settlements_places_osm_pt",
+      "group": "Settlements",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.6079403,
+        4.2700572,
+        14.65,
+        13.9833333
+      ],
+      "path": "data/Settlements/settlements_places_osm_pt.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "POINT",
+      "feature_count": 51230,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6079403,
+        4.2700572,
+        14.65,
+        13.9833333
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "Point": 51230
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 0.0,
+      "point_distance_to_gadm_land": {
+        "n": 51230,
+        "median_km": 0.0,
+        "p90_km": 0.0,
+        "p95_km": 17.14661300771957,
+        "max_km": 116.22165358287448,
+        "within_1km": 0.9254147960179582,
+        "within_5km": 0.9325395276205348,
+        "within_10km": 0.940288893226625
+      },
+      "over_10km": 3059,
+      "over_50km": 1010,
+      "over_200km": 0,
+      "duplicate_point_instances": 9088,
+      "locations_with_duplicates": 7045,
+      "scope_note": "OSM extraction envelope can include border settlements"
+    },
+    "settlements_state_capitals_map2023_original_pt": {
+      "table": "settlements_state_capitals_map2023_original_pt",
+      "group": "Settlements",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        3.226244434791097,
+        4.82,
+        13.16,
+        13.03716534947286
+      ],
+      "path": "data/Settlements/hidden_settlements_state_capitals_map2023_original_pt.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "POINT",
+      "feature_count": 37,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        3.226244434791097,
+        4.82,
+        13.16,
+        13.037165349472863
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "Point": 37
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 0.0,
+      "point_distance_to_gadm_land": {
+        "n": 37,
+        "median_km": 0.0,
+        "p90_km": 0.0,
+        "p95_km": 0.0,
+        "max_km": 0.0,
+        "within_1km": 1.0,
+        "within_5km": 1.0,
+        "within_10km": 1.0
+      },
+      "over_10km": 0,
+      "over_50km": 0,
+      "over_200km": 0,
+      "duplicate_point_instances": 0,
+      "locations_with_duplicates": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "settlements_state_capitals_map2023_pt": {
+      "table": "settlements_state_capitals_map2023_pt",
+      "group": "Settlements",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        3.340787,
+        4.82,
+        13.16,
+        13.0610588
+      ],
+      "path": "data/Settlements/settlements_state_capitals_map2023_pt.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "POINT",
+      "feature_count": 37,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        3.340787,
+        4.82,
+        13.16,
+        13.0610588
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "Point": 37
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 0.0,
+      "point_distance_to_gadm_land": {
+        "n": 37,
+        "median_km": 0.0,
+        "p90_km": 0.0,
+        "p95_km": 0.0,
+        "max_km": 0.0,
+        "within_1km": 1.0,
+        "within_5km": 1.0,
+        "within_10km": 1.0
+      },
+      "over_10km": 0,
+      "over_50km": 0,
+      "over_200km": 0,
+      "duplicate_point_instances": 0,
+      "locations_with_duplicates": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "settlements_towns_map2023_pt": {
+      "table": "settlements_towns_map2023_pt",
+      "group": "Settlements",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.688237101326888,
+        4.501270383743279,
+        14.33691750335921,
+        13.71964094193229
+      ],
+      "path": "data/Settlements/hidden_settlements_towns_map2023_pt.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "POINT",
+      "feature_count": 479,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.688237101326888,
+        4.501270383743279,
+        14.336917503359212,
+        13.719640941932294
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "Point": 479
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 0.0,
+      "point_distance_to_gadm_land": {
+        "n": 479,
+        "median_km": 0.0,
+        "p90_km": 0.0,
+        "p95_km": 0.0,
+        "max_km": 139.49942962187916,
+        "within_1km": 0.964509394572025,
+        "within_5km": 0.9749478079331941,
+        "within_10km": 0.9853862212943633
+      },
+      "over_10km": 7,
+      "over_50km": 1,
+      "over_200km": 0,
+      "duplicate_point_instances": 0,
+      "locations_with_duplicates": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "soil_dominant_picture_pg": {
+      "table": "soil_dominant_picture_pg",
+      "group": "Soils",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.692500114440918,
+        4.242500305175781,
+        14.67250061035156,
+        13.79249954223633
+      ],
+      "path": "data/Soils/hidden_soil_dominant_picture_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 54,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.692500114440918,
+        4.242500305175781,
+        14.672500610351562,
+        13.792499542236328
+      ],
+      "declared_extent_max_delta_degrees": 1.7763568394002505e-15,
+      "geometry_types": {
+        "MultiPolygon": 54
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 296.44575448623766,
+      "features_not_fully_within_gadm_land": 44,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "soil_dominant_picture_pg_topology_original": {
+      "table": "soil_dominant_picture_pg_topology_original",
+      "group": "Soils",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.692500114440918,
+        4.242500305175781,
+        14.67250061035156,
+        13.79249954223633
+      ],
+      "path": "data/Soils/hidden_soil_dominant_picture_pg_topology_original.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 54,
+      "null_geometry": 0,
+      "is_topology_provenance": true,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 28,
+      "invalid_feature_indices": [
+        0,
+        1,
+        4,
+        9,
+        10,
+        12,
+        13,
+        14,
+        16,
+        17,
+        19,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        33,
+        34,
+        35,
+        36,
+        37,
+        39,
+        41,
+        42,
+        43,
+        51
+      ],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.692500114440918,
+        4.242500305175781,
+        14.672500610351562,
+        13.792499542236328
+      ],
+      "declared_extent_max_delta_degrees": 1.7763568394002505e-15,
+      "geometry_types": {
+        "MultiPolygon": 54
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 309.6845972981504,
+      "features_not_fully_within_gadm_land": 44,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Hidden pre-topology-correction original; invalid geometries are expected historical evidence, not active data"
+    },
+    "soil_ph_picture_pg": {
+      "table": "soil_ph_picture_pg",
+      "group": "Soils",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.692344903945923,
+        4.383807182312012,
+        14.71297645568848,
+        13.9133186340332
+      ],
+      "path": "data/Soils/hidden_soil_ph_picture_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 5,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.692344903945923,
+        4.383807182312012,
+        14.712976455688477,
+        13.913318634033203
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "MultiPolygon": 5
+      },
+      "segments_over_500km": 1,
+      "max_segment_km": 554.9570767501033,
+      "features_not_fully_within_gadm_land": 5,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "soil_ph_picture_pg_topology_original": {
+      "table": "soil_ph_picture_pg_topology_original",
+      "group": "Soils",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.692344903945923,
+        4.383807182312012,
+        14.71297645568848,
+        13.9133186340332
+      ],
+      "path": "data/Soils/hidden_soil_ph_picture_pg_topology_original.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 5,
+      "null_geometry": 0,
+      "is_topology_provenance": true,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 2,
+      "invalid_feature_indices": [
+        0,
+        1
+      ],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.692344903945923,
+        4.383807182312012,
+        14.712976455688477,
+        13.913318634033203
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "MultiPolygon": 5
+      },
+      "segments_over_500km": 1,
+      "max_segment_km": 554.9570767501033,
+      "features_not_fully_within_gadm_land": 5,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Hidden pre-topology-correction original; invalid geometries are expected historical evidence, not active data"
+    },
+    "soil_wrb2006_isric_pg": {
+      "table": "soil_wrb2006_isric_pg",
+      "group": "Soils",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.691666603088379,
+        4.274999618530273,
+        14.67500114440918,
+        13.88333320617676
+      ],
+      "path": "data/Soils/soil_wrb2006_isric_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 17,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.691666603088379,
+        4.274999618530273,
+        14.67500114440918,
+        13.883333206176758
+      ],
+      "declared_extent_max_delta_degrees": 1.7763568394002505e-15,
+      "geometry_types": {
+        "MultiPolygon": 17
+      },
+      "segments_over_500km": 712,
+      "max_segment_km": 950.7844892407522,
+      "features_not_fully_within_gadm_land": 14,
+      "features_with_no_gadm_land_intersection": 2,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "soil_wrb2006_isric_pg_topology_original": {
+      "table": "soil_wrb2006_isric_pg_topology_original",
+      "group": "Soils",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.691666603088379,
+        4.274999618530273,
+        14.67500114440918,
+        13.88333320617676
+      ],
+      "path": "data/Soils/hidden_soil_wrb2006_isric_pg_topology_original.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 17,
+      "null_geometry": 0,
+      "is_topology_provenance": true,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 14,
+      "invalid_feature_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.691666603088379,
+        4.274999618530273,
+        14.67500114440918,
+        13.883333206176758
+      ],
+      "declared_extent_max_delta_degrees": 1.7763568394002505e-15,
+      "geometry_types": {
+        "MultiPolygon": 17
+      },
+      "segments_over_500km": 710,
+      "max_segment_km": 950.5645116256968,
+      "features_not_fully_within_gadm_land": 14,
+      "features_with_no_gadm_land_intersection": 2,
+      "scope_note": "Hidden pre-topology-correction original; invalid geometries are expected historical evidence, not active data"
+    },
+    "transport_railways_diva_ln": {
+      "table": "transport_railways_diva_ln",
+      "group": "Transport",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.920452380999999,
+        4.810867810473397,
+        13.179305097,
+        12.87872593047339
+      ],
+      "path": "data/Transport/transport_railways_diva_ln.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTILINESTRING",
+      "feature_count": 33,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.920452380999999,
+        4.810867810473397,
+        13.179305096999997,
+        12.878725930473394
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "MultiLineString": 33
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 13.999723721835839,
+      "features_not_fully_within_gadm_land": 0,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "railways can continue across international borders"
+    },
+    "transport_railways_map2011_ln": {
+      "table": "transport_railways_map2011_ln",
+      "group": "Transport",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        3.205567580256313,
+        4.785706497461931,
+        12.99704094658038,
+        12.87424651015228
+      ],
+      "path": "data/Transport/hidden_transport_railways_map2011_ln.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "LINESTRING",
+      "feature_count": 6,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        3.2055675802563126,
+        4.7857064974619306,
+        12.997040946580384,
+        12.874246510152284
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "LineString": 6
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 81.88929171333282,
+      "features_not_fully_within_gadm_land": 1,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "scanned-map railways can continue across international borders"
+    },
+    "transport_railways_map2023_ln": {
+      "table": "transport_railways_map2023_ln",
+      "group": "Transport",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        3.121442734771573,
+        4.713445824873096,
+        13.06656686548224,
+        12.81710520939086
+      ],
+      "path": "data/Transport/hidden_transport_railways_map2023_ln.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "LINESTRING",
+      "feature_count": 7,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        3.1214427347715734,
+        4.713445824873096,
+        13.066566865482235,
+        12.817105209390862
+      ],
+      "declared_extent_max_delta_degrees": 5.329070518200751e-15,
+      "geometry_types": {
+        "LineString": 7
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 80.03354252683268,
+      "features_not_fully_within_gadm_land": 3,
+      "features_with_no_gadm_land_intersection": 1,
+      "scope_note": "scanned-map railways can continue across international borders"
+    },
+    "transport_roads_diva_ln": {
+      "table": "transport_roads_diva_ln",
+      "group": "Transport",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.678745000991292,
+        4.529137102038566,
+        14.65336653260188,
+        13.87473518556474
+      ],
+      "path": "data/Transport/transport_roads_diva_ln.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTILINESTRING",
+      "feature_count": 4708,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.6787450009912916,
+        4.5291371020385665,
+        14.653366532601883,
+        13.874735185564742
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "MultiLineString": 4708
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 14.001326548431306,
+      "features_not_fully_within_gadm_land": 127,
+      "features_with_no_gadm_land_intersection": 27,
+      "scope_note": "roads can continue across international borders"
+    },
+    "transport_roads_map2011_ln": {
+      "table": "transport_roads_map2011_ln",
+      "group": "Transport",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.51123052912067,
+        4.536732626903554,
+        14.23496185763228,
+        13.83819301395939
+      ],
+      "path": "data/Transport/hidden_transport_roads_map2011_ln.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "LINESTRING",
+      "feature_count": 246,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.5112305291206702,
+        4.536732626903554,
+        14.23496185763228,
+        13.838193013959392
+      ],
+      "declared_extent_max_delta_degrees": 1.7763568394002505e-15,
+      "geometry_types": {
+        "LineString": 246
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 9.282847782366266,
+      "features_not_fully_within_gadm_land": 30,
+      "features_with_no_gadm_land_intersection": 6,
+      "scope_note": "scanned-map roads can continue across international borders"
+    },
+    "transport_roads_map2023_ln": {
+      "table": "transport_roads_map2023_ln",
+      "group": "Transport",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.479811427664975,
+        4.463703604060912,
+        14.33560239847716,
+        13.76330504441624
+      ],
+      "path": "data/Transport/hidden_transport_roads_map2023_ln.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "LINESTRING",
+      "feature_count": 259,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.4798114276649748,
+        4.463703604060912,
+        14.335602398477159,
+        13.763305044416244
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "LineString": 259
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 5.163237337056019,
+      "features_not_fully_within_gadm_land": 34,
+      "features_with_no_gadm_land_intersection": 2,
+      "scope_note": "scanned-map roads can continue across international borders"
+    },
+    "water_areas_diva_pg": {
+      "table": "water_areas_diva_pg",
+      "group": "Water",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.708342390632652,
+        4.280745978466257,
+        14.68334440178523,
+        13.74999598728527
+      ],
+      "path": "data/Water/water_areas_diva_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 1186,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.7083423906326516,
+        4.280745978466257,
+        14.683344401785234,
+        13.749995987285274
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "MultiPolygon": 1186
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 364.5250565189473,
+      "features_not_fully_within_gadm_land": 62,
+      "features_with_no_gadm_land_intersection": 5,
+      "scope_note": "boundary lakes and cross-border water bodies are expected"
+    },
+    "water_areas_diva_pg_topology_original": {
+      "table": "water_areas_diva_pg_topology_original",
+      "group": "Water",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.708342390632652,
+        4.280745978466257,
+        14.68334440178523,
+        13.74999598728527
+      ],
+      "path": "data/Water/hidden_water_areas_diva_pg_topology_original.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 1186,
+      "null_geometry": 0,
+      "is_topology_provenance": true,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 2,
+      "invalid_feature_indices": [
+        415,
+        1156
+      ],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.7083423906326516,
+        4.280745978466257,
+        14.683344401785234,
+        13.749995987285274
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "MultiPolygon": 1186
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 364.5250565189473,
+      "features_not_fully_within_gadm_land": 62,
+      "features_with_no_gadm_land_intersection": 5,
+      "scope_note": "Hidden pre-topology-correction original; invalid geometries are expected historical evidence, not active data"
+    },
+    "water_basins_fao_pg": {
+      "table": "water_basins_fao_pg",
+      "group": "Water",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "path": "data/Water/water_basins_fao_pg.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTIPOLYGON",
+      "feature_count": 83,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "declared_extent_max_delta_degrees": 0.0,
+      "geometry_types": {
+        "MultiPolygon": 83
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 422.4695416666375,
+      "features_not_fully_within_gadm_land": 64,
+      "features_with_no_gadm_land_intersection": 25,
+      "scope_note": "drainage basins may cross borders"
+    },
+    "water_lines_diva_ln": {
+      "table": "water_lines_diva_ln",
+      "group": "Water",
+      "visible": true,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.675009433770539,
+        4.300012570731512,
+        14.68334380605359,
+        13.8916626193198
+      ],
+      "path": "data/Water/water_lines_diva_ln.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTILINESTRING",
+      "feature_count": 5162,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.675009433770539,
+        4.300012570731512,
+        14.683343806053585,
+        13.891662619319797
+      ],
+      "declared_extent_max_delta_degrees": 5.329070518200751e-15,
+      "geometry_types": {
+        "MultiLineString": 5162
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 10.116081012738675,
+      "features_not_fully_within_gadm_land": 434,
+      "features_with_no_gadm_land_intersection": 25,
+      "scope_note": "rivers may cross borders or occupy boundary channels"
+    },
+    "water_rivers_major_wfp_ln": {
+      "table": "water_rivers_major_wfp_ln",
+      "group": "Water",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        3.60311886074783,
+        4.302367503764533,
+        12.9017269436567,
+        11.69497299071898
+      ],
+      "path": "data/Water/hidden_water_rivers_major_wfp_ln.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "MULTILINESTRING",
+      "feature_count": 2,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        3.60311886074783,
+        4.3023675037645335,
+        12.9017269436567,
+        11.694972990718975
+      ],
+      "declared_extent_max_delta_degrees": 5.329070518200751e-15,
+      "geometry_types": {
+        "MultiLineString": 2
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 75.24897668903662,
+      "features_not_fully_within_gadm_land": 2,
+      "features_with_no_gadm_land_intersection": 0,
+      "scope_note": "Nigeria-focused; exceptions require explanation"
+    },
+    "water_rivers_map2011_ln": {
+      "table": "water_rivers_map2011_ln",
+      "group": "Water",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.335372452734425,
+        3.74408114213198,
+        14.65522696992767,
+        13.89073901649746
+      ],
+      "path": "data/Water/hidden_water_rivers_map2011_ln.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "LINESTRING",
+      "feature_count": 784,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.3353724527344246,
+        3.7440811421319804,
+        14.655226969927673,
+        13.890739016497463
+      ],
+      "declared_extent_max_delta_degrees": 3.552713678800501e-15,
+      "geometry_types": {
+        "LineString": 784
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 92.07207056691438,
+      "features_not_fully_within_gadm_land": 226,
+      "features_with_no_gadm_land_intersection": 122,
+      "scope_note": "scanned-map rivers extend beyond the national boundary"
+    },
+    "water_rivers_map2023_ln": {
+      "table": "water_rivers_map2023_ln",
+      "group": "Water",
+      "visible": false,
+      "kind": "features",
+      "srs_id": 4326,
+      "declared_bounds": [
+        2.532605291878173,
+        4.230196104060912,
+        14.74169376903554,
+        13.8323336357868
+      ],
+      "path": "data/Water/hidden_water_rivers_map2023_ln.gpkg",
+      "geometry_column": "geom",
+      "geometry_type": "LINESTRING",
+      "feature_count": 865,
+      "null_geometry": 0,
+      "is_topology_provenance": false,
+      "is_identity_provenance": false,
+      "empty_geometry": 0,
+      "invalid_geometry_count": 0,
+      "invalid_feature_indices": [],
+      "nonfinite_geometry_count": 0,
+      "outside_longitude_latitude_count": 0,
+      "actual_bounds": [
+        2.5326052918781725,
+        4.230196104060912,
+        14.741693769035535,
+        13.832333635786801
+      ],
+      "declared_extent_max_delta_degrees": 5.329070518200751e-15,
+      "geometry_types": {
+        "LineString": 865
+      },
+      "segments_over_500km": 0,
+      "max_segment_km": 66.00813575271505,
+      "features_not_fully_within_gadm_land": 194,
+      "features_with_no_gadm_land_intersection": 89,
+      "scope_note": "scanned-map rivers extend beyond the national boundary"
+    }
+  },
+  "rasters": {
+    "climate_prec_annual_worldclim_rst": {
+      "table": "climate_prec_annual_worldclim_rst",
+      "path": "data/Climate/climate_prec_annual_worldclim_rst.gpkg",
+      "visible": true,
+      "srs_id": 4326,
+      "zoom_level": 0,
+      "tile_count_at_max_zoom": 1,
+      "matrix": {
+        "width": 1,
+        "height": 1,
+        "tile_width": 500,
+        "tile_height": 400,
+        "pixel_x_size": 0.025,
+        "pixel_y_size": 0.025
+      },
+      "tile_shapes": {
+        "(400, 500)": 1
+      },
+      "bad_tiles": [],
+      "expected_stitched_shape": [
+        400,
+        500
+      ],
+      "computed_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "declared_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "bounds_max_delta_degrees": 0.0,
+      "pixel_size_positive": true
+    },
+    "climate_srad_annual_worldclim_rst": {
+      "table": "climate_srad_annual_worldclim_rst",
+      "path": "data/Climate/climate_srad_annual_worldclim_rst.gpkg",
+      "visible": true,
+      "srs_id": 4326,
+      "zoom_level": 0,
+      "tile_count_at_max_zoom": 1,
+      "matrix": {
+        "width": 1,
+        "height": 1,
+        "tile_width": 500,
+        "tile_height": 400,
+        "pixel_x_size": 0.025,
+        "pixel_y_size": 0.025
+      },
+      "tile_shapes": {
+        "(400, 500)": 1
+      },
+      "bad_tiles": [],
+      "expected_stitched_shape": [
+        400,
+        500
+      ],
+      "computed_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "declared_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "bounds_max_delta_degrees": 0.0,
+      "pixel_size_positive": true
+    },
+    "climate_tavg_annual_worldclim_rst": {
+      "table": "climate_tavg_annual_worldclim_rst",
+      "path": "data/Climate/climate_tavg_annual_worldclim_rst.gpkg",
+      "visible": true,
+      "srs_id": 4326,
+      "zoom_level": 0,
+      "tile_count_at_max_zoom": 1,
+      "matrix": {
+        "width": 1,
+        "height": 1,
+        "tile_width": 500,
+        "tile_height": 400,
+        "pixel_x_size": 0.025,
+        "pixel_y_size": 0.025
+      },
+      "tile_shapes": {
+        "(400, 500)": 1
+      },
+      "bad_tiles": [],
+      "expected_stitched_shape": [
+        400,
+        500
+      ],
+      "computed_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "declared_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "bounds_max_delta_degrees": 0.0,
+      "pixel_size_positive": true
+    },
+    "elevation_srtm_terrarium_rst": {
+      "table": "elevation_srtm_terrarium_rst",
+      "path": "data/Elevation - DEM/elevation_srtm_terrarium_rst.gpkg",
+      "visible": true,
+      "srs_id": 4326,
+      "zoom_level": 0,
+      "tile_count_at_max_zoom": 1,
+      "matrix": {
+        "width": 1,
+        "height": 1,
+        "tile_width": 500,
+        "tile_height": 400,
+        "pixel_x_size": 0.025,
+        "pixel_y_size": 0.025
+      },
+      "tile_shapes": {
+        "(400, 500)": 1
+      },
+      "bad_tiles": [],
+      "expected_stitched_shape": [
+        400,
+        500
+      ],
+      "computed_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "declared_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "bounds_max_delta_degrees": 0.0,
+      "pixel_size_positive": true
+    },
+    "geology_general_picture_code_rst": {
+      "table": "geology_general_picture_code_rst",
+      "path": "data/Geology/geology_general_picture_code_rst.gpkg",
+      "visible": true,
+      "srs_id": 4326,
+      "zoom_level": 4,
+      "tile_count_at_max_zoom": 63,
+      "matrix": {
+        "width": 10,
+        "height": 8,
+        "tile_width": 256,
+        "tile_height": 256,
+        "pixel_x_size": 0.005,
+        "pixel_y_size": 0.005
+      },
+      "tile_shapes": {
+        "(256, 256)": 63
+      },
+      "bad_tiles": [],
+      "expected_stitched_shape": [
+        1980,
+        2480
+      ],
+      "computed_bounds": [
+        2.4,
+        4.1,
+        14.8,
+        14.0
+      ],
+      "declared_bounds": [
+        2.4,
+        4.1,
+        14.8,
+        14.0
+      ],
+      "bounds_max_delta_degrees": 0.0,
+      "pixel_size_positive": true
+    },
+    "geology_general_picture_img": {
+      "table": "geology_general_picture_img",
+      "path": "data/Geology/geology_general_picture_img.gpkg",
+      "visible": true,
+      "srs_id": 4326,
+      "zoom_level": 2,
+      "tile_count_at_max_zoom": 6,
+      "matrix": {
+        "width": 3,
+        "height": 2,
+        "tile_width": 256,
+        "tile_height": 256,
+        "pixel_x_size": 0.022382671480144407,
+        "pixel_y_size": 0.02239819004524887
+      },
+      "tile_shapes": {
+        "(256, 256, 4)": 6
+      },
+      "bad_tiles": [],
+      "expected_stitched_shape": [
+        442,
+        554
+      ],
+      "computed_bounds": [
+        2.4,
+        4.1,
+        14.800000000000002,
+        14.0
+      ],
+      "declared_bounds": [
+        2.4,
+        4.1,
+        14.8,
+        14.0
+      ],
+      "bounds_max_delta_degrees": 1.7763568394002505e-15,
+      "pixel_size_positive": true
+    },
+    "geology_map2011_img": {
+      "table": "geology_map2011_img",
+      "path": "data/Geology/geology_map2011_img.gpkg",
+      "visible": true,
+      "srs_id": 4326,
+      "zoom_level": 4,
+      "tile_count_at_max_zoom": 120,
+      "matrix": {
+        "width": 12,
+        "height": 10,
+        "tile_width": 256,
+        "tile_height": 256,
+        "pixel_x_size": 0.004152801867911941,
+        "pixel_y_size": 0.004154025337147528
+      },
+      "tile_shapes": {
+        "(256, 256, 4)": 120
+      },
+      "bad_tiles": [],
+      "expected_stitched_shape": [
+        2447,
+        2998
+      ],
+      "computed_bounds": [
+        2.3262,
+        3.7417999999999996,
+        14.7763,
+        13.9067
+      ],
+      "declared_bounds": [
+        2.3262,
+        3.7418,
+        14.7763,
+        13.9067
+      ],
+      "bounds_max_delta_degrees": 4.440892098500626e-16,
+      "pixel_size_positive": true
+    },
+    "geology_surficial_usgs_code_rst": {
+      "table": "geology_surficial_usgs_code_rst",
+      "path": "data/Geology/geology_surficial_usgs_code_rst.gpkg",
+      "visible": true,
+      "srs_id": 4326,
+      "zoom_level": 4,
+      "tile_count_at_max_zoom": 63,
+      "matrix": {
+        "width": 10,
+        "height": 8,
+        "tile_width": 256,
+        "tile_height": 256,
+        "pixel_x_size": 0.005,
+        "pixel_y_size": 0.005
+      },
+      "tile_shapes": {
+        "(256, 256)": 63
+      },
+      "bad_tiles": [],
+      "expected_stitched_shape": [
+        1980,
+        2480
+      ],
+      "computed_bounds": [
+        2.4,
+        4.1,
+        14.8,
+        14.0
+      ],
+      "declared_bounds": [
+        2.4,
+        4.1,
+        14.8,
+        14.0
+      ],
+      "bounds_max_delta_degrees": 0.0,
+      "pixel_size_positive": true
+    },
+    "geophysics_magnetic_emag2_rst": {
+      "table": "geophysics_magnetic_emag2_rst",
+      "path": "data/Geology/geophysics_magnetic_emag2_rst.gpkg",
+      "visible": true,
+      "srs_id": 4326,
+      "zoom_level": 0,
+      "tile_count_at_max_zoom": 1,
+      "matrix": {
+        "width": 1,
+        "height": 1,
+        "tile_width": 500,
+        "tile_height": 400,
+        "pixel_x_size": 0.025,
+        "pixel_y_size": 0.025
+      },
+      "tile_shapes": {
+        "(400, 500)": 1
+      },
+      "bad_tiles": [],
+      "expected_stitched_shape": [
+        400,
+        500
+      ],
+      "computed_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "declared_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "bounds_max_delta_degrees": 0.0,
+      "pixel_size_positive": true
+    },
+    "groundwater_water_table_fan2017_rst": {
+      "table": "groundwater_water_table_fan2017_rst",
+      "path": "data/Groundwater & hydrogeology/groundwater_water_table_fan2017_rst.gpkg",
+      "visible": true,
+      "srs_id": 4326,
+      "zoom_level": 0,
+      "tile_count_at_max_zoom": 1,
+      "matrix": {
+        "width": 1,
+        "height": 1,
+        "tile_width": 1000,
+        "tile_height": 800,
+        "pixel_x_size": 0.0125,
+        "pixel_y_size": 0.0125
+      },
+      "tile_shapes": {
+        "(800, 1000)": 1
+      },
+      "bad_tiles": [],
+      "expected_stitched_shape": [
+        800,
+        1000
+      ],
+      "computed_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "declared_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "bounds_max_delta_degrees": 0.0,
+      "pixel_size_positive": true
+    },
+    "hazards_flood_aqueduct_rst": {
+      "table": "hazards_flood_aqueduct_rst",
+      "path": "data/Natural hazards/hazards_flood_aqueduct_rst.gpkg",
+      "visible": true,
+      "srs_id": 4326,
+      "zoom_level": 0,
+      "tile_count_at_max_zoom": 1,
+      "matrix": {
+        "width": 1,
+        "height": 1,
+        "tile_width": 500,
+        "tile_height": 400,
+        "pixel_x_size": 0.025,
+        "pixel_y_size": 0.025
+      },
+      "tile_shapes": {
+        "(400, 500)": 1
+      },
+      "bad_tiles": [],
+      "expected_stitched_shape": [
+        400,
+        500
+      ],
+      "computed_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "declared_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "bounds_max_delta_degrees": 0.0,
+      "pixel_size_positive": true
+    },
+    "hazards_landslide_rainfall_wb_rst": {
+      "table": "hazards_landslide_rainfall_wb_rst",
+      "path": "data/Natural hazards/hazards_landslide_rainfall_wb_rst.gpkg",
+      "visible": true,
+      "srs_id": 4326,
+      "zoom_level": 0,
+      "tile_count_at_max_zoom": 1,
+      "matrix": {
+        "width": 1,
+        "height": 1,
+        "tile_width": 500,
+        "tile_height": 400,
+        "pixel_x_size": 0.025,
+        "pixel_y_size": 0.025
+      },
+      "tile_shapes": {
+        "(400, 500)": 1
+      },
+      "bad_tiles": [],
+      "expected_stitched_shape": [
+        400,
+        500
+      ],
+      "computed_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "declared_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "bounds_max_delta_degrees": 0.0,
+      "pixel_size_positive": true
+    },
+    "minerals_map2023_img": {
+      "table": "minerals_map2023_img",
+      "path": "data/Mineral resources/minerals_map2023_img.gpkg",
+      "visible": true,
+      "srs_id": 4326,
+      "zoom_level": 4,
+      "tile_count_at_max_zoom": 99,
+      "matrix": {
+        "width": 11,
+        "height": 9,
+        "tile_width": 256,
+        "tile_height": 256,
+        "pixel_x_size": 0.004569799635701275,
+        "pixel_y_size": 0.004569829901521934
+      },
+      "tile_shapes": {
+        "(256, 256, 4)": 99
+      },
+      "bad_tiles": [],
+      "expected_stitched_shape": [
+        2234,
+        2745
+      ],
+      "computed_bounds": [
+        2.4798,
+        3.836500000000001,
+        15.023900000000001,
+        14.0455
+      ],
+      "declared_bounds": [
+        2.4798,
+        3.8365,
+        15.0239,
+        14.0455
+      ],
+      "bounds_max_delta_degrees": 1.7763568394002505e-15,
+      "pixel_size_positive": true
+    },
+    "population_worldpop2025_rst": {
+      "table": "population_worldpop2025_rst",
+      "path": "data/Population/population_worldpop2025_rst.gpkg",
+      "visible": true,
+      "srs_id": 4326,
+      "zoom_level": 0,
+      "tile_count_at_max_zoom": 1,
+      "matrix": {
+        "width": 1,
+        "height": 1,
+        "tile_width": 1400,
+        "tile_height": 1120,
+        "pixel_x_size": 0.008928571428571428,
+        "pixel_y_size": 0.008928571428571428
+      },
+      "tile_shapes": {
+        "(1120, 1400)": 1
+      },
+      "bad_tiles": [],
+      "expected_stitched_shape": [
+        1120,
+        1400
+      ],
+      "computed_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "declared_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "bounds_max_delta_degrees": 0.0,
+      "pixel_size_positive": true
+    },
+    "settlements_builtup_ghsl2020_rst": {
+      "table": "settlements_builtup_ghsl2020_rst",
+      "path": "data/Settlements/settlements_builtup_ghsl2020_rst.gpkg",
+      "visible": true,
+      "srs_id": 4326,
+      "zoom_level": 0,
+      "tile_count_at_max_zoom": 1,
+      "matrix": {
+        "width": 1,
+        "height": 1,
+        "tile_width": 500,
+        "tile_height": 400,
+        "pixel_x_size": 0.025,
+        "pixel_y_size": 0.025
+      },
+      "tile_shapes": {
+        "(400, 500)": 1
+      },
+      "bad_tiles": [],
+      "expected_stitched_shape": [
+        400,
+        500
+      ],
+      "computed_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "declared_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "bounds_max_delta_degrees": 0.0,
+      "pixel_size_positive": true
+    },
+    "soil_ph_0_5cm_isric_rst": {
+      "table": "soil_ph_0_5cm_isric_rst",
+      "path": "data/Soils/soil_ph_0_5cm_isric_rst.gpkg",
+      "visible": true,
+      "srs_id": 4326,
+      "zoom_level": 0,
+      "tile_count_at_max_zoom": 1,
+      "matrix": {
+        "width": 1,
+        "height": 1,
+        "tile_width": 500,
+        "tile_height": 400,
+        "pixel_x_size": 0.025,
+        "pixel_y_size": 0.025
+      },
+      "tile_shapes": {
+        "(400, 500)": 1
+      },
+      "bad_tiles": [],
+      "expected_stitched_shape": [
+        400,
+        500
+      ],
+      "computed_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "declared_bounds": [
+        2.5,
+        4.0,
+        15.0,
+        14.0
+      ],
+      "bounds_max_delta_degrees": 0.0,
+      "pixel_size_positive": true
+    }
+  },
+  "geometry_summary": {
+    "active_vector_layers": 64,
+    "active_invalid_geometry_count": 0,
+    "topology_provenance_layers": 16,
+    "topology_provenance_invalid_geometry_count": 191,
+    "identity_provenance_layers": 2,
+    "identity_provenance_invalid_geometry_count": 0
+  },
+  "administrative": {
+    "state_count": 38,
+    "lga_polygon_count": 775,
+    "lga_centroid_count": 774,
+    "ward_point_count": 8809,
+    "state_names": [
+      "Abia",
+      "Adamawa",
+      "Akwa Ibom",
+      "Anambra",
+      "Bauchi",
+      "Bayelsa",
+      "Benue",
+      "Borno",
+      "Cross River",
+      "Delta",
+      "Ebonyi",
+      "Edo",
+      "Ekiti",
+      "Enugu",
+      "Federal Capital Territory",
+      "Gombe",
+      "Imo",
+      "Jigawa",
+      "Kaduna",
+      "Kano",
+      "Katsina",
+      "Kebbi",
+      "Kogi",
+      "Kwara",
+      "Lagos",
+      "Nasarawa",
+      "Niger",
+      "Ogun",
+      "Ondo",
+      "Osun",
+      "Oyo",
+      "Plateau",
+      "Rivers",
+      "Sokoto",
+      "Taraba",
+      "Water body",
+      "Yobe",
+      "Zamfara"
+    ],
+    "lga_centroids": {
+      "missing_named_lga_matches": 0,
+      "outside_named_lga": 1,
+      "outside_named_state": 0,
+      "outside_lga_distance": {
+        "n": 1,
+        "median_km": 0.0,
+        "p90_km": 0.0,
+        "p95_km": 0.0,
+        "max_km": 0.0,
+        "within_1km": 1.0,
+        "within_5km": 1.0,
+        "within_10km": 1.0
+      },
+      "missing_examples": [],
+      "wrong_state_examples": [],
+      "outside_examples": [
+        {
+          "feature_index": 95,
+          "distance_to_named_lga_km": 0.0,
+          "state": "Bauchi",
+          "lga": "Dass",
+          "position_qa": "moved 0.3 km to fall inside its own LGA polygon"
+        }
+      ]
+    },
+    "wards": {
+      "missing_named_lga_matches": 0,
+      "outside_named_lga": 40,
+      "outside_named_state": 17,
+      "outside_lga_distance": {
+        "n": 40,
+        "median_km": 0.238369165656448,
+        "p90_km": 3.5997593609560896,
+        "p95_km": 4.809223247600287,
+        "max_km": 10.005656736934647,
+        "within_1km": 0.8,
+        "within_5km": 0.95,
+        "within_10km": 0.975
+      },
+      "missing_examples": [],
+      "wrong_state_examples": [
+        {
+          "feature_index": 1282,
+          "state": "Bayelsa",
+          "lga": "Brass",
+          "ward": "Minibie"
+        },
+        {
+          "feature_index": 2007,
+          "state": "Cross River",
+          "lga": "Bakassi",
+          "ward": "Efut Inwang"
+        },
+        {
+          "feature_index": 2431,
+          "state": "Delta",
+          "lga": "Warri South West",
+          "ward": "Orere"
+        },
+        {
+          "feature_index": 4823,
+          "state": "Katsina",
+          "lga": "Danja",
+          "ward": "Tsangamawa"
+        },
+        {
+          "feature_index": 6042,
+          "state": "Nasarawa",
+          "lga": "Karu",
+          "ward": "Panda / Kare"
+        },
+        {
+          "feature_index": 7811,
+          "state": "Rivers",
+          "lga": "Andoni",
+          "ward": "Ataba II"
+        },
+        {
+          "feature_index": 7817,
+          "state": "Rivers",
+          "lga": "Andoni",
+          "ward": "Unyeada II"
+        },
+        {
+          "feature_index": 7851,
+          "state": "Rivers",
+          "lga": "Degema",
+          "ward": "Bukuma"
+        },
+        {
+          "feature_index": 7853,
+          "state": "Rivers",
+          "lga": "Degema",
+          "ward": "Degema II"
+        },
+        {
+          "feature_index": 7854,
+          "state": "Rivers",
+          "lga": "Degema",
+          "ward": "Degema III"
+        },
+        {
+          "feature_index": 7860,
+          "state": "Rivers",
+          "lga": "Degema",
+          "ward": "Tomble IV"
+        },
+        {
+          "feature_index": 7997,
+          "state": "Rivers",
+          "lga": "Ogu/Bolo",
+          "ward": "Ogu VI"
+        },
+        {
+          "feature_index": 8003,
+          "state": "Rivers",
+          "lga": "Okrika",
+          "ward": "Ogoloma III"
+        },
+        {
+          "feature_index": 8028,
+          "state": "Rivers",
+          "lga": "Opobo/Nkoro",
+          "ward": "Nkoro II"
+        },
+        {
+          "feature_index": 8042,
+          "state": "Rivers",
+          "lga": "Port Harcourt",
+          "ward": "Abuloma/Amadi-Ama"
+        },
+        {
+          "feature_index": 8048,
+          "state": "Rivers",
+          "lga": "Port Harcourt",
+          "ward": "Nkpolu Oroworukwo Two"
+        },
+        {
+          "feature_index": 8447,
+          "state": "Taraba",
+          "lga": "Ussa",
+          "ward": "Kwambai"
+        }
+      ],
+      "outside_examples": [
+        {
+          "feature_index": 4095,
+          "distance_to_named_lga_km": 10.006,
+          "state": "Kaduna",
+          "lga": "Kaduna North",
+          "ward": "Kwarau"
+        },
+        {
+          "feature_index": 1184,
+          "distance_to_named_lga_km": 5.062,
+          "state": "Bauchi",
+          "lga": "Katagum",
+          "ward": "Gambaki/Bidir"
+        },
+        {
+          "feature_index": 7294,
+          "distance_to_named_lga_km": 4.796,
+          "state": "Oyo",
+          "lga": "Ibadan South East",
+          "ward": "Ward XI E9 I"
+        },
+        {
+          "feature_index": 2821,
+          "distance_to_named_lga_km": 3.762,
+          "state": "Ekiti",
+          "lga": "Ekiti East",
+          "ward": "Ilasa II/Ikun/Araromi"
+        },
+        {
+          "feature_index": 4214,
+          "distance_to_named_lga_km": 3.582,
+          "state": "Kaduna",
+          "lga": "Sanga",
+          "ward": "Gidan Waya"
+        },
+        {
+          "feature_index": 6042,
+          "distance_to_named_lga_km": 2.135,
+          "state": "Nasarawa",
+          "lga": "Karu",
+          "ward": "Panda / Kare"
+        },
+        {
+          "feature_index": 4210,
+          "distance_to_named_lga_km": 1.812,
+          "state": "Kaduna",
+          "lga": "Sanga",
+          "ward": "Arak"
+        },
+        {
+          "feature_index": 7860,
+          "distance_to_named_lga_km": 1.067,
+          "state": "Rivers",
+          "lga": "Degema",
+          "ward": "Tomble IV"
+        },
+        {
+          "feature_index": 4456,
+          "distance_to_named_lga_km": 0.931,
+          "state": "Kano",
+          "lga": "Gwarzo",
+          "ward": "Lakwaya"
+        },
+        {
+          "feature_index": 7851,
+          "distance_to_named_lga_km": 0.686,
+          "state": "Rivers",
+          "lga": "Degema",
+          "ward": "Bukuma"
+        },
+        {
+          "feature_index": 7997,
+          "distance_to_named_lga_km": 0.674,
+          "state": "Rivers",
+          "lga": "Ogu/Bolo",
+          "ward": "Ogu VI"
+        },
+        {
+          "feature_index": 2334,
+          "distance_to_named_lga_km": 0.598,
+          "state": "Delta",
+          "lga": "Patani",
+          "ward": "Patani I"
+        },
+        {
+          "feature_index": 3291,
+          "distance_to_named_lga_km": 0.561,
+          "state": "Federal Capital Territory",
+          "lga": "Abuja",
+          "ward": "Kashi"
+        },
+        {
+          "feature_index": 6990,
+          "distance_to_named_lga_km": 0.479,
+          "state": "Osun",
+          "lga": "Ife South",
+          "ward": "Aye"
+        },
+        {
+          "feature_index": 8342,
+          "distance_to_named_lga_km": 0.415,
+          "state": "Taraba",
+          "lga": "Donga",
+          "ward": "Gindin Dutse"
+        },
+        {
+          "feature_index": 1762,
+          "distance_to_named_lga_km": 0.34,
+          "state": "Borno",
+          "lga": "Guzamala",
+          "ward": "Guzamala West"
+        },
+        {
+          "feature_index": 8447,
+          "distance_to_named_lga_km": 0.317,
+          "state": "Taraba",
+          "lga": "Ussa",
+          "ward": "Kwambai"
+        },
+        {
+          "feature_index": 6952,
+          "distance_to_named_lga_km": 0.278,
+          "state": "Osun",
+          "lga": "Egbedore",
+          "ward": "Ira Gberi I"
+        },
+        {
+          "feature_index": 7891,
+          "distance_to_named_lga_km": 0.245,
+          "state": "Rivers",
+          "lga": "Etche",
+          "ward": "Igbo II"
+        },
+        {
+          "feature_index": 8149,
+          "distance_to_named_lga_km": 0.242,
+          "state": "Sokoto",
+          "lga": "Illela",
+          "ward": "Darna/ Sabon Gari"
+        },
+        {
+          "feature_index": 2195,
+          "distance_to_named_lga_km": 0.235,
+          "state": "Delta",
+          "lga": "Burutu",
+          "ward": "Ngbilebiri I"
+        },
+        {
+          "feature_index": 7811,
+          "distance_to_named_lga_km": 0.225,
+          "state": "Rivers",
+          "lga": "Andoni",
+          "ward": "Ataba II"
+        },
+        {
+          "feature_index": 7854,
+          "distance_to_named_lga_km": 0.206,
+          "state": "Rivers",
+          "lga": "Degema",
+          "ward": "Degema III"
+        },
+        {
+          "feature_index": 5127,
+          "distance_to_named_lga_km": 0.171,
+          "state": "Kebbi",
+          "lga": "Argungu",
+          "ward": "Gwazange/Kisawa/Ugyaga"
+        },
+        {
+          "feature_index": 7817,
+          "distance_to_named_lga_km": 0.161,
+          "state": "Rivers",
+          "lga": "Andoni",
+          "ward": "Unyeada II"
+        },
+        {
+          "feature_index": 2007,
+          "distance_to_named_lga_km": 0.158,
+          "state": "Cross River",
+          "lga": "Bakassi",
+          "ward": "Efut Inwang"
+        },
+        {
+          "feature_index": 7733,
+          "distance_to_named_lga_km": 0.15,
+          "state": "Plateau",
+          "lga": "Shendam",
+          "ward": "Kurungbau (B)"
+        },
+        {
+          "feature_index": 8028,
+          "distance_to_named_lga_km": 0.133,
+          "state": "Rivers",
+          "lga": "Opobo/Nkoro",
+          "ward": "Nkoro II"
+        },
+        {
+          "feature_index": 472,
+          "distance_to_named_lga_km": 0.13,
+          "state": "Akwa Ibom",
+          "lga": "Etim Ekpo",
+          "ward": "Etim Ekpo X"
+        },
+        {
+          "feature_index": 6994,
+          "distance_to_named_lga_km": 0.126,
+          "state": "Osun",
+          "lga": "Ife South",
+          "ward": "Kere"
+        },
+        {
+          "feature_index": 7853,
+          "distance_to_named_lga_km": 0.116,
+          "state": "Rivers",
+          "lga": "Degema",
+          "ward": "Degema II"
+        },
+        {
+          "feature_index": 668,
+          "distance_to_named_lga_km": 0.104,
+          "state": "Akwa Ibom",
+          "lga": "Oron",
+          "ward": "Oron Urban IV"
+        },
+        {
+          "feature_index": 2431,
+          "distance_to_named_lga_km": 0.08,
+          "state": "Delta",
+          "lga": "Warri South West",
+          "ward": "Orere"
+        },
+        {
+          "feature_index": 8003,
+          "distance_to_named_lga_km": 0.076,
+          "state": "Rivers",
+          "lga": "Okrika",
+          "ward": "Ogoloma III"
+        },
+        {
+          "feature_index": 1282,
+          "distance_to_named_lga_km": 0.066,
+          "state": "Bayelsa",
+          "lga": "Brass",
+          "ward": "Minibie"
+        },
+        {
+          "feature_index": 59,
+          "distance_to_named_lga_km": 0.054,
+          "state": "Abia",
+          "lga": "Isiala Ngwa North",
+          "ward": "Amasaa Nsulu"
+        },
+        {
+          "feature_index": 5070,
+          "distance_to_named_lga_km": 0.051,
+          "state": "Katsina",
+          "lga": "Safana",
+          "ward": "Babban Duhu 'A'"
+        },
+        {
+          "feature_index": 8042,
+          "distance_to_named_lga_km": 0.019,
+          "state": "Rivers",
+          "lga": "Port Harcourt",
+          "ward": "Abuloma/Amadi-Ama"
+        },
+        {
+          "feature_index": 4823,
+          "distance_to_named_lga_km": 0.013,
+          "state": "Katsina",
+          "lga": "Danja",
+          "ward": "Tsangamawa"
+        },
+        {
+          "feature_index": 8048,
+          "distance_to_named_lga_km": 0.003,
+          "state": "Rivers",
+          "lga": "Port Harcourt",
+          "ward": "Nkpolu Oroworukwo Two"
+        }
+      ]
+    },
+    "lga_key_differences": {
+      "polygon_only": [
+        [
+          "water body",
+          "lake chad"
+        ]
+      ],
+      "centroid_only": []
+    },
+    "state_from_lgas_area_iou": {
+      "abia": 0.9999999999999802,
+      "adamawa": 1.0,
+      "akwa ibom": 1.0,
+      "anambra": 0.9999999999999287,
+      "bauchi": 1.0,
+      "bayelsa": 0.9999999999999015,
+      "benue": 1.0,
+      "borno": 1.0,
+      "cross river": 1.0,
+      "delta": 0.9999999999999787,
+      "ebonyi": 1.0,
+      "edo": 0.9999999999999852,
+      "ekiti": 1.0,
+      "enugu": 0.9999999999999869,
+      "fct": 0.9999999999999952,
+      "gombe": 1.0,
+      "imo": 0.9999999999999684,
+      "jigawa": 1.0,
+      "kaduna": 0.9999999999999969,
+      "kano": 1.0,
+      "katsina": 0.9999999999999921,
+      "kebbi": 0.9999999999999989,
+      "kogi": 0.9999999999999832,
+      "kwara": 0.9999999999999991,
+      "lagos": 1.0,
+      "nasarawa": 0.9999999999999973,
+      "niger": 0.9999999999999966,
+      "ogun": 1.0,
+      "ondo": 0.9999999999999982,
+      "osun": 1.0,
+      "oyo": 1.0,
+      "plateau": 1.0,
+      "rivers": 0.9999999999998395,
+      "sokoto": 0.9999999999999959,
+      "taraba": 1.0,
+      "water body": 1.0,
+      "yobe": 1.0,
+      "zamfara": 0.9999999999999897
+    },
+    "minimum_state_from_lgas_iou": 0.9999999999998395,
+    "population_state_geometry_iou": {
+      "abia": 0.9999999999999704,
+      "adamawa": 1.0,
+      "akwa ibom": 0.9999999999999629,
+      "anambra": 1.0,
+      "bauchi": 0.9999999999999468,
+      "bayelsa": 1.0,
+      "benue": 1.0,
+      "borno": 1.0,
+      "cross river": 1.0,
+      "delta": 1.0,
+      "ebonyi": 0.9999999999999782,
+      "edo": 0.9999999999999876,
+      "ekiti": 1.0,
+      "enugu": 0.9999999999999816,
+      "fct": 0.9999999999999627,
+      "gombe": 0.9999999999999369,
+      "imo": 0.9999999999999833,
+      "jigawa": 1.0,
+      "kaduna": 0.9999999999999615,
+      "kano": 1.0,
+      "katsina": 0.9999999999999474,
+      "kebbi": 1.0,
+      "kogi": 1.0,
+      "kwara": 0.9999999999999698,
+      "lagos": 0.9999999999999423,
+      "nasarawa": 1.0,
+      "niger": 0.9999999999999702,
+      "ogun": 0.9999999999999799,
+      "ondo": 1.0,
+      "osun": 0.9999999999999851,
+      "oyo": 0.9999999999999852,
+      "plateau": 0.9999999999999588,
+      "rivers": 0.9999999999998352,
+      "sokoto": 1.0,
+      "taraba": 1.0,
+      "water body": 0.9999999999998276,
+      "yobe": 0.999999999999954,
+      "zamfara": 0.9999999999999665
+    },
+    "minimum_population_state_iou": 0.9999999999998276
+  },
+  "capitals": {
+    "capital_count": 37,
+    "issues": []
+  },
+  "boundary_comparisons": [
+    {
+      "comparison": "GADM land (Lake Chad water body excluded) vs geoBoundaries national polygon",
+      "source_to_target": {
+        "n": 4000,
+        "median_km": 3.597713838416081,
+        "p90_km": 16.81994163771798,
+        "p95_km": 20.592011527892165,
+        "max_km": 41.216384805676235,
+        "within_1km": 0.29125,
+        "within_5km": 0.56675,
+        "within_10km": 0.7625,
+        "matched_within_5km_median_east_m": -0.7039243524195626,
+        "matched_within_5km_median_north_m": -81.1744522571098
+      },
+      "target_to_source": {
+        "n": 4000,
+        "median_km": 0.5550875967148678,
+        "p90_km": 3.704449618120715,
+        "p95_km": 9.0085544643304,
+        "max_km": 38.15414038422449,
+        "within_1km": 0.63425,
+        "within_5km": 0.91975,
+        "within_10km": 0.95475,
+        "matched_within_5km_median_east_m": -0.45906709996052086,
+        "matched_within_5km_median_north_m": 7.739574407227337
+      },
+      "area_iou": 0.9861820088151717,
+      "symmetric_difference_area_km2": 12657.732967190186
+    },
+    {
+      "comparison": "GADM including Lake Chad water body vs ESRI national polygon",
+      "source_to_target": {
+        "n": 4000,
+        "median_km": 3.3881602162324406e-14,
+        "p90_km": 1.8827085336937103e-11,
+        "p95_km": 1.8920250303989883e-11,
+        "max_km": 1.9215907717078393e-11,
+        "within_1km": 1.0,
+        "within_5km": 1.0,
+        "within_10km": 1.0,
+        "matched_within_5km_median_east_m": 0.0,
+        "matched_within_5km_median_north_m": 0.0
+      },
+      "target_to_source": {
+        "n": 4000,
+        "median_km": 3.1943806728958977e-14,
+        "p90_km": 1.8833693442222818e-11,
+        "p95_km": 1.892111382529439e-11,
+        "max_km": 1.9286107210824173e-11,
+        "within_1km": 1.0,
+        "within_5km": 1.0,
+        "within_10km": 1.0,
+        "matched_within_5km_median_east_m": 0.0,
+        "matched_within_5km_median_north_m": 0.0
+      },
+      "area_iou": 0.9999999999999363,
+      "symmetric_difference_area_km2": 7.6171875e-08
+    },
+    {
+      "comparison": "GADM land vs Natural Earth Nigeria",
+      "source_to_target": {
+        "n": 4000,
+        "median_km": 2.3807166324368048,
+        "p90_km": 13.675892942098308,
+        "p95_km": 18.40392471629193,
+        "max_km": 40.01834669145811,
+        "within_1km": 0.269,
+        "within_5km": 0.6735,
+        "within_10km": 0.84375,
+        "matched_within_5km_median_east_m": 36.956081668133265,
+        "matched_within_5km_median_north_m": -99.36844482331071
+      },
+      "target_to_source": {
+        "n": 4000,
+        "median_km": 0.9526451434433965,
+        "p90_km": 3.6419543536981402,
+        "p95_km": 10.08851294476959,
+        "max_km": 37.95078964158115,
+        "within_1km": 0.5175,
+        "within_5km": 0.92075,
+        "within_10km": 0.9495,
+        "matched_within_5km_median_east_m": -64.75599414377939,
+        "matched_within_5km_median_north_m": 8.624474477488548
+      },
+      "area_iou": 0.9851027603975855,
+      "symmetric_difference_area_km2": 13622.164037104249
+    },
+    {
+      "comparison": "geoBoundaries national polygon vs Natural Earth Nigeria",
+      "source_to_target": {
+        "n": 4000,
+        "median_km": 0.35894687242061984,
+        "p90_km": 2.2042082282689144,
+        "p95_km": 3.229927706429122,
+        "max_km": 19.63289595129416,
+        "within_1km": 0.7175,
+        "within_5km": 0.9675,
+        "within_10km": 0.98525,
+        "matched_within_5km_median_east_m": 0.13352042107726447,
+        "matched_within_5km_median_north_m": 0.0013113312888890505
+      },
+      "target_to_source": {
+        "n": 4000,
+        "median_km": 0.35036641422148035,
+        "p90_km": 3.0490390070570745,
+        "p95_km": 7.556233990836205,
+        "max_km": 20.03125215574246,
+        "within_1km": 0.70825,
+        "within_5km": 0.9305,
+        "within_10km": 0.96225,
+        "matched_within_5km_median_east_m": -0.06867956538917497,
+        "matched_within_5km_median_north_m": -0.011618246673606336
+      },
+      "area_iou": 0.9937690516540474,
+      "symmetric_difference_area_km2": 5702.744420836426
+    }
+  ],
+  "line_comparisons": [
+    {
+      "comparison": "2011 geology unit contacts vs unit polygon boundaries",
+      "source": "geology_unit_boundaries_map2011_ln",
+      "target": "geology_units_map2011_pg",
+      "source_to_target": {
+        "n": 3000,
+        "median_km": 0.11894952184497866,
+        "p90_km": 0.32318653017723475,
+        "p95_km": 1.7483820403822146,
+        "max_km": 16.2758341250948,
+        "within_1km": 0.941,
+        "within_5km": 0.9833333333333333,
+        "within_10km": 0.9976666666666667
+      }
+    },
+    {
+      "comparison": "2011 railways vs DIVA railways",
+      "source": "transport_railways_map2011_ln",
+      "target": "transport_railways_diva_ln",
+      "source_to_target": {
+        "n": 2500,
+        "median_km": 3.1002542261284765,
+        "p90_km": 9.404366511566922,
+        "p95_km": 11.846615225763438,
+        "max_km": 21.130601065215032,
+        "within_1km": 0.1732,
+        "within_5km": 0.696,
+        "within_10km": 0.9204,
+        "matched_within_5km_median_east_m": 199.2243439959493,
+        "matched_within_5km_median_north_m": 277.8098456640728
+      },
+      "target_to_source": {
+        "n": 2500,
+        "median_km": 3.2193122888256687,
+        "p90_km": 10.009645237174116,
+        "p95_km": 13.209626387277094,
+        "max_km": 40.68046475040098,
+        "within_1km": 0.1592,
+        "within_5km": 0.6724,
+        "within_10km": 0.8992,
+        "matched_within_5km_median_east_m": -249.7762916747015,
+        "matched_within_5km_median_north_m": -237.87399254110642
+      }
+    },
+    {
+      "comparison": "2023 railways vs DIVA railways",
+      "source": "transport_railways_map2023_ln",
+      "target": "transport_railways_diva_ln",
+      "source_to_target": {
+        "n": 2500,
+        "median_km": 4.20892772311775,
+        "p90_km": 9.641869935755576,
+        "p95_km": 11.404314455101051,
+        "max_km": 498.09284113642536,
+        "within_1km": 0.0988,
+        "within_5km": 0.5728,
+        "within_10km": 0.9188,
+        "matched_within_5km_median_east_m": 126.54689885367407,
+        "matched_within_5km_median_north_m": 200.45049931592075
+      },
+      "target_to_source": {
+        "n": 2500,
+        "median_km": 4.447055562372818,
+        "p90_km": 9.88296652576646,
+        "p95_km": 11.749210883862741,
+        "max_km": 28.676147109696114,
+        "within_1km": 0.0912,
+        "within_5km": 0.5476,
+        "within_10km": 0.9072,
+        "matched_within_5km_median_east_m": -12.24739027673786,
+        "matched_within_5km_median_north_m": -126.97808550635818
+      }
+    },
+    {
+      "comparison": "2011 roads vs DIVA roads",
+      "source": "transport_roads_map2011_ln",
+      "target": "transport_roads_diva_ln",
+      "source_to_target": {
+        "n": 2500,
+        "median_km": 2.3402744737662227,
+        "p90_km": 8.218453904418466,
+        "p95_km": 19.07108007442715,
+        "max_km": 98.95173785150946,
+        "within_1km": 0.2328,
+        "within_5km": 0.79,
+        "within_10km": 0.9204,
+        "matched_within_5km_median_east_m": -16.942760876147076,
+        "matched_within_5km_median_north_m": 70.03990256879479
+      },
+      "target_to_source": {
+        "n": 2500,
+        "median_km": 11.053751394473181,
+        "p90_km": 35.344494372799055,
+        "p95_km": 44.46528979811865,
+        "max_km": 91.17630613727542,
+        "within_1km": 0.0896,
+        "within_5km": 0.2888,
+        "within_10km": 0.4632,
+        "matched_within_5km_median_east_m": 8.294745744788088,
+        "matched_within_5km_median_north_m": -21.14207475661533
+      }
+    },
+    {
+      "comparison": "2023 roads vs DIVA roads",
+      "source": "transport_roads_map2023_ln",
+      "target": "transport_roads_diva_ln",
+      "source_to_target": {
+        "n": 2500,
+        "median_km": 2.822145246666058,
+        "p90_km": 8.025718216242375,
+        "p95_km": 10.008002202460679,
+        "max_km": 154.43754567604054,
+        "within_1km": 0.186,
+        "within_5km": 0.7384,
+        "within_10km": 0.9496,
+        "matched_within_5km_median_east_m": -2.114542442082893,
+        "matched_within_5km_median_north_m": 141.9200080120354
+      },
+      "target_to_source": {
+        "n": 2500,
+        "median_km": 12.788366848895926,
+        "p90_km": 42.89416834123925,
+        "p95_km": 57.21374054205287,
+        "max_km": 103.62957006641557,
+        "within_1km": 0.07,
+        "within_5km": 0.238,
+        "within_10km": 0.4116,
+        "matched_within_5km_median_east_m": -16.573386227013543,
+        "matched_within_5km_median_north_m": -164.98204657901078
+      }
+    },
+    {
+      "comparison": "2011 rivers vs DIVA water lines",
+      "source": "water_rivers_map2011_ln",
+      "target": "water_lines_diva_ln",
+      "source_to_target": {
+        "n": 2500,
+        "median_km": 2.936095951763632,
+        "p90_km": 37.30760061859177,
+        "p95_km": 69.5075365909624,
+        "max_km": 216.67406385982002,
+        "within_1km": 0.2,
+        "within_5km": 0.6708,
+        "within_10km": 0.8032,
+        "matched_within_5km_median_east_m": -7.084501687728334,
+        "matched_within_5km_median_north_m": 10.688227350241505
+      },
+      "target_to_source": {
+        "n": 2500,
+        "median_km": 5.688365604917665,
+        "p90_km": 17.626546863722407,
+        "p95_km": 23.601153384905327,
+        "max_km": 80.81983617557974,
+        "within_1km": 0.1044,
+        "within_5km": 0.4564,
+        "within_10km": 0.6988,
+        "matched_within_5km_median_east_m": -63.095683446284966,
+        "matched_within_5km_median_north_m": 21.474219609925058
+      }
+    },
+    {
+      "comparison": "2023 rivers vs DIVA water lines",
+      "source": "water_rivers_map2023_ln",
+      "target": "water_lines_diva_ln",
+      "source_to_target": {
+        "n": 2500,
+        "median_km": 3.3137276322960956,
+        "p90_km": 12.41080729890909,
+        "p95_km": 29.298545987509424,
+        "max_km": 169.56114919049645,
+        "within_1km": 0.178,
+        "within_5km": 0.6712,
+        "within_10km": 0.8676,
+        "matched_within_5km_median_east_m": 81.26305960150785,
+        "matched_within_5km_median_north_m": 20.49291461496614
+      },
+      "target_to_source": {
+        "n": 2500,
+        "median_km": 6.429198638045986,
+        "p90_km": 18.01625426297736,
+        "p95_km": 23.949097078422948,
+        "max_km": 84.83183707210411,
+        "within_1km": 0.086,
+        "within_5km": 0.4016,
+        "within_10km": 0.6972,
+        "matched_within_5km_median_east_m": -122.64819608311518,
+        "matched_within_5km_median_north_m": 4.927176242810674
+      }
+    },
+    {
+      "comparison": "WFP major rivers vs DIVA water lines",
+      "source": "water_rivers_major_wfp_ln",
+      "target": "water_lines_diva_ln",
+      "source_to_target": {
+        "n": 2024,
+        "median_km": 2.9219197943888178,
+        "p90_km": 9.754826668151475,
+        "p95_km": 12.88887383781534,
+        "max_km": 22.511575744286823,
+        "within_1km": 0.1566205533596838,
+        "within_5km": 0.7272727272727273,
+        "within_10km": 0.9071146245059288,
+        "matched_within_5km_median_east_m": -76.49548455894546,
+        "matched_within_5km_median_north_m": 5.292585654766299
+      },
+      "target_to_source": {
+        "n": 2500,
+        "median_km": 137.8369358076008,
+        "p90_km": 322.2481107065097,
+        "p95_km": 361.098994225933,
+        "max_km": 465.0815872401442,
+        "within_1km": 0.004,
+        "within_5km": 0.0196,
+        "within_10km": 0.0392,
+        "matched_within_5km_median_east_m": -0.17989253308041953,
+        "matched_within_5km_median_north_m": 264.5633361177752
+      }
+    }
+  ],
+  "point_outliers_over_10km": 3198
+}

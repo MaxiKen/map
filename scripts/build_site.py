@@ -12,11 +12,12 @@ A file whose basename starts with hidden_ is ignored, including every table insi
 The web app builds its layer list, popups, legends and tables ONLY from that catalog, so adding,
 replacing or renaming a layer/column in data/ needs no change to the app.
 
-Needs: Python 3.9+, numpy, Pillow (pip install -r scripts/requirements.txt). No GDAL, no server.
+Needs: Python 3.9+, numpy, Pillow, Shapely (pip install -r scripts/requirements.txt). No GDAL, no server.
 """
 import argparse, glob, gzip, hashlib, io, json, math, os, re, shutil, sqlite3, struct, sys, time
 import numpy as np
 from PIL import Image
+from shapely.geometry import shape
 
 Image.MAX_IMAGE_PIXELS = None
 MAX_IMG = 2800        # longest side of a raster / picture overlay (pixels)
@@ -152,6 +153,25 @@ def read_gpkg_geom(b, nd=5):
     if (b[3] >> 4) & 1: return None  # empty
     g, _ = read_wkb(b, 8 + n, nd)
     return g
+
+
+def read_valid_gpkg_geom(blob, nd=5):
+    """Export valid geometry, increasing precision only where rounding breaks it.
+
+    The source is never repaired or altered. Most features retain the compact
+    five-decimal representation; a small number need more significant digits to
+    avoid collapsed points or rounding-induced self-intersections.
+    """
+    geometry = read_gpkg_geom(blob, nd)
+    if geometry is None or shape(geometry).is_valid:
+        return geometry, nd
+    for precision in (6, 7, 8, 9, 10, 12, 15):
+        if precision <= nd:
+            continue
+        candidate = read_gpkg_geom(blob, precision)
+        if shape(candidate).is_valid:
+            return candidate, precision
+    raise ValueError('GeoPackage geometry remains invalid at full export precision')
 
 
 def bbox_of(g, box):
@@ -348,11 +368,18 @@ def build_vector(con, table, row, gcol, geomtype, out, cfg):
     hide = {k for k, v in cfg.get('fields', {}).items() if v.get('hidden')}
     nd = 5 if geomtype in ('POINT', 'MULTIPOINT') else 5
     feats, rowsd = [], []
+    precision_fallbacks = {}
     box = [1e9, 1e9, -1e9, -1e9]
     sel = ','.join(f'"{c}"' for c, _ in cols)
     for rec in con.execute(f'select "{gcol}"{"," + sel if sel else ""} from "{table}"'):
-        g = read_gpkg_geom(rec[0], nd)
+        if geomtype.upper() in ('POINT', 'MULTIPOINT'):
+            g = read_gpkg_geom(rec[0], nd)
+            precision = nd
+        else:
+            g, precision = read_valid_gpkg_geom(rec[0], nd)
         if g is None: continue
+        if precision != nd:
+            precision_fallbacks[precision] = precision_fallbacks.get(precision, 0) + 1
         bbox_of(g, box)
         props = {}
         for (c, k), v in zip(cols, rec[1:]):
@@ -367,8 +394,12 @@ def build_vector(con, table, row, gcol, geomtype, out, cfg):
     fn = f'{row["id"]}.geojson'
     with open(os.path.join(out, 'data', fn), 'w', encoding='utf8') as f:
         json.dump({'type': 'FeatureCollection', 'features': feats}, f, separators=(',', ':'), ensure_ascii=False)
-    return {'file': 'data/' + fn, 'count': len(feats), 'fields': fields, 'style': style, 'labelField': lf,
-            'bounds': box if box[0] < box[2] + 1e-9 and box[0] < 1e8 else None, 'geometry': geomtype}
+    result = {'file': 'data/' + fn, 'count': len(feats), 'fields': fields, 'style': style, 'labelField': lf,
+              'bounds': box if box[0] < box[2] + 1e-9 and box[0] < 1e8 else None, 'geometry': geomtype}
+    if precision_fallbacks:
+        result['geometryPrecisionFallbacks'] = dict(sorted(precision_fallbacks.items()))
+        print('  geometry precision fallbacks:', result['geometryPrecisionFallbacks'], flush=True)
+    return result
 
 
 def build_table(con, table, row, out, cfg):

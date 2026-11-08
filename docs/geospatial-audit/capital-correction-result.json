@@ -1,0 +1,19 @@
+{
+  "applied_utc": "2026-11-07T21:18:14.747307+00:00",
+  "visible_file": "data/Settlements/settlements_state_capitals_map2023_pt.gpkg",
+  "visible_sha256": "d4df1e292e6acf6c18681b7b2bd34f72d787894c7d6f71e568c421b96c890430",
+  "hidden_provenance_file": "data/Settlements/hidden_settlements_state_capitals_map2023_original_pt.gpkg",
+  "hidden_sha256": "7f137e1eff672acb2eb36b6d2b52de83ea6d9b92f1ce0d91e0eea9e0083b9280",
+  "hidden_table": "settlements_state_capitals_map2023_original_pt",
+  "source_sha256_before_correction": "d9749f9cf631468356548fb9b679e4a8ee13c51ab82ff0e2dad3a05ac7c9696e",
+  "corrected_with_osm": 32,
+  "retained_corroborated_gazetteer": 5,
+  "reviewed_exceptions": [
+    "Yola",
+    "Asaba",
+    "Abuja",
+    "Lokoja"
+  ],
+  "maximum_diva_crosscheck_km": 5.2724744127832395,
+  "ledger": "docs/geospatial-audit/capital-correction-ledger.csv"
+}

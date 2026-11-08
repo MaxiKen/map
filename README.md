@@ -163,6 +163,40 @@ Geometry, primary keys and configured legend join keys are preserved, and stale 
 from the layer config. It also uses smaller lossless DEFLATE TIFF tiles when an exact dtype, shape and cell-value
 read-back check passes. Vector geometries and picture overlays are never simplified or recompressed.
 
+### Geospatial quality audit
+
+```bash
+python scripts/audit_geospatial.py
+python scripts/audit_geospatial_extended.py
+```
+
+The two-stage audit covers every visible and hidden GeoPackage: CRS and extent integrity, geometry validity,
+administrative containment, independent place/boundary comparisons, cross-layer line distances, raster grids and
+raster/vector registration. It writes a professional report, a per-layer review register, diagnostic figures and
+exception CSVs to `docs/geospatial-audit/`. The audit never shifts or repairs source geometry automatically.
+
+Read the [current audit report](docs/geospatial-audit/README.md) and its limitations before treating any layer as
+ground truth. In particular, visual overlap and a shared EPSG code are not proof of correct absolute coordinates.
+
+The reviewed state-capital correction is complete: 32 scanned-map positions were replaced individually with OSM
+city/town nodes and five corroborated gazetteer positions were retained. The original is hidden as
+`settlements_state_capitals_map2023_original_pt`; previous coordinates and QA remain in the visible attributes.
+See `docs/geospatial-audit/capital-correction-ledger.csv` and `capital-correction-result.json`. OSM is the
+construction source for those replacements, not independent validation; the audit reports both all-source DIVA
+comparisons and a strict held-out subset. `scripts/correct_state_capitals.py` refuses to overwrite the correction
+or its provenance.
+
+The reviewed polygon-topology correction is also complete: GEOS MakeValid repaired 191 invalid geometries across
+16 layers without changing feature IDs, attributes or any originally valid geometry blob. The 16 full source copies
+are hidden as `*_topology_original`; current audit counts exclude those historical provenance defects. Three
+large-area interpretations and one collapsed-line envelope reduction have explicit review dispositions. All 22
+exact geology raster/vector class checks are unchanged. Run `python scripts/correct_polygon_topology.py` to verify
+the installed correction without reapplying it, and see `topology-correction-ledger.csv`,
+`topology-correction-verification.json` and `topology-correction-result.json` in the audit directory.
+The static exporter retains its compact five-decimal default but checks non-point output validity; only features
+that would be broken by rounding are re-exported at the minimum valid precision (up to full double precision).
+Those per-layer fallback counts are recorded as `geometryPrecisionFallbacks` in `public/catalog.json`.
+
 ## Updates on the deployed site (no hard refresh)
 A deploy is picked up by itself:
 
