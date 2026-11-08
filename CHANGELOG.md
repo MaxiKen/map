@@ -6,6 +6,8 @@ collected under **Unreleased** until `scripts/prepare_release.py` assigns a vers
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-08
+
 ### Added
 
 - Stable `ngmap-admin-v1` identifiers and parent joins for states, LGAs and wards, with a conservative
