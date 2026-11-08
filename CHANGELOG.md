@@ -6,6 +6,11 @@ collected under **Unreleased** until `scripts/prepare_release.py` assigns a vers
 
 ## [Unreleased]
 
+### Fixed
+
+- Restrict mutable source-fetch workflows to main-branch pushes or manual dispatch so release tags and
+  pull-request branch pushes never fetch and commit replacement data.
+
 ## [1.0.0] - 2026-11-08
 
 ### Added
