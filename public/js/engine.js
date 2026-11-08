@@ -2,6 +2,7 @@
 // XYZ basemap tiles, graticule, touch (pan + pinch), hit-testing, value sampling and symbology.
 // No libraries, no API keys, works offline.
 const TAU = Math.PI * 2;
+export const DEFAULT_VECTOR_COLOR = '#7a7a7a';
 export const mercY = (lat) => { lat = Math.max(-85.05, Math.min(85.05, lat)); const s = Math.sin(lat * Math.PI / 180); return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI); };
 export const mercX = (lon) => (lon + 180) / 360;
 export const unX = (x) => x * 360 - 180;
@@ -584,7 +585,7 @@ export function convertFeature(f) {
 export function prepareFeature(f, style, idx) {
   const c = convertFeature(f);
   if (!c) return null;
-  let col = '#7a7a7a';
+  let col = DEFAULT_VECTOR_COLOR;
   if (style) {
     if (style.mode === 'color-field') {
       const value = c.props[style.field];

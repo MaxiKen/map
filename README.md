@@ -216,7 +216,10 @@ cross-border rules, attribution, temporal coverage, licence/terms status, and ex
 
 Quality classes are not numeric accuracy scores, structural passes are not survey certification, and
 metadata completeness is not licence clearance. Unknown values remain unrecorded rather than being guessed.
-The public catalog exposes compact `quality` and `sourceMetadata` fields and a register summary/hash.
+The public catalog exposes compact `quality` and `sourceMetadata` fields and a register summary/hash. In the map,
+the **Quality & source** tab, per-layer links and feature results expose those checks, limitations, licences,
+temporal coverage and explicit gaps. Users can download the exact hash-covered 98-layer JSON register; published
+and all-source gap counts are labelled separately. See the [quality UI guide](docs/map-quality-ui.md).
 Run `python scripts/layer_quality_register.py` after both audits and before the final public build. Rerun the
 extended audit afterwards so its item 8 summary uses the current register. When the layer inventory changes,
 run one provisional public build before the register so its public-export fields are current, then the final build.

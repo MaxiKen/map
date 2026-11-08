@@ -288,6 +288,10 @@ def validate_layer_quality(layers: dict[str, dict], audit: dict, catalog: dict) 
             'layer-quality-register.json: unsupported schema_version')
     require(document.get('methodology', {}).get('quality_score') == 'not_assigned',
             'layer-quality register must not invent a numeric quality score')
+    public_register = PUBLIC / 'quality-register.json'
+    require(public_register.is_file(), 'public/quality-register.json is missing')
+    require(public_register.read_bytes() == (AUDIT / 'layer-quality-register.json').read_bytes(),
+            'public/quality-register.json differs from the hash-covered audit register')
 
     with (AUDIT / 'layer-review.csv').open(encoding='utf8', newline='') as handle:
         reviews = list(csv.DictReader(handle))

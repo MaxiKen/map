@@ -716,11 +716,13 @@ def main():
     spatial_layers = [layer for layer in layers if layer.get('kind') != 'table']
     if quality_document and spatial_layers and all(layer.get('quality') for layer in spatial_layers):
         cat['layerQualityRegister'] = catalog_summary(quality_document)
+        # Publish the exact hash-covered evidence behind the UI, including hidden provenance rows.
+        shutil.copyfile(quality_path, os.path.join(a.out, 'quality-register.json'))
     blob = json.dumps(cat, separators=(',', ':'), ensure_ascii=False)
     with open(os.path.join(a.out, 'catalog.json'), 'w', encoding='utf8') as f: f.write(blob)
     # the build id covers the data *and* the app shell, so any change gets fresh URLs
     hsh = hashlib.md5(blob.encode())
-    for rel in ('index.html', 'css/app.css', 'js/app.js', 'js/engine.js', 'js/loading.js',
+    for rel in ('index.html', 'css/app.css', 'js/app.js', 'js/engine.js', 'js/loading.js', 'js/quality.js',
                 'js/vector-worker.js', 'sw.js', 'manifest.webmanifest'):
         p = os.path.join(a.out, rel)
         if os.path.exists(p): hsh.update(open(p, 'rb').read())
@@ -743,7 +745,7 @@ def main():
         if not os.path.exists(module_path):
             continue
         text = open(module_path, encoding='utf8').read()
-        for dependency in ('engine.js', 'loading.js'):
+        for dependency in ('engine.js', 'loading.js', 'quality.js'):
             text = text.replace(f"from './{dependency}'", f"from './{dependency}?v={ver}'")
         open(module_path, 'w', encoding='utf8').write(text)
     raw_vector_bytes = sum(layer.get('fileBytes', 0) for layer in layers)

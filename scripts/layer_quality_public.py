@@ -39,6 +39,7 @@ def catalog_summary(document: dict, register_path: Path = REGISTER_JSON) -> dict
         'registerId': document['register_id'],
         'schemaVersion': document['schema_version'],
         'registerSha256': hashlib.sha256(Path(register_path).read_bytes()).hexdigest(),
+        'registerFile': 'quality-register.json',
         'generatedUtc': document['generated_utc'],
         'summary': {
             key: value for key, value in document['summary'].items()
