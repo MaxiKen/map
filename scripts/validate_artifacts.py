@@ -16,6 +16,8 @@ from pathlib import Path
 from PIL import Image
 
 import cross_border_policy as cross_border
+import layer_quality_register as layer_quality
+from layer_quality_public import catalog_summary, public_quality, public_source_metadata
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / 'data'
@@ -50,6 +52,9 @@ REQUIRED_AUDIT_FILES = (
     'admin-identifier-result.json',
     'admin-identifier-resolution.md',
     'cross-border-policy-register.csv',
+    'layer-quality-register.json',
+    'layer-quality-register.csv',
+    'layer-quality-register.md',
 )
 IDENTIFIER_DOC_FILES = (
     'README.md',
@@ -232,6 +237,59 @@ def validate_cross_border_policy(layers: dict[str, dict], audit: dict, catalog: 
                 f'public/catalog.json: missing or stale crossBorder rule for {table}')
 
 
+def validate_layer_quality(layers: dict[str, dict], audit: dict, catalog: dict) -> None:
+    document = read_json(AUDIT / 'layer-quality-register.json')
+    try:
+        metadata = layer_quality.load_metadata()
+        layer_quality.validate_inventory(layers, metadata)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        raise ValidationError(f'Invalid layer quality metadata: {exc}') from exc
+    require(document.get('register_id') == metadata['register_id'],
+            'layer-quality-register.json: wrong register_id')
+    require(document.get('schema_version') == 1,
+            'layer-quality-register.json: unsupported schema_version')
+    require(document.get('methodology', {}).get('quality_score') == 'not_assigned',
+            'layer-quality register must not invent a numeric quality score')
+
+    with (AUDIT / 'layer-review.csv').open(encoding='utf8', newline='') as handle:
+        reviews = list(csv.DictReader(handle))
+    expected_rows = layer_quality.build_rows(layers, audit, catalog, reviews, metadata)
+    require(document.get('layers') == expected_rows,
+            'layer-quality-register.json: stale source hashes, metadata or quality rows')
+    expected_summary = layer_quality.summarise(expected_rows, metadata, audit)
+    require(document.get('summary') == expected_summary,
+            'layer-quality-register.json: stale summary')
+    extended = read_json(AUDIT / 'extended-audit.json')
+    require(document.get('cross_border_policy') == extended.get('cross_border_policy'),
+            'layer-quality-register.json: cross-border summary differs from extended audit')
+
+    with (AUDIT / 'layer-quality-register.csv').open(encoding='utf8', newline='') as handle:
+        actual_csv = list(csv.DictReader(handle))
+    expected_csv = [
+        {
+            key: str(layer_quality._csv_value(row[key]))
+            for key in layer_quality.REGISTER_FIELDS
+        }
+        for row in expected_rows
+    ]
+    require(actual_csv == expected_csv,
+            'layer-quality-register.csv: rows differ from source/audit evidence')
+    markdown = (AUDIT / 'layer-quality-register.md').read_text(encoding='utf8')
+    for table in layers:
+        require(f'| `{table}` |' in markdown,
+                f'layer-quality-register.md: missing layer {table}')
+
+    require(catalog.get('layerQualityRegister') == catalog_summary(document),
+            'public/catalog.json: stale layerQualityRegister summary or hash')
+    by_table = {row['layer']: row for row in expected_rows}
+    for layer in catalog['layers']:
+        row = by_table[layer['table']]
+        require(layer.get('quality') == public_quality(row),
+                f'public/catalog.json: stale quality metadata for {layer["table"]}')
+        require(layer.get('sourceMetadata') == public_source_metadata(row),
+                f'public/catalog.json: stale source metadata for {layer["table"]}')
+
+
 def main() -> None:
     missing = [name for name in REQUIRED_AUDIT_FILES if not (AUDIT / name).is_file()]
     require(not missing, 'Missing required audit artifacts: ' + ', '.join(missing))
@@ -243,6 +301,7 @@ def main() -> None:
     paths, layers = validate_geopackages()
     audit, catalog = validate_inventory(paths, layers)
     validate_cross_border_policy(layers, audit, catalog)
+    validate_layer_quality(layers, audit, catalog)
 
     audit_structured = sorted(path for path in AUDIT.rglob('*')
                               if path.suffix in ('.json', '.geojson'))

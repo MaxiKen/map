@@ -1,6 +1,6 @@
 {
-  "generated_utc": "2026-11-08T14:59:56.292821+00:00",
-  "source_commit": "eccc307d1533ef3329510d5b2fc4242dd40b328f",
+  "generated_utc": "2026-11-08T15:57:37.225599+00:00",
+  "source_commit": "1f77ccc896f5fd38e8199ddf9a5aea4c9d727948",
   "metric_crs": "EPSG:32632",
   "cross_border_policy": {
     "policy_id": "ngmap-cross-border-v1",

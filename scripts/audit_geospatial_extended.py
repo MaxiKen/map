@@ -31,6 +31,7 @@ from audit_geospatial import (
     natural_earth_nigeria, nigeria_reference, norm, percentile, shapely_metric,
 )
 import build_site
+import layer_quality_register as layer_quality
 from cross_border_policy import load_policy, resolve_layer
 
 
@@ -647,6 +648,30 @@ def cross_border_policy_is_current(core):
         return False
 
 
+def layer_quality_is_current(document, core):
+    if not document or document.get('register_id') != 'ngmap-layer-quality-v1':
+        return False
+    summary = document.get('summary', {})
+    try:
+        metadata = layer_quality.load_metadata()
+        if (summary.get('source_commit') != core['source_commit'] or
+                summary.get('audit_generated_utc') != core['generated_utc'] or
+                summary.get('layer_count') != len(layer_index()) or
+                summary.get('metadata_config_sha256') != metadata['_sha256'] or
+                summary.get('cross_border_policy_sha256') != layer_quality.load_policy()['_sha256'] or
+                document.get('methodology', {}).get('quality_score') != 'not_assigned'):
+            return False
+        rows = document.get('layers', [])
+        if len(rows) != len(layer_index()) or {row['layer'] for row in rows} != set(layer_index()):
+            return False
+        return all(
+            row['source_sha256'] == hashlib.sha256(
+                layer_index()[row['layer']]['path'].read_bytes()).hexdigest()
+            for row in rows)
+    except (KeyError, OSError, ValueError):
+        return False
+
+
 def make_layer_review(core, raster, class_rows, named):
     """Return an explicit disposition for every spatial layer, not only exceptions."""
     rows = []
@@ -1069,7 +1094,7 @@ def make_figures(out, capital_rows, ward_rows):
 def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, raster,
                 class_rows, named, outliers, crs, topology_correction=None, gada_correction=None,
                 residual_correction=None, magnetic_reclassification=None, hidden_artifacts=None,
-                admin_identifiers=None):
+                admin_identifiers=None, quality_register=None):
     osm = capital['summary']['osm']
     diva = capital['summary']['diva']
     grey = next((v for k, v in capital['by_position_basis'].items() if 'grey square' in k), None)
@@ -1376,6 +1401,46 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             '7. **A cross-border data policy still needs to be propagated.** Foreign, marine, transboundary '
             'and map-sheet content requires consistent retention and Nigeria-only aggregation rules.')
         cross_border_details = []
+    quality_current = layer_quality_is_current(quality_register, core)
+    if quality_current:
+        quality_summary = quality_register['summary']
+        quality_counts = ', '.join(
+            f'{key} {value}' for key, value in quality_summary['quality_use_class_counts'].items())
+        metadata_counts = ', '.join(
+            f'{key} {value}' for key, value in quality_summary['metadata_status_counts'].items())
+        quality_executive = (
+            f'8. **A layer quality and metadata register covers all {layer_count} layers.** '
+            f'{quality_summary["structural_status_counts"].get("structural_pass", 0)} layers pass '
+            'applicable structural checks and 16 hidden topology originals retain historical defects '
+            'as provenance. One WPDx layer still requires source-vintage name-join review. '
+            f'{quality_summary["layers_with_metadata_gaps"]} layers have explicit source-metadata gaps; '
+            'no numeric accuracy score is invented.')
+        quality_details = [
+            '### F — Added: layer quality and metadata register', '',
+            f'- **Quality use classes:** {quality_counts}. These are evidence-based usage categories, '
+            'not quality scores. Structural passes do not certify absolute positional accuracy, '
+            'completeness or legal boundaries.',
+            '- **Current review:** `groundwater_boreholes_wpdx_pt` has all 99,245 points contained but '
+            '314 non-equivalent LGA-name joins requiring source-vintage review; no coordinate shift is '
+            'indicated. Ward, magnetic, hidden-source and cross-border limitations remain separate.',
+            f'- **Metadata completeness:** {metadata_counts}. '
+            f'{quality_summary["layers_with_metadata_gaps"]} layers have at least one gap across publisher, '
+            'dataset, URL, licence/terms, temporal coverage and local reference. Missing values remain '
+            'blank or `not_recorded`; metadata completeness is not licence clearance.',
+            f'- **Lineage:** {len(layer_quality.load_metadata()["sources"])} reusable source records cover '
+            '79 active layers, with 19 hidden originals inheriting their active source. Every row carries '
+            'the current GeoPackage SHA-256, CRS, bounds, attributes/grid, visibility, public export, '
+            'cross-border rule, quality evidence and recommended action.',
+            '- **Publication:** compact `quality` and `sourceMetadata` fields are embedded in the public '
+            'catalog, with a register summary/hash. Hidden layers remain unpublished.',
+            '- **Evidence:** `layer-quality-register.json` / `.csv` / `.md` and '
+            '`../../config/layer-metadata.json` provide the complete register and maintenance procedure.',
+        ]
+    else:
+        quality_executive = (
+            '8. **The layer quality and metadata register needs regeneration.** Current source hashes, '
+            'quality dispositions and source-metadata completeness must be consolidated.')
+        quality_details = []
     topology_resolved = bool(
         topology_correction and topology['total_invalid'] == 0 and
         topology['provenance_invalid'] == topology_correction['repair_count'] and
@@ -1604,6 +1669,16 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             '`ngmap-cross-border-v1`. Apply the cross-border register before any Nigeria-only aggregation; '
             'use canonical IDs for new joins and never backfill unresolved INEC links or clip transboundary '
             'sources without a separately documented derivative.')
+    if quality_current:
+        correction_note += (
+            ' The layer quality/metadata task added curated source documentation and generated registers; '
+            'it did not modify any GeoPackage, feature value or geometry.')
+        next_step = (
+            '**Recommended next step:** preserve all correction evidence and regenerate '
+            '`ngmap-layer-quality-v1` after any source, audit or metadata change. Review the 314 WPDx '
+            'LGA-name joins against source vintages and fill recorded metadata gaps only from traceable '
+            'sources; do not infer licences, dates, coordinates or national totals to make the register '
+            'look complete.')
     executive_status = (
         'All six prioritized correction/reclassification tasks are complete; the reviewed ward '
         'exceptions, partial magnetic coverage, unresolved external identifier links and other '
@@ -1642,6 +1717,7 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
         hidden_executive,
         identifier_executive,
         cross_border_executive,
+        quality_executive,
         '', correction_note,
         '', '## Prioritized findings', '',
         *capital_details,
@@ -1660,6 +1736,8 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
         *identifier_details,
         '',
         *cross_border_details,
+        '',
+        *quality_details,
     ]
     if pop_outliers:
         for item in pop_outliers:
@@ -1735,11 +1813,19 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
            'administration, a legal boundary, territorial waters or an EEZ. The catalog policy metadata '
            'does not turn the generic focus-area summary into an automatic country filter.'
            ] if cross_border_defined else []),
+        *(['- The layer register’s structural pass is limited to applicable integrity, CRS, extent and '
+           'geometry checks; it is not an accuracy or completeness score. Metadata completeness counts '
+           'six source fields and is not licence clearance. Hidden historical defects remain provenance, '
+           'and the WPDx source-vintage name-join review remains open.'
+           ] if quality_current else []),
         '', '## Reproduction and evidence files', '',
         '```bash',
         'python -m pip install -r scripts/requirements.txt',
         'python scripts/audit_geospatial.py',
         'python scripts/audit_geospatial_extended.py',
+        'python scripts/layer_quality_register.py',
+        'python scripts/audit_geospatial_extended.py',
+        'python scripts/build_site.py',
         '```', '',
         '- `audit.json`: full core inventory, per-layer geometry and scope metrics, admin checks, national-boundary and line comparisons.',
         '- `extended-audit.json`: independent capital checks, topology, raster registration/coverage and named-point results.',
@@ -1778,6 +1864,12 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
            'diagnostic-boundary limitations and all 98 per-layer scope assignments. Public catalog '
            '`crossBorderPolicy` and per-layer `crossBorder` fields carry the same policy ID and rules.'
            ] if cross_border_defined else []),
+        *(['- `layer-quality-register.json` / `.csv` / `.md` and '
+           '`../../config/layer-metadata.json`: all 98 source hashes, structural/topology statuses, '
+           'review dispositions, attributes/grids, public exports, source attribution, temporal coverage, '
+           'licence/terms status and explicit metadata gaps. Public catalog `quality` and '
+           '`sourceMetadata` fields carry the compact register projection.'
+           ] if quality_current else []),
         '- `topology-correction-ledger.csv` / `topology-correction-verification.json` / `topology-correction-result.json`: all 191 feature repairs, four explicit review dispositions, before/after areas and bounds, source/provenance hashes and post-apply checks.',
         '- `topology-exceptions.csv`: current active exceptions; `topology-exceptions-before.csv` preserves all 191 original defects and GEOS reasons.',
         '- `raster-class-agreement.csv`: all 22 exact geology class checks; `raster-class-agreement-before-topology.csv` preserves the pre-repair baseline.',
@@ -1849,6 +1941,9 @@ def main():
     admin_identifier_path = out / 'admin-identifier-result.json'
     admin_identifiers = (json.loads(admin_identifier_path.read_text(encoding='utf8'))
                          if admin_identifier_path.exists() else None)
+    quality_register_path = out / 'layer-quality-register.json'
+    quality_register = (json.loads(quality_register_path.read_text(encoding='utf8'))
+                        if quality_register_path.exists() else None)
 
     extended = {
         'source_commit': core['source_commit'], 'capital_cross_source': capital,
@@ -1860,6 +1955,7 @@ def main():
         'hidden_source_artifact_resolution': hidden_artifacts,
         'administrative_identifiers': admin_identifiers,
         'cross_border_policy': core.get('cross_border_policy'),
+        'layer_quality_register': quality_register.get('summary') if quality_register else None,
         'raster_registration': raster, 'named_point_containment': named,
         'point_outlier_classifications': dict(Counter(r['classification'] for r in outliers)),
         'crs': crs,
@@ -1869,7 +1965,7 @@ def main():
     report = make_report(core, capital, cap_rows, ward_summary, ward_rows, topology,
                          raster, class_rows, named, outliers, crs, topology_correction,
                          gada_correction, residual_correction, magnetic_reclassification,
-                         hidden_artifacts, admin_identifiers)
+                         hidden_artifacts, admin_identifiers, quality_register)
     (out / 'README.md').write_text(report, encoding='utf8')
     print(f'Wrote extended audit and professional report to {out}', flush=True)
 

@@ -194,11 +194,31 @@ statistics. The public catalog exposes the same rules as `crossBorderPolicy` and
 metadata. These fields guide interpretation; the generic focus-area summary is not an automatic country
 filter or a legal sovereignty determination.
 
+### Layer quality and metadata register
+
+`ngmap-layer-quality-v1` consolidates all 98 source layers into
+[JSON](docs/geospatial-audit/layer-quality-register.json),
+[CSV](docs/geospatial-audit/layer-quality-register.csv), and a
+[readable register](docs/geospatial-audit/layer-quality-register.md). Each row records source hashes, CRS,
+bounds, attributes or raster grid details, structural/topology checks, reviewed use limits, publication,
+cross-border rules, attribution, temporal coverage, licence/terms status, and explicit metadata gaps.
+`config/layer-metadata.json` is the curated source registry; hidden originals inherit their active source.
+
+Quality classes are not numeric accuracy scores, structural passes are not survey certification, and
+metadata completeness is not licence clearance. Unknown values remain unrecorded rather than being guessed.
+The public catalog exposes compact `quality` and `sourceMetadata` fields and a register summary/hash.
+Run `python scripts/layer_quality_register.py` after both audits and before the final public build. Rerun the
+extended audit afterwards so its item 8 summary uses the current register. When the layer inventory changes,
+run one provisional public build before the register so its public-export fields are current, then the final build.
+
 ### Geospatial quality audit
 
 ```bash
 python scripts/audit_geospatial.py
 python scripts/audit_geospatial_extended.py
+python scripts/layer_quality_register.py
+python scripts/audit_geospatial_extended.py  # include the current register in the report
+python scripts/build_site.py
 ```
 
 The two-stage audit covers every visible and hidden GeoPackage: CRS and extent integrity, geometry validity,
@@ -225,8 +245,9 @@ python -m unittest discover -s tests -v
 ```
 
 `validate_artifacts.py` is read-only. It checks SQLite integrity, source/audit/public inventory consistency, staging
-file absence, JSON and GeoJSON parsing, CSV structure, and PNG integrity. The regression suite additionally verifies
-correction evidence and hashes, source/public geometry agreement, precision fallbacks, and every published geometry.
+file absence, JSON and GeoJSON parsing, CSV structure, PNG integrity, and exact cross-border/quality-register
+agreement. The regression suite additionally verifies correction evidence and hashes, source/public geometry
+agreement, source metadata, precision fallbacks, and every published geometry.
 
 The reviewed state-capital correction is complete: 32 scanned-map positions were replaced individually with OSM
 city/town nodes and five corroborated gazetteer positions were retained. The original is hidden as

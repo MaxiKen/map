@@ -165,6 +165,8 @@ provenance. Automatic clipping or deletion is not a permitted disposition.
 ```bash
 python scripts/audit_geospatial.py
 python scripts/audit_geospatial_extended.py
+python scripts/layer_quality_register.py
+python scripts/audit_geospatial_extended.py
 python scripts/build_site.py
 python scripts/validate_artifacts.py
 python -m unittest discover -s tests -v

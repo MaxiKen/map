@@ -20,6 +20,7 @@ from PIL import Image
 from shapely.geometry import shape
 
 from cross_border_policy import catalog_policy, load_policy, public_metadata, resolve_layer
+from layer_quality_public import catalog_summary, public_quality, public_source_metadata
 
 Image.MAX_IMAGE_PIXELS = None
 MAX_IMG = 2800        # longest side of a raster / picture overlay (pixels)
@@ -613,6 +614,14 @@ def main():
     config = json.load(open(a.config, encoding='utf8')) if os.path.exists(a.config) else {}
     lcfg = config.get('layers', {})
     cross_border = load_policy()
+    quality_path = os.path.join(
+        os.path.dirname(__file__), '..', 'docs', 'geospatial-audit', 'layer-quality-register.json')
+    quality_document = None
+    quality_layers = {}
+    if os.path.isfile(quality_path):
+        with open(quality_path, encoding='utf8') as handle:
+            quality_document = json.load(handle)
+        quality_layers = {row['layer']: row for row in quality_document['layers']}
     try:
         discovered = discover_geopackages(a.data)
     except ValueError as e:
@@ -644,6 +653,10 @@ def main():
             if dtype != 'attributes':
                 row['crossBorder'] = public_metadata(resolve_layer(
                     table, visible=True, kind=dtype, policy=cross_border))
+                quality_row = quality_layers.get(table)
+                if quality_row:
+                    row['quality'] = public_quality(quality_row)
+                    row['sourceMetadata'] = public_source_metadata(quality_row)
             try:
                 if dtype == 'features':
                     gc, gt = gcols[table]
@@ -676,6 +689,9 @@ def main():
            'crossBorderPolicy': catalog_policy(cross_border),
            'built': time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime()), 'groups': sorted(groups.values(), key=lambda g: (g['order'], g['label'])),
            'layers': sorted(layers, key=lambda l: (l.get('order', 100), l['group'], l['label']))}
+    spatial_layers = [layer for layer in layers if layer.get('kind') != 'table']
+    if quality_document and spatial_layers and all(layer.get('quality') for layer in spatial_layers):
+        cat['layerQualityRegister'] = catalog_summary(quality_document)
     blob = json.dumps(cat, separators=(',', ':'), ensure_ascii=False)
     with open(os.path.join(a.out, 'catalog.json'), 'w', encoding='utf8') as f: f.write(blob)
     # the build id covers the data *and* the app shell, so any change gets fresh URLs
