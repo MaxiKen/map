@@ -1,20 +1,20 @@
 # Professional geospatial alignment and plausibility audit
 
-Audited source commit: `19b85f365365ab8ce5ab90cc083da64be6116491`
+Audited source commit: `31a5d4c8bbe648b424ae25dd84b2e8a1b5596d3d`
 Scope: **all 98 GeoPackages — 82 vector layers, 13 numeric rasters and 3 georeferenced image overlays; visible and hidden data included.**
 
 See `layer-review.md` for the explicit disposition and evidence level of every layer.
 
 ## Executive conclusion
 
-**The layers must not receive a blanket “all aligned” certification.** The audit found no evidence of a repository-wide CRS error, latitude/longitude swap, null-island coordinates or a single national translation. Most layers pass structural and gross-registration checks, and several independent pairs align strongly. The capital, polygon-topology and Gada/Illela identity corrections are complete; magnetic coverage and hidden-source issues still require separate treatment:
+**The layers must not receive a blanket “all aligned” certification.** The audit found no evidence of a repository-wide CRS error, latitude/longitude swap, null-island coordinates or a single national translation. Most layers pass structural and gross-registration checks, and several independent pairs align strongly. The capital, polygon-topology, Gada/Illela identity and residual ward/LGA reviews are complete; magnetic coverage and hidden-source issues still require separate treatment:
 
 1. **The state-capital correction is complete and reproducible.** 32 scanned-map positions were replaced individually with reviewed OSM city/town nodes and 5 corroborated gazetteer positions were retained. Strict held-out DIVA validation across 30 eligible matches gives median **1.244 km**, p95 **4.918 km** and maximum **5.272 km**; all 37 outputs also pass named-state containment. Other findings remain open.
-2. **The Gada/Illela reciprocal identity conflict is resolved without moving geometry.** All 11 Gada wards and 10 of 11 Illela wards now fall inside their corrected named polygons; 21 former reciprocal exceptions are resolved. Darna/Sabon Gari remains a separate Gwadabawa exception 0.242 km outside corrected Illela. No ward, polygon, centroid or derived-feature geometry was changed.
+2. **The Gada/Illela reciprocal identity conflict is resolved without moving geometry.** All 11 Gada wards and 10 of 11 Illela wards now fall inside their corrected named polygons; 21 former reciprocal exceptions are resolved. Darna/Sabon Gari remains a separate Gwadabawa exception 0.242 km outside corrected Illela. No ward, polygon, centroid or derived-feature geometry was changed. The follow-on 40-case residual review is also complete: three LGA attributes were corrected and 37 evidence-documented exceptions remain, with zero ward geometry changes.
 3. **The reviewed polygon-topology correction is complete with zero active invalid geometries.** All 191 former exceptions across 16 layers are valid MultiPolygons. 5,635 untargeted geometry blobs and every attribute are unchanged; 191 invalid originals remain only in hidden provenance.
 4. **The visible magnetic raster has real completeness gaps.** Only 90.2% of sampled land cells are valid. Ekiti has 0.0% coverage, Osun 5.6%, Oyo 30.4%, and Sokoto 40.2%. This is missing source/derived data, not evidence that valid cells are shifted.
 
-Only the documented capital, reviewed polygon-topology and evidence-gated Gada/Illela identity corrections were applied. Magnetic coverage, residual ward exceptions and hidden artefacts remain separate reviewable tasks. No blanket translation, ward movement, geometry replacement, magnetic infilling or hidden-artefact deletion was performed.
+Only the documented capital, reviewed polygon-topology, Gada/Illela identity and three evidence-gated residual LGA attribute corrections were applied. Magnetic coverage and hidden artefacts remain separate tasks; the 37 reviewed ward exceptions are documented, not forced into containment. No blanket translation, ward movement, geometry replacement, magnetic infilling or hidden-artefact deletion was performed.
 
 ## Prioritized findings
 
@@ -35,8 +35,17 @@ Only the documented capital, reviewed polygon-topology and evidence-gated Gada/I
 - **Independent boundary identity:** reciprocal metric IoU is **0.736** for the former Gada-labelled polygon versus reference Illela and **0.854** for the former Illela-labelled polygon versus reference Gada. Same-name IoUs are only 0.045 and 0.002. The simplified external geometry was identity evidence only, not replacement geometry.
 - **Correction:** FID/lga_id 708 is now Illela and FID/lga_id 712 is now Gada. Two polygon names and two centroid identity/attribute records were corrected; FIDs, IDs, areas and all centroid/polygon geometry remain fixed. Gada retains Wikidata Q5516271 and Illela Q5999073 with their correct representative districts.
 - **Derived data:** 575 LGA joins were corrected only where the old attribute exactly matched the old containing polygon: 173 boreholes, 97 DIVA places, 303 OSM places and two hidden scanned-map towns. `previous_lga` is retained. Twenty-two ward-to-centroid distances were recomputed; OSM Kiri FID 14680 correctly remains Illela.
-- **Residual ward review:** 40 ward/LGA exceptions remain nationally; 32 are within 1 km and only 1 exceeds 10 km. Darna/Sabon Gari remains assigned to Illela but contained in Gwadabawa, **0.242 km** outside corrected Illela; it was not moved to force containment.
+- **Residual ward review:** the follow-on A3 review is complete. Three LGA attributes were corrected and 37 documented exceptions remain; 32 are within 1 km and 0 exceed 10 km. Darna/Sabon Gari remains assigned to Illela but contained in Gwadabawa, **0.242 km** outside corrected Illela; it was not moved to force containment.
 - **Provenance and evidence:** original LGA/centroid layers are hidden as `admin_lgas_gadm_identity_original_pg` and `admin_lga_centroids_identity_original_pt`. `gada-illela-verification.json`, the 601-row correction ledger, result hashes, two-feature reference extract and `ward-lga-exceptions-before.csv` / `sokoto-gada-illela-before.png` preserve the evidence.
+
+### A3 — Resolved with provenance: residual ward/LGA exception review
+
+- **Individual authoritative review:** all 40 cases across 20 states were checked against INEC registration-area directories and independent ArcGIS/Michael Bauer Research/NBS 2023 point intersections. The 40-row pre-review register is preserved separately.
+- **Three true LGA attribute errors:** FID 4096 Kwarau changed from Kaduna North to Igabi; FID 4215 Gidan Waya changed from Sanga to Jema'a; FID 7295 Ward XI E9 I changed from Ibadan South East to Ibadan North East. Their derived centroid distances are 25.5, 23.4 and 0.9 km respectively. CSV feature indices 4095, 4214 and 7294 are zero-based and are not FIDs.
+- **Thirty-seven reviewed retentions:** 20 boundary-generalisation/source-disagreement cases, 14 coastal/water cases, two suspect-coordinate cases (Gambaki/Bidir and Ilasa II/Ikun/Araromi), and Kwambai with explicit Takum/Ussa delimitation uncertainty. No containing polygon was relabeled merely because it contained a point.
+- **Current residual metrics:** 37 exceptions; 32 within 1 km; 0 over 10 km; 15 without a local container. All 8,809 ward geometry blobs are byte-identical and all untargeted attributes were verified.
+- **Cautions retained:** Ward XI E9 I has an independent Egbeda disagreement despite INEC and local Ibadan North East support. Arak and Panda/Kare have independent support for Sanga and Karu. Name variants and Kwambai uncertainty were documented rather than silently changed.
+- **Evidence:** `ward-lga-review-ledger.csv`, `ward-lga-review-verification.json`, `ward-lga-correction-result.json`, `ward-lga-review.md`, `ward-lga-exceptions-before-residual-review.csv` and `references/ward-lga-review-sources.md` preserve every disposition, source URL, query, before/after attribute and geometry hash.
 
 ### B1 — Resolved with provenance: polygon topology errors
 
@@ -107,6 +116,7 @@ Only the documented capital, reviewed polygon-topology and evidence-gated Gada/I
 - Scanned-map symbol alignment verifies digitisation relative to that sheet; it does not independently verify the real-world mineral occurrence or settlement coordinate.
 - Historical picture polygons for climate, soil pH and population are different products/years from the modern rasters. Their numeric disagreement was not misused as a coordinate test.
 - INEC controls ward-to-LGA assignments and ward names; its directory is not a legal polygon survey. The ArcGIS reference provides independent identity corroboration, but its simplified two-feature extract was not used as replacement geometry or relabelled as an official GRID3 product.
+- The residual review uses INEC for assignment and 40 independent point-intersection responses for boundary corroboration. Independent disagreements remain visible; no external geometry was substituted and no ward coordinate was moved.
 
 ## Reproduction and evidence files
 
@@ -121,12 +131,13 @@ python scripts/audit_geospatial_extended.py
 - `layer-review.md` / `layer-review.csv`: explicit disposition, evidence and action for every one of the 98 layers.
 - `capital-correction-ledger.csv` / `capital-correction-result.json`: all 37 correction decisions, previous/new coordinates, sources, QA, review exceptions and hashes.
 - `capital-coordinate-comparison.csv` and `.png`: current capital comparisons; `-before.csv` / `-before.png` preserve the uncorrected evidence.
-- `ward-lga-exceptions.csv` and `sokoto-gada-illela.png`: all 40 current assigned-LGA exceptions and the current Sokoto evidence.
+- `ward-lga-exceptions.csv` and `sokoto-gada-illela.png`: all 37 current assigned-LGA exceptions and the current Sokoto evidence.
 - `gada-illela-correction-ledger.csv` / `gada-illela-verification.json` / `gada-illela-correction-result.json`: official controls, independent identity direction, all 601 attribute-only decisions, before/after source and provenance hashes and post-apply checks. `references/` documents the exact two-feature boundary response and source limitations.
+- `ward-lga-review-ledger.csv` / `ward-lga-review-verification.json` / `ward-lga-correction-result.json`: all 40 individual dispositions, three attribute-only corrections, official and independent evidence, before/after hashes and post-apply checks. `ward-lga-review.md`, `ward-lga-exceptions-before-residual-review.csv` and `references/ward-lga-review-sources.md` preserve the human review and source limitations.
 - `topology-correction-ledger.csv` / `topology-correction-verification.json` / `topology-correction-result.json`: all 191 feature repairs, four explicit review dispositions, before/after areas and bounds, source/provenance hashes and post-apply checks.
 - `topology-exceptions.csv`: current active exceptions; `topology-exceptions-before.csv` preserves all 191 original defects and GEOS reasons.
 - `raster-class-agreement.csv`: all 22 exact geology class checks; `raster-class-agreement-before-topology.csv` preserves the pre-repair baseline.
 - `raster-coverage-by-state.csv`: magnetic valid-cell fraction by state.
 - `point-outliers-classified.csv`: offshore/neighbouring-country/review interpretation for every point over 10 km from land.
 
-**Recommended next step:** preserve the completed capital, topology and Gada/Illela provenance. Review residual ward exceptions—including Darna/Sabon Gari—individually rather than forcing containment, then address magnetic coverage and hidden-source artefacts independently.
+**Recommended next step:** preserve all correction and 40-case review provenance. Seek new authoritative evidence before changing the two suspect coordinates or Kwambai; otherwise address magnetic coverage and hidden-source artefacts independently.

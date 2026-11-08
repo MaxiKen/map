@@ -259,13 +259,29 @@ def ward_exception_checks(core_admin):
                   (r['assigned_lga'] == 'Illela' and r['containing_state_lga'] == 'Sokoto / Gada')]
     sokoto = [r for r in rows if r['assigned_state'] == 'Sokoto'
               and r['assigned_lga'] in ('Gada', 'Illela')]
+    residual_path = ROOT / 'docs/geospatial-audit/ward-lga-correction-result.json'
+    residual = (json.loads(residual_path.read_text(encoding='utf8'))
+                if residual_path.exists() else None)
+    residual_reviewed = bool(
+        residual and residual.get('status') == 'applied_and_verified' and
+        all(residual['checks'].values()) and
+        residual['post_correction']['residual_exception_count'] == len(rows) and
+        residual['post_correction']['residual_feature_indices'] == [r['feature_index'] for r in rows])
     summary = {
         'total_outside_assigned_lga': len(rows),
         'within_1km_of_assigned_lga': sum(r['distance_to_assigned_lga_km'] <= 1 for r in rows),
         'over_10km_from_assigned_lga': sum(r['distance_to_assigned_lga_km'] > 10 for r in rows),
+        'without_local_container': sum(not r['containing_state_lga'] for r in rows),
         'sokoto_gada_illela_exceptions': len(sokoto),
         'reciprocal_gada_illela_containment': len(reciprocal),
+        'individual_review_complete': residual_reviewed,
+        'pre_review_exception_count': residual['counts']['reviewed_cases'] if residual_reviewed else None,
+        'review_lga_corrections': residual['counts']['lga_corrections'] if residual_reviewed else 0,
+        'review_dispositions': residual['counts']['dispositions'] if residual_reviewed else {},
         'interpretation': (
+            'All 40 residual cases were reviewed individually against INEC and an independent boundary service; '
+            'three LGA attributes were corrected without geometry changes and 37 evidence-documented exceptions remain.'
+            if residual_reviewed else
             'The verified identity correction resolved all 21 reciprocal exceptions without geometry changes; residual exceptions require separate review.'
             if len(reciprocal) == 0 and (ROOT / 'docs/geospatial-audit/gada-illela-correction-result.json').exists() else
             'The reciprocal pattern and same-name town locations indicate an LGA attribute conflict; do not shift ward coordinates to fit the polygons.'),
@@ -564,6 +580,14 @@ def make_layer_review(core, raster, class_rows, named):
     gada_result_path = ROOT / 'docs/geospatial-audit/gada-illela-correction-result.json'
     gada_result = (json.loads(gada_result_path.read_text(encoding='utf8'))
                    if gada_result_path.exists() else None)
+    residual_result_path = ROOT / 'docs/geospatial-audit/ward-lga-correction-result.json'
+    residual_result = (json.loads(residual_result_path.read_text(encoding='utf8'))
+                       if residual_result_path.exists() else None)
+    residual_reviewed = bool(
+        residual_result and residual_result.get('status') == 'applied_and_verified' and
+        all(residual_result['checks'].values()) and
+        residual_result['post_correction']['residual_exception_count'] ==
+        core['administrative']['wards']['outside_named_lga'])
     for table, meta in sorted(layer_index().items()):
         is_topology_provenance = table.endswith('_topology_original')
         is_identity_provenance = table.endswith('_identity_original_pg') or table.endswith('_identity_original_pt')
@@ -593,10 +617,18 @@ def make_layer_review(core, raster, class_rows, named):
             if gada_result and all(gada_result['checks'].values()):
                 if table == 'admin_wards_pt':
                     residual = core['administrative']['wards']['outside_named_lga']
-                    issues.append(f'{residual} residual ward/LGA containment exceptions after identity correction')
-                    action = ('Review residual exceptions separately, including Darna/Sabon Gari in '
-                              'Gwadabawa; never force containment by moving wards')
-                    evidence.append('21 reciprocal exceptions resolved; official assignments and coordinates unchanged')
+                    if residual_reviewed:
+                        issues.append(f'{residual} individually reviewed residual ward/LGA containment exceptions')
+                        action = ('Retain the 40-case review and 37 documented exceptions; seek new authoritative '
+                                  'evidence for the two suspect coordinates and Kwambai before any future change; '
+                                  'never force containment by moving wards')
+                        evidence.append('INEC and independent-boundary review; three LGA attributes corrected; '
+                                        'all 8,809 ward geometries byte-identical')
+                    else:
+                        issues.append(f'{residual} residual ward/LGA containment exceptions after identity correction')
+                        action = ('Review residual exceptions separately, including Darna/Sabon Gari in '
+                                  'Gwadabawa; never force containment by moving wards')
+                        evidence.append('21 reciprocal exceptions resolved; official assignments and coordinates unchanged')
                 else:
                     action = ('Identity correction completed; retain INEC/reference evidence, hidden originals '
                               'and the 601-row ledger; no geometry was changed')
@@ -661,8 +693,10 @@ def make_layer_review(core, raster, class_rows, named):
                      'its old labels are not current administration.')
         if scope:
             evidence.append(scope)
-        disposition = 'Action required' if table in (
-            'admin_lgas_gadm_pg', 'admin_lga_centroids_pt', 'admin_wards_pt') and not gada_result else (
+        disposition = (
+            'Reviewed with exceptions' if table == 'admin_wards_pt' and residual_reviewed else
+            'Action required' if table in (
+                'admin_lgas_gadm_pg', 'admin_lga_centroids_pt', 'admin_wards_pt') and not gada_result else
             'Review' if issues else ('Context / scope note' if scope else 'No gross registration error detected'))
         rows.append({
             'layer': table, 'path': str(meta['path'].relative_to(ROOT)),
@@ -896,7 +930,8 @@ def make_figures(out, capital_rows, ward_rows):
 
 
 def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, raster,
-                class_rows, named, outliers, crs, topology_correction=None, gada_correction=None):
+                class_rows, named, outliers, crs, topology_correction=None, gada_correction=None,
+                residual_correction=None):
     osm = capital['summary']['osm']
     diva = capital['summary']['diva']
     grey = next((v for k, v in capital['by_position_basis'].items() if 'grey square' in k), None)
@@ -938,7 +973,12 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
     gada_resolved = bool(
         gada_correction and all(gada_correction['checks'].values()) and
         ward_summary['reciprocal_gada_illela_containment'] == 0 and
-        ward_summary['total_outside_assigned_lga'] == 40)
+        ward_summary['sokoto_gada_illela_exceptions'] == 1)
+    residual_resolved = bool(
+        residual_correction and residual_correction.get('status') == 'applied_and_verified' and
+        all(residual_correction['checks'].values()) and
+        ward_summary.get('individual_review_complete') and
+        ward_summary['total_outside_assigned_lga'] == 37)
     if gada_resolved:
         gada_verification_path = ROOT / 'docs/geospatial-audit/gada-illela-verification.json'
         gada_verification = json.loads(gada_verification_path.read_text(encoding='utf8'))
@@ -968,11 +1008,18 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             'the old containing polygon: 173 boreholes, 97 DIVA places, 303 OSM places and two hidden '
             'scanned-map towns. `previous_lga` is retained. Twenty-two ward-to-centroid distances were '
             'recomputed; OSM Kiri FID 14680 correctly remains Illela.',
-            f'- **Residual ward review:** {ward_summary["total_outside_assigned_lga"]} ward/LGA exceptions '
-            f'remain nationally; {ward_summary["within_1km_of_assigned_lga"]} are within 1 km and only '
-            f'{ward_summary["over_10km_from_assigned_lga"]} exceeds 10 km. Darna/Sabon Gari remains assigned '
-            f'to Illela but contained in Gwadabawa, **{post["darna_sabon_gari"]["distance_to_corrected_illela_km"]:.3f} km** '
-            'outside corrected Illela; it was not moved to force containment.',
+            (f'- **Residual ward review:** the follow-on A3 review is complete. Three LGA attributes were '
+             f'corrected and {ward_summary["total_outside_assigned_lga"]} documented exceptions remain; '
+             f'{ward_summary["within_1km_of_assigned_lga"]} are within 1 km and '
+             f'{ward_summary["over_10km_from_assigned_lga"]} exceed 10 km. Darna/Sabon Gari remains assigned '
+             f'to Illela but contained in Gwadabawa, **{post["darna_sabon_gari"]["distance_to_corrected_illela_km"]:.3f} km** '
+             'outside corrected Illela; it was not moved to force containment.'
+             if residual_resolved else
+             f'- **Residual ward review:** {ward_summary["total_outside_assigned_lga"]} ward/LGA exceptions '
+             f'remain nationally; {ward_summary["within_1km_of_assigned_lga"]} are within 1 km and only '
+             f'{ward_summary["over_10km_from_assigned_lga"]} exceeds 10 km. Darna/Sabon Gari remains assigned '
+             f'to Illela but contained in Gwadabawa, **{post["darna_sabon_gari"]["distance_to_corrected_illela_km"]:.3f} km** '
+             'outside corrected Illela; it was not moved to force containment.'),
             '- **Provenance and evidence:** original LGA/centroid layers are hidden as '
             '`admin_lgas_gadm_identity_original_pg` and `admin_lga_centroids_identity_original_pt`. '
             '`gada-illela-verification.json`, the 601-row correction ledger, result hashes, two-feature '
@@ -996,6 +1043,40 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             'the identities. **Do not move ward points merely to force containment.**',
             '- **Evidence:** `ward-lga-exceptions.csv` and `sokoto-gada-illela.png`.',
         ]
+    if residual_resolved:
+        admin_executive += (
+            ' The follow-on 40-case residual review is also complete: three LGA attributes were corrected '
+            'and 37 evidence-documented exceptions remain, with zero ward geometry changes.')
+        residual_post = residual_correction['post_correction']
+        residual_details = [
+            '### A3 — Resolved with provenance: residual ward/LGA exception review', '',
+            '- **Individual authoritative review:** all 40 cases across 20 states were checked against '
+            'INEC registration-area directories and independent ArcGIS/Michael Bauer Research/NBS 2023 '
+            'point intersections. The 40-row pre-review register is preserved separately.',
+            '- **Three true LGA attribute errors:** FID 4096 Kwarau changed from Kaduna North to Igabi; '
+            "FID 4215 Gidan Waya changed from Sanga to Jema'a; FID 7295 Ward XI E9 I changed from Ibadan "
+            'South East to Ibadan North East. Their derived centroid distances are 25.5, 23.4 and 0.9 km '
+            'respectively. CSV feature indices 4095, 4214 and 7294 are zero-based and are not FIDs.',
+            '- **Thirty-seven reviewed retentions:** 20 boundary-generalisation/source-disagreement cases, '
+            '14 coastal/water cases, two suspect-coordinate cases (Gambaki/Bidir and Ilasa II/Ikun/Araromi), '
+            'and Kwambai with explicit Takum/Ussa delimitation uncertainty. No containing polygon was '
+            'relabeled merely because it contained a point.',
+            f'- **Current residual metrics:** {residual_post["residual_exception_count"]} exceptions; '
+            f'{residual_post["residual_within_1km"]} within 1 km; '
+            f'{residual_post["residual_over_10km"]} over 10 km; '
+            f'{residual_post["residual_without_local_container"]} without a local container. All 8,809 '
+            'ward geometry blobs are byte-identical and all untargeted attributes were verified.',
+            '- **Cautions retained:** Ward XI E9 I has an independent Egbeda disagreement despite INEC '
+            'and local Ibadan North East support. Arak and Panda/Kare have independent support for Sanga '
+            'and Karu. Name variants and Kwambai uncertainty were documented rather than silently changed.',
+            '- **Evidence:** `ward-lga-review-ledger.csv`, `ward-lga-review-verification.json`, '
+            '`ward-lga-correction-result.json`, `ward-lga-review.md`, '
+            '`ward-lga-exceptions-before-residual-review.csv` and '
+            '`references/ward-lga-review-sources.md` preserve every disposition, source URL, query, '
+            'before/after attribute and geometry hash.',
+        ]
+    else:
+        residual_details = []
     topology_resolved = bool(
         topology_correction and topology['total_invalid'] == 0 and
         topology['provenance_invalid'] == topology_correction['repair_count'] and
@@ -1159,7 +1240,21 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             '**Recommended next step:** preserve the completed capital, topology and Gada/Illela provenance. '
             'Review residual ward exceptions—including Darna/Sabon Gari—individually rather than forcing '
             'containment, then address magnetic coverage and hidden-source artefacts independently.')
+    if residual_resolved:
+        correction_note = (
+            'Only the documented capital, reviewed polygon-topology, Gada/Illela identity and three '
+            'evidence-gated residual LGA attribute corrections were applied. Magnetic coverage and hidden '
+            'artefacts remain separate tasks; the 37 reviewed ward exceptions are documented, not forced '
+            'into containment. No blanket translation, ward movement, geometry replacement, magnetic '
+            'infilling or hidden-artefact deletion was performed.')
+        next_step = (
+            '**Recommended next step:** preserve all correction and 40-case review provenance. Seek new '
+            'authoritative evidence before changing the two suspect coordinates or Kwambai; otherwise '
+            'address magnetic coverage and hidden-source artefacts independently.')
     executive_status = (
+        'The capital, polygon-topology, Gada/Illela identity and residual ward/LGA reviews are complete; '
+        'magnetic coverage and hidden-source issues still require separate treatment:'
+        if residual_resolved else
         'The capital, polygon-topology and Gada/Illela identity corrections are complete; magnetic coverage '
         'and hidden-source issues still require separate treatment:'
         if gada_resolved else
@@ -1192,6 +1287,8 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
         *capital_details,
         '',
         *admin_details,
+        '',
+        *residual_details,
         '',
         *topology_details,
         '',
@@ -1255,6 +1352,10 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             'The ArcGIS reference provides independent identity corroboration, but its simplified two-feature '
             'extract was not used as replacement geometry or relabelled as an official GRID3 product.'
            ] if gada_resolved else []),
+        *(['- The residual review uses INEC for assignment and 40 independent point-intersection responses '
+           'for boundary corroboration. Independent disagreements remain visible; no external geometry was '
+           'substituted and no ward coordinate was moved.'
+           ] if residual_resolved else []),
         '', '## Reproduction and evidence files', '',
         '```bash',
         'python -m pip install -r scripts/requirements.txt',
@@ -1272,6 +1373,12 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             '601 attribute-only decisions, before/after source and provenance hashes and post-apply checks. '
             '`references/` documents the exact two-feature boundary response and source limitations.'
            ] if gada_resolved else []),
+        *(['- `ward-lga-review-ledger.csv` / `ward-lga-review-verification.json` / '
+           '`ward-lga-correction-result.json`: all 40 individual dispositions, three attribute-only '
+           'corrections, official and independent evidence, before/after hashes and post-apply checks. '
+           '`ward-lga-review.md`, `ward-lga-exceptions-before-residual-review.csv` and '
+           '`references/ward-lga-review-sources.md` preserve the human review and source limitations.'
+           ] if residual_resolved else []),
         '- `topology-correction-ledger.csv` / `topology-correction-verification.json` / `topology-correction-result.json`: all 191 feature repairs, four explicit review dispositions, before/after areas and bounds, source/provenance hashes and post-apply checks.',
         '- `topology-exceptions.csv`: current active exceptions; `topology-exceptions-before.csv` preserves all 191 original defects and GEOS reasons.',
         '- `raster-class-agreement.csv`: all 22 exact geology class checks; `raster-class-agreement-before-topology.csv` preserves the pre-repair baseline.',
@@ -1330,12 +1437,16 @@ def main():
     gada_correction_path = out / 'gada-illela-correction-result.json'
     gada_correction = (json.loads(gada_correction_path.read_text(encoding='utf8'))
                        if gada_correction_path.exists() else None)
+    residual_correction_path = out / 'ward-lga-correction-result.json'
+    residual_correction = (json.loads(residual_correction_path.read_text(encoding='utf8'))
+                           if residual_correction_path.exists() else None)
 
     extended = {
         'source_commit': core['source_commit'], 'capital_cross_source': capital,
         'ward_exceptions': ward_summary, 'topology': topology,
         'topology_correction': topology_correction,
         'gada_illela_correction': gada_correction,
+        'residual_ward_lga_correction': residual_correction,
         'raster_registration': raster, 'named_point_containment': named,
         'point_outlier_classifications': dict(Counter(r['classification'] for r in outliers)),
         'crs': crs,
@@ -1344,7 +1455,7 @@ def main():
         json.dumps(extended, indent=2, ensure_ascii=False) + '\n', encoding='utf8')
     report = make_report(core, capital, cap_rows, ward_summary, ward_rows, topology,
                          raster, class_rows, named, outliers, crs, topology_correction,
-                         gada_correction)
+                         gada_correction, residual_correction)
     (out / 'README.md').write_text(report, encoding='utf8')
     print(f'Wrote extended audit and professional report to {out}', flush=True)
 

@@ -1,6 +1,6 @@
 {
-  "generated_utc": "2026-11-08T07:36:28.965918+00:00",
-  "source_commit": "19b85f365365ab8ce5ab90cc083da64be6116491",
+  "generated_utc": "2026-11-08T11:44:24.240437+00:00",
+  "source_commit": "31a5d4c8bbe648b424ae25dd84b2e8a1b5596d3d",
   "metric_crs": "EPSG:32632",
   "method_limitations": [
     "Internal agreement does not by itself prove absolute ground truth.",
@@ -4778,17 +4778,17 @@
     },
     "wards": {
       "missing_named_lga_matches": 0,
-      "outside_named_lga": 40,
+      "outside_named_lga": 37,
       "outside_named_state": 17,
       "outside_lga_distance": {
-        "n": 40,
-        "median_km": 0.238369165656448,
-        "p90_km": 3.5997593609560896,
-        "p95_km": 4.809223247600287,
-        "max_km": 10.005656736934647,
-        "within_1km": 0.8,
-        "within_5km": 0.95,
-        "within_10km": 0.975
+        "n": 37,
+        "median_km": 0.2246547919874857,
+        "p90_km": 1.3647842766647589,
+        "p95_km": 2.4607247342420697,
+        "max_km": 5.062186147655189,
+        "within_1km": 0.8648648648648649,
+        "within_5km": 0.972972972972973,
+        "within_10km": 1.0
       },
       "missing_examples": [],
       "wrong_state_examples": [
@@ -4897,13 +4897,6 @@
       ],
       "outside_examples": [
         {
-          "feature_index": 4095,
-          "distance_to_named_lga_km": 10.006,
-          "state": "Kaduna",
-          "lga": "Kaduna North",
-          "ward": "Kwarau"
-        },
-        {
           "feature_index": 1184,
           "distance_to_named_lga_km": 5.062,
           "state": "Bauchi",
@@ -4911,25 +4904,11 @@
           "ward": "Gambaki/Bidir"
         },
         {
-          "feature_index": 7294,
-          "distance_to_named_lga_km": 4.796,
-          "state": "Oyo",
-          "lga": "Ibadan South East",
-          "ward": "Ward XI E9 I"
-        },
-        {
           "feature_index": 2821,
           "distance_to_named_lga_km": 3.762,
           "state": "Ekiti",
           "lga": "Ekiti East",
           "ward": "Ilasa II/Ikun/Araromi"
-        },
-        {
-          "feature_index": 4214,
-          "distance_to_named_lga_km": 3.582,
-          "state": "Kaduna",
-          "lga": "Sanga",
-          "ward": "Gidan Waya"
         },
         {
           "feature_index": 6042,

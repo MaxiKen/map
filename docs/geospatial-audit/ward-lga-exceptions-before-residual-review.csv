@@ -1,0 +1,41 @@
+assigned_lga,assigned_state,containing_state_lga,distance_to_assigned_lga_km,feature_index,latitude,longitude,nearest_state_lga,ward
+Isiala Ngwa North,Abia,Abia / Ikwuano,0.05395365205170894,59,5.313854199,7.500825119,Abia / Ikwuano,Amasaa Nsulu
+Etim Ekpo,Akwa Ibom,Akwa Ibom / Ika,0.12996464443822073,472,4.932296727,7.5085683,Akwa Ibom / Ika,Etim Ekpo X
+Oron,Akwa Ibom,Akwa Ibom / Mbo,0.10364865935161348,668,4.745201676,8.295008805,Akwa Ibom / Mbo,Oron Urban IV
+Katagum,Bauchi,Bauchi / Shira,5.062186147655189,1184,11.54576181,10.05338499,Bauchi / Shira,Gambaki/Bidir
+Brass,Bayelsa,,0.06637813010272178,1282,4.483370601,6.122957817,Bayelsa / Brass,Minibie
+Guzamala,Borno,Borno / Nganzai,0.34003558707368947,1762,12.7544598,13.25340058,Borno / Nganzai,Guzamala West
+Bakassi,Cross River,,0.15833063747066864,2007,4.747922685,8.526779475,Cross River / Bakassi,Efut Inwang
+Burutu,Delta,Delta / Ughelli South,0.23468966634828897,2195,5.330724338,5.747861342,Delta / Ughelli South,Ngbilebiri I
+Patani,Delta,Delta / Isoko South,0.5978749239490707,2334,5.23534357,6.243752732,Delta / Isoko South,Patani I
+Warri South West,Delta,,0.07982781748580461,2431,5.526370967,5.431096193,Delta / Warri South West,Orere
+Ekiti East,Ekiti,Ekiti / Ikole,3.7620988774501742,2821,7.804288258,5.609038881,Ekiti / Ikole,Ilasa II/Ikun/Araromi
+Abuja,Federal Capital Territory,Federal Capital Territory / Kuje,0.5610254269177445,3291,8.752025244,7.476980241,Federal Capital Territory / Kuje,Kashi
+Kaduna North,Kaduna,Kaduna / Igabi,10.005656736934647,4095,10.68810781,7.554256681,Kaduna / Igabi,Kwarau
+Sanga,Kaduna,Kaduna / Jema'a,1.8115797802505924,4210,9.249867118,8.391898557,Kaduna / Jema'a,Arak
+Sanga,Kaduna,Kaduna / Jema'a,3.581721636901191,4214,9.401812234,8.450935175,Kaduna / Jema'a,Gidan Waya
+Gwarzo,Kano,Kano / Shanono,0.931162649896031,4456,11.94748636,7.909892068,Kano / Shanono,Lakwaya
+Danja,Katsina,Kaduna / Giwa,0.013323889802151769,4823,11.37350617,7.476739169,Kaduna / Giwa,Tsangamawa
+Safana,Katsina,Katsina / Batsari,0.051123184552622665,5070,12.62386901,7.263334076,Katsina / Batsari,Babban Duhu 'A'
+Argungu,Kebbi,Kebbi / Augie,0.17054557699662554,5127,12.71290065,4.563740435,Kebbi / Augie,Gwazange/Kisawa/Ugyaga
+Karu,Nasarawa,Kaduna / Kagarko,2.135381198440052,6042,9.269246892,7.811778141,Kaduna / Kagarko,Panda / Kare
+Egbedore,Osun,Osun / Ejigbo,0.27845148431636,6952,7.777232446,4.366961583,Osun / Ejigbo,Ira Gberi I
+Ife South,Osun,Osun / Ife East,0.47860853031354783,6990,7.251749162,4.596121024,Osun / Ife East,Aye
+Ife South,Osun,Osun / Ife North,0.1264702234980804,6994,7.227413204,4.503907046,Osun / Ife North,Kere
+Ibadan South East,Oyo,Oyo / Ibadan North East,4.795909410755293,7294,7.39450712,3.942823631,Oyo / Ibadan North East,Ward XI E9 I
+Shendam,Plateau,Plateau / Langtang South,0.14969691701556193,7733,8.607886756,9.634010067,Plateau / Langtang South,Kurungbau (B)
+Andoni,Rivers,,0.2246547919874857,7811,4.589254083,7.322993188,Rivers / Andoni,Ataba II
+Andoni,Rivers,,0.1612772871804403,7817,4.534374434,7.392764728,Rivers / Andoni,Unyeada II
+Degema,Rivers,,0.6855298253908447,7851,4.595094736,6.98814814,Rivers / Degema,Bukuma
+Degema,Rivers,,0.11625463037178728,7853,4.758784747,6.758639951,Rivers / Degema,Degema II
+Degema,Rivers,,0.20610103729608528,7854,4.77528837,6.757059633,Rivers / Degema,Degema III
+Degema,Rivers,,1.0669206076075382,7860,4.55589466,6.98850918,Rivers / Degema,Tomble IV
+Etche,Rivers,Rivers / Ikwerre,0.24523480042680948,7891,4.9887759,7.005078413,Rivers / Ikwerre,Igbo II
+Ogu/Bolo,Rivers,,0.6739535752556752,7997,4.624476279,7.164830741,Rivers / Ogu/Bolo,Ogu VI
+Okrika,Rivers,,0.075695327190119,8003,4.674990331,7.094707995,Rivers / Okrika,Ogoloma III
+Opobo/Nkoro,Rivers,,0.13342383126397897,8028,4.561250658,7.481059807,Rivers / Opobo/Nkoro,Nkoro II
+Port Harcourt,Rivers,,0.018811429308191855,8042,4.775713281,7.070803377,Rivers / Port Harcourt,Abuloma/Amadi-Ama
+Port Harcourt,Rivers,,0.0034214290773245818,8048,4.768915293,6.965664071,Rivers / Port Harcourt,Nkpolu Oroworukwo Two
+Illela,Sokoto,Sokoto / Gwadabawa,0.24204866496460706,8149,13.59106227,5.425793521,Sokoto / Gwadabawa,Darna/ Sabon Gari
+Donga,Taraba,Taraba / Takum,0.4152145898195784,8342,7.484363281,10.26052283,Taraba / Takum,Gindin Dutse
+Ussa,Taraba,,0.31733930083821743,8447,6.76141354,9.768805149,Taraba / Ussa,Kwambai

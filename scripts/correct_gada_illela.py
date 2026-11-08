@@ -743,8 +743,23 @@ def finalize_installation():
 
 def verify_existing_result():
     result = json.loads(RESULT.read_text(encoding='utf8'))
+    residual_path = OUT / 'ward-lga-correction-result.json'
+    residual = (json.loads(residual_path.read_text(encoding='utf8'))
+                if residual_path.exists() else None)
     for table, expected in result['after_sha256'].items():
-        if sha256(source_path(table)) != expected:
+        current_hash = sha256(source_path(table))
+        if current_hash == expected:
+            continue
+        # A later, separately verified residual review may change only the ward
+        # attributes. Preserve this historical result and verify the hash chain
+        # rather than reapplying or rewriting the completed Gada/Illela work.
+        superseded_wards = bool(
+            table == WARDS and residual and
+            residual.get('status') == 'applied_and_verified' and
+            residual.get('before_sha256') == expected and
+            residual.get('after_sha256') == current_hash and
+            all(residual.get('checks', {}).values()))
+        if not superseded_wards:
             raise RuntimeError(f'{table}: current hash differs from correction result')
     for table, saved in result['provenance'].items():
         if sha256(ROOT / saved['path']) != saved['sha256']:

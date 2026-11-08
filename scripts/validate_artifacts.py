@@ -32,6 +32,11 @@ REQUIRED_AUDIT_FILES = (
     'topology-correction-result.json',
     'gada-illela-correction-ledger.csv',
     'gada-illela-correction-result.json',
+    'ward-lga-exceptions-before-residual-review.csv',
+    'ward-lga-review-ledger.csv',
+    'ward-lga-review-verification.json',
+    'ward-lga-correction-result.json',
+    'ward-lga-review.md',
 )
 
 

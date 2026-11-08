@@ -38,6 +38,9 @@ class GadaIllelaCorrectionTests(unittest.TestCase):
         cls.ledger = csv_rows('gada-illela-correction-ledger.csv')
         cls.verification = json.loads((OUT / 'gada-illela-verification.json').read_text())
         cls.result = json.loads((OUT / 'gada-illela-correction-result.json').read_text())
+        residual_path = OUT / 'ward-lga-correction-result.json'
+        cls.residual_result = (json.loads(residual_path.read_text(encoding='utf8'))
+                               if residual_path.exists() else None)
         cls.by_layer = {}
         for row in cls.ledger:
             cls.by_layer.setdefault(row['layer'], {})[int(row['fid'])] = row
@@ -74,7 +77,12 @@ class GadaIllelaCorrectionTests(unittest.TestCase):
     def test_all_source_hashes_ledger_attributes_geometry_and_hidden_originals(self):
         for table in self.by_layer:
             path = self.index[table]['path']
-            self.assertEqual(sha256(path), self.result['after_sha256'][table])
+            if table == 'admin_wards_pt' and self.residual_result:
+                self.assertEqual(self.residual_result['before_sha256'],
+                                 self.result['after_sha256'][table])
+                self.assertEqual(sha256(path), self.residual_result['after_sha256'])
+            else:
+                self.assertEqual(sha256(path), self.result['after_sha256'][table])
             with sqlite3.connect(f'file:{path}?mode=ro', uri=True) as con:
                 self.assertEqual(con.execute('pragma integrity_check').fetchone()[0], 'ok')
                 gcol = con.execute('select column_name from gpkg_geometry_columns where table_name=?',
@@ -195,13 +203,17 @@ class GadaIllelaCorrectionTests(unittest.TestCase):
         self.assertEqual(extended['topology']['total_invalid'], 0)
         self.assertEqual(extended['topology']['provenance_invalid'], 191)
         wards = extended['ward_exceptions']
-        self.assertEqual(wards['total_outside_assigned_lga'], 40)
+        self.assertEqual(wards['total_outside_assigned_lga'], 37)
+        self.assertTrue(wards['individual_review_complete'])
+        self.assertEqual(wards['pre_review_exception_count'], 40)
+        self.assertEqual(wards['review_lga_corrections'], 3)
         self.assertEqual(wards['reciprocal_gada_illela_containment'], 0)
         self.assertEqual(wards['sokoto_gada_illela_exceptions'], 1)
         self.assertEqual(extended['gada_illela_correction']['counts']['total'], 601)
         report = (OUT / 'README.md').read_text()
         self.assertIn('A2 — Resolved with provenance', report)
         self.assertNotIn('A2 — High: reciprocal', report)
+        self.assertIn('A3 — Resolved with provenance: residual ward/LGA exception review', report)
         self.assertIn('Darna/Sabon Gari remains a separate Gwadabawa', report)
         self.assertIn('all 98 GeoPackages', report)
         self.assertIn('with 43 per-feature higher-precision fallbacks', report)
@@ -211,7 +223,8 @@ class GadaIllelaCorrectionTests(unittest.TestCase):
         for table in ('admin_lgas_gadm_identity_original_pg', 'admin_lga_centroids_identity_original_pt'):
             self.assertEqual(review[table]['disposition'], 'Context / scope note')
             self.assertIn('Hidden Gada/Illela identity provenance only', review[table]['recommended_action'])
-        self.assertEqual(review['admin_wards_pt']['disposition'], 'Review')
+        self.assertEqual(review['admin_wards_pt']['disposition'], 'Reviewed with exceptions')
+        self.assertIn('40-case review', review['admin_wards_pt']['recommended_action'])
 
 
 if __name__ == '__main__':
