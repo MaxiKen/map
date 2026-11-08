@@ -7,12 +7,15 @@ import unittest
 from pathlib import Path
 
 import numpy as np
+from shapely import wkb
+from shapely.geometry import Polygon, box
+from shapely.geometry import shape
 
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
 
-from build_site import discover_geopackages  # noqa: E402
+from build_site import discover_geopackages, read_gpkg_geom, read_valid_gpkg_geom  # noqa: E402
 from data_paths import layer_path  # noqa: E402
 from import_missing_hidden import embed_attribute  # noqa: E402
 from make_raster_gpkg import write_raster  # noqa: E402
@@ -36,6 +39,26 @@ def make_attribute_gpkg(path, table='unrelated_prefix_tbl'):
                 (table, 'attributes', table, 'layout test'))
     con.commit()
     con.close()
+
+
+class GeometryExportTests(unittest.TestCase):
+    @staticmethod
+    def blob(geometry):
+        return b'GP' + bytes([0, 0, 0, 0, 0, 0]) + wkb.dumps(geometry, byte_order=1)
+
+    def test_precision_fallback_is_used_only_when_rounding_breaks_validity(self):
+        valid_blob = self.blob(box(0, 0, 1, 1))
+        geometry, precision = read_valid_gpkg_geom(valid_blob)
+        self.assertEqual(precision, 5)
+        self.assertTrue(shape(geometry).is_valid)
+
+        narrow = Polygon([(0, 0), (0.000004, 0), (0, 1), (0, 0)])
+        narrow_blob = self.blob(narrow)
+        self.assertFalse(shape(read_gpkg_geom(narrow_blob, 5)).is_valid)
+        geometry, precision = read_valid_gpkg_geom(narrow_blob)
+        self.assertEqual(precision, 6)
+        self.assertTrue(shape(geometry).is_valid)
+        self.assertEqual(geometry['coordinates'][0][1][0], 0.000004)
 
 
 class DiscoverGeoPackagesTests(unittest.TestCase):

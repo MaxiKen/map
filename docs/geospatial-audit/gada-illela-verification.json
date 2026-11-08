@@ -1,0 +1,225 @@
+{
+  "created_at": "2026-11-08T07:13:11.084675+00:00",
+  "status": "ready_for_approved_apply",
+  "official_control": {
+    "url": "https://inecnigeria.org/documents/resources/rac/SOKOTO.pdf",
+    "title": "SOKOTO LGA SUMMARY — list of registration areas",
+    "gada": {
+      "code": "04",
+      "polling_units": 239,
+      "wards": [
+        "Gada",
+        "Kaddi",
+        "Kadadin Buda (Kaddi)",
+        "Gilbadi",
+        "Tsitse",
+        "Kaffe",
+        "Dukamaje/Ilah",
+        "Kyadawa/Holai",
+        "Kiri",
+        "Kadassaka",
+        "Kwarma"
+      ]
+    },
+    "illela": {
+      "code": "08",
+      "polling_units": 210,
+      "wards": [
+        "Illela",
+        "Kalmalo",
+        "Damba",
+        "Darna/ Sabon Gari",
+        "Darne/ Tsolawo",
+        "G/ Hamma",
+        "Araba",
+        "Garu",
+        "R. Gati",
+        "Tozai",
+        "G/ Katta"
+      ]
+    },
+    "limitation": "Authoritative for ward-to-LGA assignments, not a legal polygon survey."
+  },
+  "boundary_reference": {
+    "url": "https://services8.arcgis.com/oTalEaSXAuyNT7xf/arcgis/rest/services/Nigeria_Local_Government_Area_Boundaries/FeatureServer/0",
+    "item_id": "686ce086434740b3b5c517b732999c47",
+    "credits": "Esri, Michael Bauer Research GmbH 2023, National Bureau of Statistics",
+    "query": "NAME IN ('Gada','Illela'); outSR=4326; maxAllowableOffset=0.002; geometryPrecision=6",
+    "local_file": "docs/geospatial-audit/references/sokoto-gada-illela-esri-mbr-2023.geojson",
+    "local_sha256": "27ef92c6f2ab77bd4f382a150852378ef3ddaeb5c49db0491ecdbeadab6c16e6",
+    "limitation": "Simplified identity evidence only; never used as production replacement geometry."
+  },
+  "reference_comparisons": [
+    {
+      "current_label": "Gada",
+      "reference_label": "Gada",
+      "iou": 0.04518140486027767
+    },
+    {
+      "current_label": "Gada",
+      "reference_label": "Illela",
+      "iou": 0.7362753548980335
+    },
+    {
+      "current_label": "Illela",
+      "reference_label": "Gada",
+      "iou": 0.853909445536209
+    },
+    {
+      "current_label": "Illela",
+      "reference_label": "Illela",
+      "iou": 0.0018788423495951555
+    }
+  ],
+  "reciprocal_ious": [
+    0.7362753548980335,
+    0.853909445536209
+  ],
+  "same_name_ious": [
+    0.04518140486027767,
+    0.0018788423495951555
+  ],
+  "town_controls": [
+    {
+      "fid": 13351,
+      "name": "Illela",
+      "place": "town",
+      "containing_lga_before": "Gada",
+      "containing_lga_after": "Illela"
+    },
+    {
+      "fid": 13353,
+      "name": "Illela",
+      "place": "village",
+      "containing_lga_before": "Gada",
+      "containing_lga_after": "Illela"
+    },
+    {
+      "fid": 15149,
+      "name": "Gada",
+      "place": "village",
+      "containing_lga_before": "Illela",
+      "containing_lga_after": "Gada"
+    },
+    {
+      "fid": 15384,
+      "name": "Illela",
+      "place": "village",
+      "containing_lga_before": "Illela",
+      "containing_lga_after": "Gada"
+    }
+  ],
+  "before_reciprocal_ward_exceptions": 21,
+  "post_containment": {
+    "Gada": 11,
+    "Illela": 10
+  },
+  "post_national_ward_exceptions": 40,
+  "post_ward_distances_km": {
+    "8105": 13.7,
+    "8106": 10.5,
+    "8107": 18.8,
+    "8108": 22.9,
+    "8109": 14.8,
+    "8110": 6.8,
+    "8111": 0.6,
+    "8112": 16.9,
+    "8113": 8.8,
+    "8114": 18.9,
+    "8115": 17.1,
+    "8148": 9.0,
+    "8149": 17.5,
+    "8150": 10.6,
+    "8151": 19.7,
+    "8152": 15.3,
+    "8153": 8.2,
+    "8154": 4.9,
+    "8155": 9.6,
+    "8156": 16.6,
+    "8157": 17.0,
+    "8158": 7.9
+  },
+  "post_ward_distance_range_km": [
+    0.6,
+    22.9
+  ],
+  "darna_sabon_gari": {
+    "assigned_lga_unchanged": "Illela",
+    "containing_lga": "Gwadabawa",
+    "distance_to_corrected_illela_km": 0.24204866496460706,
+    "geometry_unchanged": true
+  },
+  "derived_correction_counts": {
+    "groundwater_boreholes_wpdx_pt": 173,
+    "settlements_gazetteer_diva_pt": 97,
+    "settlements_places_osm_pt": 303,
+    "settlements_towns_map2023_pt": 2
+  },
+  "unchanged_candidate_fids": {
+    "groundwater_boreholes_wpdx_pt": [],
+    "settlements_gazetteer_diva_pt": [],
+    "settlements_places_osm_pt": [
+      13405,
+      13965,
+      14120,
+      14319,
+      14333,
+      14448,
+      14510,
+      14680,
+      15104,
+      15126,
+      15349,
+      15352,
+      15595,
+      15617,
+      15787,
+      15961,
+      16155,
+      16324,
+      16676,
+      16844,
+      16874,
+      16895,
+      16927,
+      16936,
+      16992,
+      16997,
+      17027
+    ],
+    "settlements_towns_map2023_pt": []
+  },
+  "ledger_counts": {
+    "polygon_identities": 2,
+    "centroid_identities": 2,
+    "ward_distances": 22,
+    "derived_joins": 575,
+    "total": 601
+  },
+  "source_sha256": {
+    "admin_lgas_gadm_pg": "d9d09da55abb3de1601e3da3a833963b0c136edf4b4d20ff4c1264f6927493f8",
+    "admin_lga_centroids_pt": "993e700d15f36fd122b0d0fa9ea5553a97f16ba9d7bebe2a1459991a64c6b147",
+    "admin_wards_pt": "b61b24d2dfa075c3d59eada114d1fb39bfeb1dcff6ecb7427237fddd6f31457b",
+    "groundwater_boreholes_wpdx_pt": "dc912c1f19930230896e8e925fdb5c2e479f790422b9fb09598d85487ededeaf",
+    "settlements_gazetteer_diva_pt": "482609e097d4f2217ad1f014f27984431a8185f50131c88ed4fc67fd85a0d790",
+    "settlements_places_osm_pt": "685943334314fa61c8bbe27d52fc445cad2ac6095b801c77a2a12f0cbe7a8ef0",
+    "settlements_towns_map2023_pt": "b0495b9511bfdb777a0db1d0b422c19b160bdec2e2d6ee01b292039cc8e3fef8"
+  },
+  "checks": {
+    "official_inec_ward_lists_exact": true,
+    "reference_two_feature_ids_and_direction": true,
+    "reciprocal_reference_at_least_ten_times_same_name": true,
+    "reciprocal_ward_exceptions_before_21": true,
+    "post_gada_containment_11_of_11": true,
+    "post_illela_containment_10_of_11": true,
+    "darna_remains_separate_gwadabawa_exception": true,
+    "national_post_exceptions_40": true,
+    "derived_counts_exact": true,
+    "ledger_601_rows": true,
+    "all_ledger_geometry_hashes_unchanged": true,
+    "ward_distances_recomputed_and_improved": true,
+    "kiri_14680_remains_illela": true,
+    "same_name_towns_corroborate_reciprocal_direction": true
+  },
+  "ledger_sha256": "eb953d4bdff2dec9771774c3119d1f4a74c47f22b2e8efba3f713bae07e77a49"
+}

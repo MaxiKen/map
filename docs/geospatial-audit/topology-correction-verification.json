@@ -1,0 +1,343 @@
+{
+  "created_at": "2026-11-08T06:24:40.735920+00:00",
+  "status": "ready_for_reviewed_apply",
+  "algorithm": "GEOS MakeValid linework; retain valid polygonal coverage; discard zero-area line residue",
+  "geos_version": "3.14.1",
+  "shapely_version": "2.2.0",
+  "equal_area_crs": "EPSG:6933",
+  "invalid_source_area_caveat": "Before area of an invalid geometry is a diagnostic signed-area result, not authoritative ground area.",
+  "automatic_absolute_area_change_fraction_limit": 0.005,
+  "bounds_tolerance_degrees": 1e-10,
+  "repair_count": 191,
+  "affected_layer_count": 16,
+  "visible_repairs": 76,
+  "hidden_repairs": 115,
+  "reason_counts": {
+    "Ring Self-intersection": 183,
+    "Self-intersection": 7,
+    "Nested shells": 1
+  },
+  "collapsed_line_residue_features": 40,
+  "maximum_bounds_delta_degrees": 0.006091117858886719,
+  "maximum_raw_linework_bounds_delta_degrees": 0.0,
+  "maximum_automatic_area_change_fraction": 0.0016266895226901682,
+  "reviewed_cases": [
+    {
+      "layer": "climate_temperature_picture_pg",
+      "fid": 8,
+      "feature_label": "water",
+      "before_area_km2": 3850.6966963425734,
+      "after_area_km2": 3912.899455720713,
+      "area_delta_km2": 62.20275937813949,
+      "absolute_area_change_fraction": 0.0161536377137208,
+      "review_reason": "Historical water class: self-crossing component lobes, principally the component near 6.86E/9.82N, have ambiguous signed area. MakeValid polygonises their intended positive lobes. Raster-era value comparison is not applicable to this historical picture product."
+    },
+    {
+      "layer": "forest_reserves_water_picture_pg",
+      "fid": 795,
+      "feature_label": "Gulf of Guinea",
+      "before_area_km2": 55545.223213489284,
+      "after_area_km2": 59281.99154966551,
+      "area_delta_km2": 3736.7683361762247,
+      "absolute_area_change_fraction": 0.06727434187839833,
+      "review_reason": "Gulf of Guinea: one self-crossing exterior ring forms an oppositely wound eastern marine lobe (about 1,868 km2). Invalid signed-area evaluation subtracts that lobe; MakeValid includes both marine lobes. The roughly two-lobe area increase is expected and all bounds remain unchanged."
+    },
+    {
+      "layer": "protected_areas_wdpa_pg",
+      "fid": 148,
+      "feature_label": "Cross River",
+      "before_area_km2": 3462.9002860103146,
+      "after_area_km2": 3294.3750958275596,
+      "area_delta_km2": -168.52519018275507,
+      "absolute_area_change_fraction": 0.048665908996448966,
+      "review_reason": "Cross River National Park: five overlapping/nested input components are resolved to two valid polygons. Repaired area 3,294.375 km2 is closer to the independently stored WDPA area 3,318.661 km2 than the invalid signed-area result 3,462.900 km2; no coordinates are translated."
+    }
+  ],
+  "reviewed_extent_cases": [
+    {
+      "layer": "geology_background_map2023_pg",
+      "fid": 234,
+      "feature_label": "FID 234",
+      "max_bounds_delta_degrees": 0.006091117858886719,
+      "raw_linework_bounds_delta_degrees": 0.0,
+      "collapsed_line_parts": 1,
+      "collapsed_line_length_degrees": 0.006091117858886719,
+      "review_reason": "Precambrian basement polygon: MakeValid separates one vertical, zero-area LineString from the valid polygon. The line alone extends 0.006091117859 degrees north of the polygon. Dropping that collapsed line shrinks the feature envelope but changes no polygon coordinate or polygon area."
+    }
+  ],
+  "checks": {
+    "expected_invalid_count": true,
+    "expected_layer_count": true,
+    "all_outputs_valid_multipolygon": true,
+    "all_raw_linework_bounds_unchanged": true,
+    "only_reviewed_collapsed_line_changes_polygon_envelope": true,
+    "all_area_changes_automatic_or_individually_reviewed": true,
+    "all_reviewed_cases_observed_exactly_once": true,
+    "all_reviewed_extent_cases_observed_exactly_once": true,
+    "collapsed_residue_is_line_only_and_zero_area": true,
+    "all_22_raster_class_checks_exact": true
+  },
+  "raster_class_regression": [
+    {
+      "raster": "geology_general_picture_code_rst",
+      "vector": "geology_general_picture_pg",
+      "class": "Quaternary alluvium / Mesozoic (mostly Cretaceous) sediments",
+      "expected_code": 1,
+      "before_sampled_cells": 103995,
+      "after_sampled_cells": 103995,
+      "before_agreement_fraction": 0.9874320880811578,
+      "after_agreement_fraction": 0.9874320880811578,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_general_picture_code_rst",
+      "vector": "geology_general_picture_pg",
+      "class": "Neogene (- Paleogene) sands, clays, lignites",
+      "expected_code": 2,
+      "before_sampled_cells": 24975,
+      "after_sampled_cells": 24975,
+      "before_agreement_fraction": 0.9862262262262262,
+      "after_agreement_fraction": 0.9862262262262262,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_general_picture_code_rst",
+      "vector": "geology_general_picture_pg",
+      "class": "Cenozoic volcanics",
+      "expected_code": 3,
+      "before_sampled_cells": 1951,
+      "after_sampled_cells": 1951,
+      "before_agreement_fraction": 0.9825730394669401,
+      "after_agreement_fraction": 0.9825730394669401,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_general_picture_code_rst",
+      "vector": "geology_general_picture_pg",
+      "class": "Basic and intermediate intrusions",
+      "expected_code": 4,
+      "before_sampled_cells": 677,
+      "after_sampled_cells": 677,
+      "before_agreement_fraction": 0.9276218611521418,
+      "after_agreement_fraction": 0.9276218611521418,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_general_picture_code_rst",
+      "vector": "geology_general_picture_pg",
+      "class": "Jurassic granites, syenites, gabbros, rhyolites",
+      "expected_code": 5,
+      "before_sampled_cells": 3307,
+      "after_sampled_cells": 3307,
+      "before_agreement_fraction": 0.9742969458723919,
+      "after_agreement_fraction": 0.9742969458723919,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_general_picture_code_rst",
+      "vector": "geology_general_picture_pg",
+      "class": "Metasediments, schists, quartzites",
+      "expected_code": 6,
+      "before_sampled_cells": 50732,
+      "after_sampled_cells": 50732,
+      "before_agreement_fraction": 0.9804659780808956,
+      "after_agreement_fraction": 0.9804659780808956,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_general_picture_code_rst",
+      "vector": "geology_general_picture_pg",
+      "class": "Older granites",
+      "expected_code": 7,
+      "before_sampled_cells": 17196,
+      "after_sampled_cells": 17196,
+      "before_agreement_fraction": 0.9843568271691091,
+      "after_agreement_fraction": 0.9843568271691091,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_general_picture_code_rst",
+      "vector": "geology_general_picture_pg",
+      "class": "Basement complex",
+      "expected_code": 8,
+      "before_sampled_cells": 129046,
+      "after_sampled_cells": 129046,
+      "before_agreement_fraction": 0.9920106008710072,
+      "after_agreement_fraction": 0.9920106008710072,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_surficial_usgs_code_rst",
+      "vector": "geology_surficial_usgs_pg",
+      "class": "pCm",
+      "expected_code": 44,
+      "before_sampled_cells": 151192,
+      "after_sampled_cells": 151192,
+      "before_agreement_fraction": 0.9968053865283878,
+      "after_agreement_fraction": 0.9968053865283878,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_surficial_usgs_code_rst",
+      "vector": "geology_surficial_usgs_pg",
+      "class": "K",
+      "expected_code": 12,
+      "before_sampled_cells": 54714,
+      "after_sampled_cells": 54714,
+      "before_agreement_fraction": 0.9926527031472749,
+      "after_agreement_fraction": 0.9926527031472749,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_surficial_usgs_code_rst",
+      "vector": "geology_surficial_usgs_pg",
+      "class": "Q",
+      "expected_code": 28,
+      "before_sampled_cells": 44504,
+      "after_sampled_cells": 44504,
+      "before_agreement_fraction": 0.9980001797591228,
+      "after_agreement_fraction": 0.9980001797591228,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_surficial_usgs_code_rst",
+      "vector": "geology_surficial_usgs_pg",
+      "class": "T",
+      "expected_code": 37,
+      "before_sampled_cells": 25135,
+      "after_sampled_cells": 25135,
+      "before_agreement_fraction": 0.9947085737020092,
+      "after_agreement_fraction": 0.9947085737020092,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_surficial_usgs_code_rst",
+      "vector": "geology_surficial_usgs_pg",
+      "class": "Qe",
+      "expected_code": 30,
+      "before_sampled_cells": 19173,
+      "after_sampled_cells": 19173,
+      "before_agreement_fraction": 0.9838314296145622,
+      "after_agreement_fraction": 0.9838314296145622,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_surficial_usgs_code_rst",
+      "vector": "geology_surficial_usgs_pg",
+      "class": "Kl",
+      "expected_code": 16,
+      "before_sampled_cells": 11635,
+      "after_sampled_cells": 11635,
+      "before_agreement_fraction": 0.9902019767941556,
+      "after_agreement_fraction": 0.9902019767941556,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_surficial_usgs_code_rst",
+      "vector": "geology_surficial_usgs_pg",
+      "class": "QT",
+      "expected_code": 29,
+      "before_sampled_cells": 8521,
+      "after_sampled_cells": 8521,
+      "before_agreement_fraction": 0.991902358878066,
+      "after_agreement_fraction": 0.991902358878066,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_surficial_usgs_code_rst",
+      "vector": "geology_surficial_usgs_pg",
+      "class": "Qp",
+      "expected_code": 31,
+      "before_sampled_cells": 4518,
+      "after_sampled_cells": 4518,
+      "before_agreement_fraction": 0.981850376272687,
+      "after_agreement_fraction": 0.981850376272687,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_surficial_usgs_code_rst",
+      "vector": "geology_surficial_usgs_pg",
+      "class": "H2O",
+      "expected_code": 7,
+      "before_sampled_cells": 4446,
+      "after_sampled_cells": 4446,
+      "before_agreement_fraction": 0.9808816914080072,
+      "after_agreement_fraction": 0.9808816914080072,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_surficial_usgs_code_rst",
+      "vector": "geology_surficial_usgs_pg",
+      "class": "Ti",
+      "expected_code": 39,
+      "before_sampled_cells": 3826,
+      "after_sampled_cells": 3826,
+      "before_agreement_fraction": 0.9939884997386305,
+      "after_agreement_fraction": 0.9939884997386305,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_surficial_usgs_code_rst",
+      "vector": "geology_surficial_usgs_pg",
+      "class": "Mi",
+      "expected_code": 17,
+      "before_sampled_cells": 2239,
+      "after_sampled_cells": 2239,
+      "before_agreement_fraction": 0.9928539526574364,
+      "after_agreement_fraction": 0.9928539526574364,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_surficial_usgs_code_rst",
+      "vector": "geology_surficial_usgs_pg",
+      "class": "SEA",
+      "expected_code": 34,
+      "before_sampled_cells": 2041,
+      "after_sampled_cells": 2041,
+      "before_agreement_fraction": 0.917687408133268,
+      "after_agreement_fraction": 0.917687408133268,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_surficial_usgs_code_rst",
+      "vector": "geology_surficial_usgs_pg",
+      "class": "TK",
+      "expected_code": 38,
+      "before_sampled_cells": 1153,
+      "after_sampled_cells": 1153,
+      "before_agreement_fraction": 0.9913269731136166,
+      "after_agreement_fraction": 0.9913269731136166,
+      "exact_regression_pass": true
+    },
+    {
+      "raster": "geology_surficial_usgs_code_rst",
+      "vector": "geology_surficial_usgs_pg",
+      "class": "MzPz",
+      "expected_code": 20,
+      "before_sampled_cells": 78,
+      "after_sampled_cells": 78,
+      "before_agreement_fraction": 1.0,
+      "after_agreement_fraction": 1.0,
+      "exact_regression_pass": true
+    }
+  ],
+  "source_sha256": {
+    "climate_temperature_picture_pg": "8c7db73bcf839c88ffaf207a512fb0b9f3c9a3647712c01b1c5591c279391129",
+    "elevation_classes_picture_pg": "4923684ba9d19da523fe7b0516bd529c7570a099220685a34aa21607921345b9",
+    "ethnic_areas_anthromapper_pg": "9dc3ebd40ce9521315b762992724a6c0842e569c87d9f70a30e56bf612555580",
+    "forest_reserves_water_picture_pg": "452964b262c40474e67cd9e739a2f819663d3d222fd0bd3edd3b8a62a735604b",
+    "geology_background_map2023_pg": "2559e5fad45b9551b9a162d3e9c25632d05b6148e91d29f48321ff5bbeb45f54",
+    "geology_general_picture_pg": "9427851cdcd8d9a826dc7cd5789e16bf75b983ac6bbce6cd4c207e564bc4d4a5",
+    "geology_surficial_usgs_pg": "dc706409124198f0c9fca337c6a6cdbe2e11f82ee9604579e73816ba0bdb5227",
+    "geology_units_map2011_pg": "83b8526dbed32e602ebe4e89659bc2d3d7397a02b2040827ac0c1f0949e58e08",
+    "landcover_cgls2019_pg": "76e8801951dec2d7f58aef250ed70d4504c9c4aae83e8909fc5bed8eee3c5f47",
+    "landcover_picture_pg": "d51cdda4437fd6b02d98b4fa6b72249635d5d663f6b9621ca5977f7902ab67c2",
+    "population_districts_picture_pg": "5e12c50ca8c237245e16e6b573dd1e8cb9efb45ccbcb67b1c43adccb82ba9a22",
+    "protected_areas_wdpa_pg": "e766d93f1fd1e7c9929e7bfe6f5e1439498c01ef81e6f69723b54b7b1abc7abb",
+    "soil_dominant_picture_pg": "5198b9cad7403e29f3e61d32c43ae43b39d574cf824e066f6b85619e891cb5d6",
+    "soil_ph_picture_pg": "e452805bdaaae8a172f87f9f90506550c1bab06571c3893476a6fb6e0c8d431b",
+    "soil_wrb2006_isric_pg": "44a3a45c1545d4633cec74b2165aa46ae58ede2f9c5606a291aad6734c685a0d",
+    "water_areas_diva_pg": "03a0748b3fc2e705b0e710a537770937d028f486338c42304467004ee84da992"
+  },
+  "ledger_sha256": "99d03b7606a65ad868bd6cb190a4630868e996509d6ad8eab0d362af00d02dc8"
+}

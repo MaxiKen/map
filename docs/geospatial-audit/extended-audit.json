@@ -1,0 +1,1914 @@
+{
+  "source_commit": "19b85f365365ab8ce5ab90cc083da64be6116491",
+  "capital_cross_source": {
+    "summary": {
+      "osm": {
+        "matched_capitals": 37,
+        "median_distance_km": 0.0,
+        "p95_distance_km": 1.2271870312981523,
+        "maximum_distance_km": 4.240124047734199,
+        "median_reference_east_minus_source_m": 0.0,
+        "median_reference_north_minus_source_m": 0.0,
+        "validation_role": "Construction/self-consistency check for the 32 OSM replacements; independent corroboration only for the five retained gazetteer positions."
+      },
+      "diva": {
+        "matched_capitals": 36,
+        "median_distance_km": 1.1542533827119144,
+        "p95_distance_km": 4.709124944960844,
+        "maximum_distance_km": 5.2724744127832395,
+        "median_reference_east_minus_source_m": 224.80919820658164,
+        "median_reference_north_minus_source_m": 0.7393820493016392,
+        "validation_role": "Independent cross-source check; no DIVA coordinate was averaged into an output geometry. Candidate-disambiguation rows are selection-informed and excluded from the strict held-out subset. Same-name matching is not legal ground truth.",
+        "strict_held_out": {
+          "eligible_capitals": 30,
+          "median_distance_km": 1.2437325638222219,
+          "p95_distance_km": 4.918171398719605,
+          "maximum_distance_km": 5.2724744127832395,
+          "selection_informed_exclusions": [
+            "Umuahia",
+            "Yola",
+            "Abakaliki",
+            "Ado-Ekiti",
+            "Katsina",
+            "Gusau"
+          ]
+        }
+      }
+    },
+    "by_position_basis": {
+      "OSM city node; GADM state containment + DIVA cross-check": {
+        "count": 17,
+        "osm_matches": 17,
+        "median_osm_distance_km": 0.0,
+        "median_osm_east_minus_source_m": 0.0,
+        "median_osm_north_minus_source_m": 0.0
+      },
+      "OSM town node; GADM state containment + DIVA cross-check": {
+        "count": 15,
+        "osm_matches": 15,
+        "median_osm_distance_km": 0.0,
+        "median_osm_east_minus_source_m": 0.0,
+        "median_osm_north_minus_source_m": 0.0
+      },
+      "Retained approximate gazetteer coordinate; OSM/DIVA cross-check": {
+        "count": 5,
+        "osm_matches": 5,
+        "median_osm_distance_km": 0.9066522840150768,
+        "median_osm_east_minus_source_m": 35.83069034293294,
+        "median_osm_north_minus_source_m": -394.0872611219529
+      }
+    },
+    "correction": {
+      "applied_utc": "2026-11-07T21:18:14.747307+00:00",
+      "visible_file": "data/Settlements/settlements_state_capitals_map2023_pt.gpkg",
+      "visible_sha256": "d4df1e292e6acf6c18681b7b2bd34f72d787894c7d6f71e568c421b96c890430",
+      "hidden_provenance_file": "data/Settlements/hidden_settlements_state_capitals_map2023_original_pt.gpkg",
+      "hidden_sha256": "7f137e1eff672acb2eb36b6d2b52de83ea6d9b92f1ce0d91e0eea9e0083b9280",
+      "hidden_table": "settlements_state_capitals_map2023_original_pt",
+      "source_sha256_before_correction": "d9749f9cf631468356548fb9b679e4a8ee13c51ab82ff0e2dad3a05ac7c9696e",
+      "corrected_with_osm": 32,
+      "retained_corroborated_gazetteer": 5,
+      "reviewed_exceptions": [
+        "Yola",
+        "Asaba",
+        "Abuja",
+        "Lokoja"
+      ],
+      "maximum_diva_crosscheck_km": 5.2724744127832395,
+      "ledger": "docs/geospatial-audit/capital-correction-ledger.csv"
+    }
+  },
+  "ward_exceptions": {
+    "total_outside_assigned_lga": 40,
+    "within_1km_of_assigned_lga": 32,
+    "over_10km_from_assigned_lga": 1,
+    "sokoto_gada_illela_exceptions": 1,
+    "reciprocal_gada_illela_containment": 0,
+    "interpretation": "The verified identity correction resolved all 21 reciprocal exceptions without geometry changes; residual exceptions require separate review."
+  },
+  "topology": {
+    "total_invalid": 0,
+    "visible_invalid": 0,
+    "hidden_invalid": 0,
+    "reason_counts": {},
+    "by_layer": {},
+    "provenance_invalid": 191,
+    "provenance_layer_count": 16,
+    "provenance_reason_counts": {
+      "Ring Self-intersection": 183,
+      "Self-intersection": 7,
+      "Nested shells": 1
+    },
+    "provenance_by_layer": {
+      "climate_temperature_picture_pg_topology_original": {
+        "Ring Self-intersection": 5
+      },
+      "elevation_classes_picture_pg_topology_original": {
+        "Ring Self-intersection": 6
+      },
+      "ethnic_areas_anthromapper_pg_topology_original": {
+        "Ring Self-intersection": 7
+      },
+      "forest_reserves_water_picture_pg_topology_original": {
+        "Ring Self-intersection": 6,
+        "Self-intersection": 1
+      },
+      "geology_background_map2023_pg_topology_original": {
+        "Ring Self-intersection": 16,
+        "Self-intersection": 2
+      },
+      "geology_general_picture_pg_topology_original": {
+        "Ring Self-intersection": 5
+      },
+      "geology_surficial_usgs_pg_topology_original": {
+        "Ring Self-intersection": 4
+      },
+      "geology_units_map2011_pg_topology_original": {
+        "Ring Self-intersection": 5
+      },
+      "landcover_cgls2019_pg_topology_original": {
+        "Ring Self-intersection": 13
+      },
+      "landcover_picture_pg_topology_original": {
+        "Ring Self-intersection": 10,
+        "Self-intersection": 1
+      },
+      "population_districts_picture_pg_topology_original": {
+        "Ring Self-intersection": 63
+      },
+      "protected_areas_wdpa_pg_topology_original": {
+        "Nested shells": 1
+      },
+      "soil_dominant_picture_pg_topology_original": {
+        "Ring Self-intersection": 26,
+        "Self-intersection": 2
+      },
+      "soil_ph_picture_pg_topology_original": {
+        "Ring Self-intersection": 2
+      },
+      "soil_wrb2006_isric_pg_topology_original": {
+        "Ring Self-intersection": 13,
+        "Self-intersection": 1
+      },
+      "water_areas_diva_pg_topology_original": {
+        "Ring Self-intersection": 2
+      }
+    },
+    "interpretation": "Zero active invalid geometries; hidden *_topology_original layers retain the 191 pre-correction defects as evidence."
+  },
+  "topology_correction": {
+    "applied_at": "2026-11-08T06:32:29.025020+00:00",
+    "algorithm": "GEOS MakeValid linework; retain valid polygonal coverage; discard zero-area line residue",
+    "geos_version": "3.14.1",
+    "shapely_version": "2.2.0",
+    "repair_count": 191,
+    "affected_layer_count": 16,
+    "visible_repairs": 76,
+    "hidden_repairs": 115,
+    "collapsed_line_residue_features": 40,
+    "maximum_bounds_delta_degrees": 0.006091117858886719,
+    "maximum_raw_linework_bounds_delta_degrees": 0.0,
+    "reviewed_cases": [
+      {
+        "layer": "climate_temperature_picture_pg",
+        "fid": 8,
+        "feature_label": "water",
+        "before_area_km2": 3850.6966963425734,
+        "after_area_km2": 3912.899455720713,
+        "area_delta_km2": 62.20275937813949,
+        "absolute_area_change_fraction": 0.0161536377137208,
+        "review_reason": "Historical water class: self-crossing component lobes, principally the component near 6.86E/9.82N, have ambiguous signed area. MakeValid polygonises their intended positive lobes. Raster-era value comparison is not applicable to this historical picture product."
+      },
+      {
+        "layer": "forest_reserves_water_picture_pg",
+        "fid": 795,
+        "feature_label": "Gulf of Guinea",
+        "before_area_km2": 55545.223213489284,
+        "after_area_km2": 59281.99154966551,
+        "area_delta_km2": 3736.7683361762247,
+        "absolute_area_change_fraction": 0.06727434187839833,
+        "review_reason": "Gulf of Guinea: one self-crossing exterior ring forms an oppositely wound eastern marine lobe (about 1,868 km2). Invalid signed-area evaluation subtracts that lobe; MakeValid includes both marine lobes. The roughly two-lobe area increase is expected and all bounds remain unchanged."
+      },
+      {
+        "layer": "protected_areas_wdpa_pg",
+        "fid": 148,
+        "feature_label": "Cross River",
+        "before_area_km2": 3462.9002860103146,
+        "after_area_km2": 3294.3750958275596,
+        "area_delta_km2": -168.52519018275507,
+        "absolute_area_change_fraction": 0.048665908996448966,
+        "review_reason": "Cross River National Park: five overlapping/nested input components are resolved to two valid polygons. Repaired area 3,294.375 km2 is closer to the independently stored WDPA area 3,318.661 km2 than the invalid signed-area result 3,462.900 km2; no coordinates are translated."
+      }
+    ],
+    "reviewed_extent_cases": [
+      {
+        "layer": "geology_background_map2023_pg",
+        "fid": 234,
+        "feature_label": "FID 234",
+        "max_bounds_delta_degrees": 0.006091117858886719,
+        "raw_linework_bounds_delta_degrees": 0.0,
+        "collapsed_line_parts": 1,
+        "collapsed_line_length_degrees": 0.006091117858886719,
+        "review_reason": "Precambrian basement polygon: MakeValid separates one vertical, zero-area LineString from the valid polygon. The line alone extends 0.006091117859 degrees north of the polygon. Dropping that collapsed line shrinks the feature envelope but changes no polygon coordinate or polygon area."
+      }
+    ],
+    "checks": {
+      "all_191_repairs_verified": true,
+      "all_16_layers_verified": true,
+      "all_attributes_unchanged": true,
+      "all_untargeted_geometry_byte_identical": true,
+      "all_integrity_checks_pass": true,
+      "all_22_raster_class_checks_exact_after_apply": true,
+      "all_raw_linework_bounds_unchanged": true,
+      "only_reviewed_collapsed_line_changes_polygon_envelope": true
+    },
+    "layers": {
+      "climate_temperature_picture_pg": {
+        "feature_count": 8,
+        "repaired_features": 5,
+        "unchanged_geometry_blobs": 3,
+        "all_attributes_unchanged": true,
+        "all_untargeted_geometry_byte_identical": true,
+        "integrity_check": "ok",
+        "before_sha256": "8c7db73bcf839c88ffaf207a512fb0b9f3c9a3647712c01b1c5591c279391129",
+        "after_sha256": "5b2f4acb2f0089a229b9ea1ec70ff00ea458c1561de3e5026adb3bfc6cbee3ec",
+        "provenance_path": "data/Climate/hidden_climate_temperature_picture_pg_topology_original.gpkg",
+        "provenance_table": "climate_temperature_picture_pg_topology_original",
+        "provenance_sha256": "588b84be636e7920f9c7ac8dd1f261386bcb63a0afca89d086cbf2c8e8e961e0"
+      },
+      "elevation_classes_picture_pg": {
+        "feature_count": 7,
+        "repaired_features": 6,
+        "unchanged_geometry_blobs": 1,
+        "all_attributes_unchanged": true,
+        "all_untargeted_geometry_byte_identical": true,
+        "integrity_check": "ok",
+        "before_sha256": "4923684ba9d19da523fe7b0516bd529c7570a099220685a34aa21607921345b9",
+        "after_sha256": "fafe6f253ca7ec29e8de9545f44cacdc28cfe029df6b1b446e6acae0ec9c03d0",
+        "provenance_path": "data/Elevation - DEM/hidden_elevation_classes_picture_pg_topology_original.gpkg",
+        "provenance_table": "elevation_classes_picture_pg_topology_original",
+        "provenance_sha256": "760e381b4d71682128d92c8b218edb85e04df244b3be4bacf1cfac87f28d253d"
+      },
+      "ethnic_areas_anthromapper_pg": {
+        "feature_count": 118,
+        "repaired_features": 7,
+        "unchanged_geometry_blobs": 111,
+        "all_attributes_unchanged": true,
+        "all_untargeted_geometry_byte_identical": true,
+        "integrity_check": "ok",
+        "before_sha256": "9dc3ebd40ce9521315b762992724a6c0842e569c87d9f70a30e56bf612555580",
+        "after_sha256": "618a1ca252a09fbde523d98bb2ac0b8264c61571082cb4db113e59bd9be6d30b",
+        "provenance_path": "data/Ethnic groups/hidden_ethnic_areas_anthromapper_pg_topology_original.gpkg",
+        "provenance_table": "ethnic_areas_anthromapper_pg_topology_original",
+        "provenance_sha256": "3ff27397072fbbeb10ddd7d300074ce68e7474ebf3eeb25b8d098931f2ec6eac"
+      },
+      "forest_reserves_water_picture_pg": {
+        "feature_count": 1120,
+        "repaired_features": 7,
+        "unchanged_geometry_blobs": 1113,
+        "all_attributes_unchanged": true,
+        "all_untargeted_geometry_byte_identical": true,
+        "integrity_check": "ok",
+        "before_sha256": "452964b262c40474e67cd9e739a2f819663d3d222fd0bd3edd3b8a62a735604b",
+        "after_sha256": "174074408c970a68a7f4107e94fd9b27183e86d54160b39d6c940d4cea6239d1",
+        "provenance_path": "data/Forest/hidden_forest_reserves_water_picture_pg_topology_original.gpkg",
+        "provenance_table": "forest_reserves_water_picture_pg_topology_original",
+        "provenance_sha256": "f61647122cd5c2c6836cf623c16db8c8e924b61b467ac70ff9b50cfb6518d0ca"
+      },
+      "geology_background_map2023_pg": {
+        "feature_count": 305,
+        "repaired_features": 18,
+        "unchanged_geometry_blobs": 287,
+        "all_attributes_unchanged": true,
+        "all_untargeted_geometry_byte_identical": true,
+        "integrity_check": "ok",
+        "before_sha256": "2559e5fad45b9551b9a162d3e9c25632d05b6148e91d29f48321ff5bbeb45f54",
+        "after_sha256": "423e44ce2e082569d4c1e84acae7ecfb32abfbb3a7315cfef1d24d816a7149f8",
+        "provenance_path": "data/Geology/hidden_geology_background_map2023_pg_topology_original.gpkg",
+        "provenance_table": "geology_background_map2023_pg_topology_original",
+        "provenance_sha256": "468939757d315c704b6024d484051a9b6afd1928b1880e701acbf3d9f1e5ad38"
+      },
+      "geology_general_picture_pg": {
+        "feature_count": 8,
+        "repaired_features": 5,
+        "unchanged_geometry_blobs": 3,
+        "all_attributes_unchanged": true,
+        "all_untargeted_geometry_byte_identical": true,
+        "integrity_check": "ok",
+        "before_sha256": "9427851cdcd8d9a826dc7cd5789e16bf75b983ac6bbce6cd4c207e564bc4d4a5",
+        "after_sha256": "17f658eab3597fed0f2511715691158c36886b96eae30d2b1dae90e3a62020f1",
+        "provenance_path": "data/Geology/hidden_geology_general_picture_pg_topology_original.gpkg",
+        "provenance_table": "geology_general_picture_pg_topology_original",
+        "provenance_sha256": "38bdc21b9da6a82a9f66c57890eba9dca21a89a6d4f050ccd40ba2e3d23eb4f8"
+      },
+      "geology_surficial_usgs_pg": {
+        "feature_count": 14,
+        "repaired_features": 4,
+        "unchanged_geometry_blobs": 10,
+        "all_attributes_unchanged": true,
+        "all_untargeted_geometry_byte_identical": true,
+        "integrity_check": "ok",
+        "before_sha256": "dc706409124198f0c9fca337c6a6cdbe2e11f82ee9604579e73816ba0bdb5227",
+        "after_sha256": "f3283cd19e798a82fc3bd0b5236c9bb986dd4513b82bd67185cb465e1be43173",
+        "provenance_path": "data/Geology/hidden_geology_surficial_usgs_pg_topology_original.gpkg",
+        "provenance_table": "geology_surficial_usgs_pg_topology_original",
+        "provenance_sha256": "64d46644af95643e867dd21cbeb9946c0a1efca8a320ac9934385f03cbbf6ca0"
+      },
+      "geology_units_map2011_pg": {
+        "feature_count": 1485,
+        "repaired_features": 5,
+        "unchanged_geometry_blobs": 1480,
+        "all_attributes_unchanged": true,
+        "all_untargeted_geometry_byte_identical": true,
+        "integrity_check": "ok",
+        "before_sha256": "83b8526dbed32e602ebe4e89659bc2d3d7397a02b2040827ac0c1f0949e58e08",
+        "after_sha256": "37c251526ecd8726439f6244a329a7a5681a7574562fc837f26fb6d6934db15b",
+        "provenance_path": "data/Geology/hidden_geology_units_map2011_pg_topology_original.gpkg",
+        "provenance_table": "geology_units_map2011_pg_topology_original",
+        "provenance_sha256": "f143cae0eb77c41771a4d45b2ffe779ff0d84902a34add21a592f633486ff4ed"
+      },
+      "landcover_cgls2019_pg": {
+        "feature_count": 14,
+        "repaired_features": 13,
+        "unchanged_geometry_blobs": 1,
+        "all_attributes_unchanged": true,
+        "all_untargeted_geometry_byte_identical": true,
+        "integrity_check": "ok",
+        "before_sha256": "76e8801951dec2d7f58aef250ed70d4504c9c4aae83e8909fc5bed8eee3c5f47",
+        "after_sha256": "db218046b9ab2b7011002ae523071d3101142f07beb8c31c968979b3446fc250",
+        "provenance_path": "data/Land cover/hidden_landcover_cgls2019_pg_topology_original.gpkg",
+        "provenance_table": "landcover_cgls2019_pg_topology_original",
+        "provenance_sha256": "25122fcee1ed7ba43c242b22e0d7fe05d267c580393364576d2bdda84d2b7dfe"
+      },
+      "landcover_picture_pg": {
+        "feature_count": 14,
+        "repaired_features": 11,
+        "unchanged_geometry_blobs": 3,
+        "all_attributes_unchanged": true,
+        "all_untargeted_geometry_byte_identical": true,
+        "integrity_check": "ok",
+        "before_sha256": "d51cdda4437fd6b02d98b4fa6b72249635d5d663f6b9621ca5977f7902ab67c2",
+        "after_sha256": "07bc868e43e5292be26e345aeddbad579afd4d71fd6a87ade157baa4c84d3c0f",
+        "provenance_path": "data/Land cover/hidden_landcover_picture_pg_topology_original.gpkg",
+        "provenance_table": "landcover_picture_pg_topology_original",
+        "provenance_sha256": "b97ce9ab5d78e531508356c14afee9ca9cb8affc468a07d41a94472f374ccaf2"
+      },
+      "population_districts_picture_pg": {
+        "feature_count": 504,
+        "repaired_features": 63,
+        "unchanged_geometry_blobs": 441,
+        "all_attributes_unchanged": true,
+        "all_untargeted_geometry_byte_identical": true,
+        "integrity_check": "ok",
+        "before_sha256": "5e12c50ca8c237245e16e6b573dd1e8cb9efb45ccbcb67b1c43adccb82ba9a22",
+        "after_sha256": "5d2232b747553abb8d29ab82118d78527ae160e558da19a6a6cf5f565a6c34d2",
+        "provenance_path": "data/Population/hidden_population_districts_picture_pg_topology_original.gpkg",
+        "provenance_table": "population_districts_picture_pg_topology_original",
+        "provenance_sha256": "54b17cb677f220613257a7f813cd0aaf0e2baeb2602cf451d1f790179215a85e"
+      },
+      "protected_areas_wdpa_pg": {
+        "feature_count": 967,
+        "repaired_features": 1,
+        "unchanged_geometry_blobs": 966,
+        "all_attributes_unchanged": true,
+        "all_untargeted_geometry_byte_identical": true,
+        "integrity_check": "ok",
+        "before_sha256": "e766d93f1fd1e7c9929e7bfe6f5e1439498c01ef81e6f69723b54b7b1abc7abb",
+        "after_sha256": "1b0bb95392373331888644072e3c408089a7a2daf6ab3c85e4364d9f85109963",
+        "provenance_path": "data/Protected areas/hidden_protected_areas_wdpa_pg_topology_original.gpkg",
+        "provenance_table": "protected_areas_wdpa_pg_topology_original",
+        "provenance_sha256": "0cb7a74c20e6ac09cea016f5582334baed731d9ac1235858457f73e5b8207363"
+      },
+      "soil_dominant_picture_pg": {
+        "feature_count": 54,
+        "repaired_features": 28,
+        "unchanged_geometry_blobs": 26,
+        "all_attributes_unchanged": true,
+        "all_untargeted_geometry_byte_identical": true,
+        "integrity_check": "ok",
+        "before_sha256": "5198b9cad7403e29f3e61d32c43ae43b39d574cf824e066f6b85619e891cb5d6",
+        "after_sha256": "04c27e63d6413f1c80d55992f3939f9ddaebe7df3683b141c423b0faf5b5fbb2",
+        "provenance_path": "data/Soils/hidden_soil_dominant_picture_pg_topology_original.gpkg",
+        "provenance_table": "soil_dominant_picture_pg_topology_original",
+        "provenance_sha256": "65dfc5f990ccce7cd74f5d25a0d69d0d6070cbca5de6811046d1157b9bfca358"
+      },
+      "soil_ph_picture_pg": {
+        "feature_count": 5,
+        "repaired_features": 2,
+        "unchanged_geometry_blobs": 3,
+        "all_attributes_unchanged": true,
+        "all_untargeted_geometry_byte_identical": true,
+        "integrity_check": "ok",
+        "before_sha256": "e452805bdaaae8a172f87f9f90506550c1bab06571c3893476a6fb6e0c8d431b",
+        "after_sha256": "da4df40d88cbaf8bf7f59ec729242b64ed21dff786e3c6df4cc16c56511ef89a",
+        "provenance_path": "data/Soils/hidden_soil_ph_picture_pg_topology_original.gpkg",
+        "provenance_table": "soil_ph_picture_pg_topology_original",
+        "provenance_sha256": "c0c78a67a5b3a22679b1cd651eb6e4594a65dc9fba6b8768be315d9cd54724d5"
+      },
+      "soil_wrb2006_isric_pg": {
+        "feature_count": 17,
+        "repaired_features": 14,
+        "unchanged_geometry_blobs": 3,
+        "all_attributes_unchanged": true,
+        "all_untargeted_geometry_byte_identical": true,
+        "integrity_check": "ok",
+        "before_sha256": "44a3a45c1545d4633cec74b2165aa46ae58ede2f9c5606a291aad6734c685a0d",
+        "after_sha256": "98b862dc64e51f8a17c549f9201cfb973da5fe78b029ef50dcd0a6f866c2d5eb",
+        "provenance_path": "data/Soils/hidden_soil_wrb2006_isric_pg_topology_original.gpkg",
+        "provenance_table": "soil_wrb2006_isric_pg_topology_original",
+        "provenance_sha256": "6efe7d9b7b0c894bccd0a0d4b220f226cbb51ac2e9e2392d4f06550fdc49c9d6"
+      },
+      "water_areas_diva_pg": {
+        "feature_count": 1186,
+        "repaired_features": 2,
+        "unchanged_geometry_blobs": 1184,
+        "all_attributes_unchanged": true,
+        "all_untargeted_geometry_byte_identical": true,
+        "integrity_check": "ok",
+        "before_sha256": "03a0748b3fc2e705b0e710a537770937d028f486338c42304467004ee84da992",
+        "after_sha256": "774f506bb806188e4d06567c394492d60f91dd9a4c3b2bf251495d30ac9a79ec",
+        "provenance_path": "data/Water/hidden_water_areas_diva_pg_topology_original.gpkg",
+        "provenance_table": "water_areas_diva_pg_topology_original",
+        "provenance_sha256": "8ee9db28d3c5dbd321318d75fa50ecac33541d9388da9f85048073825a21fcb9"
+      }
+    },
+    "ledger_sha256": "99d03b7606a65ad868bd6cb190a4630868e996509d6ad8eab0d362af00d02dc8",
+    "verification_sha256": "17f157ace151f47ff7131a4979c54b7a6ffa0823661dfc085d6e222c857a26dc",
+    "raster_class_regression": [
+      {
+        "raster": "geology_general_picture_code_rst",
+        "vector": "geology_general_picture_pg",
+        "class": "Quaternary alluvium / Mesozoic (mostly Cretaceous) sediments",
+        "expected_code": 1,
+        "before_sampled_cells": 103995,
+        "after_sampled_cells": 103995,
+        "before_agreement_fraction": 0.9874320880811578,
+        "after_agreement_fraction": 0.9874320880811578,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_general_picture_code_rst",
+        "vector": "geology_general_picture_pg",
+        "class": "Neogene (- Paleogene) sands, clays, lignites",
+        "expected_code": 2,
+        "before_sampled_cells": 24975,
+        "after_sampled_cells": 24975,
+        "before_agreement_fraction": 0.9862262262262262,
+        "after_agreement_fraction": 0.9862262262262262,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_general_picture_code_rst",
+        "vector": "geology_general_picture_pg",
+        "class": "Cenozoic volcanics",
+        "expected_code": 3,
+        "before_sampled_cells": 1951,
+        "after_sampled_cells": 1951,
+        "before_agreement_fraction": 0.9825730394669401,
+        "after_agreement_fraction": 0.9825730394669401,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_general_picture_code_rst",
+        "vector": "geology_general_picture_pg",
+        "class": "Basic and intermediate intrusions",
+        "expected_code": 4,
+        "before_sampled_cells": 677,
+        "after_sampled_cells": 677,
+        "before_agreement_fraction": 0.9276218611521418,
+        "after_agreement_fraction": 0.9276218611521418,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_general_picture_code_rst",
+        "vector": "geology_general_picture_pg",
+        "class": "Jurassic granites, syenites, gabbros, rhyolites",
+        "expected_code": 5,
+        "before_sampled_cells": 3307,
+        "after_sampled_cells": 3307,
+        "before_agreement_fraction": 0.9742969458723919,
+        "after_agreement_fraction": 0.9742969458723919,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_general_picture_code_rst",
+        "vector": "geology_general_picture_pg",
+        "class": "Metasediments, schists, quartzites",
+        "expected_code": 6,
+        "before_sampled_cells": 50732,
+        "after_sampled_cells": 50732,
+        "before_agreement_fraction": 0.9804659780808956,
+        "after_agreement_fraction": 0.9804659780808956,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_general_picture_code_rst",
+        "vector": "geology_general_picture_pg",
+        "class": "Older granites",
+        "expected_code": 7,
+        "before_sampled_cells": 17196,
+        "after_sampled_cells": 17196,
+        "before_agreement_fraction": 0.9843568271691091,
+        "after_agreement_fraction": 0.9843568271691091,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_general_picture_code_rst",
+        "vector": "geology_general_picture_pg",
+        "class": "Basement complex",
+        "expected_code": 8,
+        "before_sampled_cells": 129046,
+        "after_sampled_cells": 129046,
+        "before_agreement_fraction": 0.9920106008710072,
+        "after_agreement_fraction": 0.9920106008710072,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_surficial_usgs_code_rst",
+        "vector": "geology_surficial_usgs_pg",
+        "class": "pCm",
+        "expected_code": 44,
+        "before_sampled_cells": 151192,
+        "after_sampled_cells": 151192,
+        "before_agreement_fraction": 0.9968053865283878,
+        "after_agreement_fraction": 0.9968053865283878,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_surficial_usgs_code_rst",
+        "vector": "geology_surficial_usgs_pg",
+        "class": "K",
+        "expected_code": 12,
+        "before_sampled_cells": 54714,
+        "after_sampled_cells": 54714,
+        "before_agreement_fraction": 0.9926527031472749,
+        "after_agreement_fraction": 0.9926527031472749,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_surficial_usgs_code_rst",
+        "vector": "geology_surficial_usgs_pg",
+        "class": "Q",
+        "expected_code": 28,
+        "before_sampled_cells": 44504,
+        "after_sampled_cells": 44504,
+        "before_agreement_fraction": 0.9980001797591228,
+        "after_agreement_fraction": 0.9980001797591228,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_surficial_usgs_code_rst",
+        "vector": "geology_surficial_usgs_pg",
+        "class": "T",
+        "expected_code": 37,
+        "before_sampled_cells": 25135,
+        "after_sampled_cells": 25135,
+        "before_agreement_fraction": 0.9947085737020092,
+        "after_agreement_fraction": 0.9947085737020092,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_surficial_usgs_code_rst",
+        "vector": "geology_surficial_usgs_pg",
+        "class": "Qe",
+        "expected_code": 30,
+        "before_sampled_cells": 19173,
+        "after_sampled_cells": 19173,
+        "before_agreement_fraction": 0.9838314296145622,
+        "after_agreement_fraction": 0.9838314296145622,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_surficial_usgs_code_rst",
+        "vector": "geology_surficial_usgs_pg",
+        "class": "Kl",
+        "expected_code": 16,
+        "before_sampled_cells": 11635,
+        "after_sampled_cells": 11635,
+        "before_agreement_fraction": 0.9902019767941556,
+        "after_agreement_fraction": 0.9902019767941556,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_surficial_usgs_code_rst",
+        "vector": "geology_surficial_usgs_pg",
+        "class": "QT",
+        "expected_code": 29,
+        "before_sampled_cells": 8521,
+        "after_sampled_cells": 8521,
+        "before_agreement_fraction": 0.991902358878066,
+        "after_agreement_fraction": 0.991902358878066,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_surficial_usgs_code_rst",
+        "vector": "geology_surficial_usgs_pg",
+        "class": "Qp",
+        "expected_code": 31,
+        "before_sampled_cells": 4518,
+        "after_sampled_cells": 4518,
+        "before_agreement_fraction": 0.981850376272687,
+        "after_agreement_fraction": 0.981850376272687,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_surficial_usgs_code_rst",
+        "vector": "geology_surficial_usgs_pg",
+        "class": "H2O",
+        "expected_code": 7,
+        "before_sampled_cells": 4446,
+        "after_sampled_cells": 4446,
+        "before_agreement_fraction": 0.9808816914080072,
+        "after_agreement_fraction": 0.9808816914080072,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_surficial_usgs_code_rst",
+        "vector": "geology_surficial_usgs_pg",
+        "class": "Ti",
+        "expected_code": 39,
+        "before_sampled_cells": 3826,
+        "after_sampled_cells": 3826,
+        "before_agreement_fraction": 0.9939884997386305,
+        "after_agreement_fraction": 0.9939884997386305,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_surficial_usgs_code_rst",
+        "vector": "geology_surficial_usgs_pg",
+        "class": "Mi",
+        "expected_code": 17,
+        "before_sampled_cells": 2239,
+        "after_sampled_cells": 2239,
+        "before_agreement_fraction": 0.9928539526574364,
+        "after_agreement_fraction": 0.9928539526574364,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_surficial_usgs_code_rst",
+        "vector": "geology_surficial_usgs_pg",
+        "class": "SEA",
+        "expected_code": 34,
+        "before_sampled_cells": 2041,
+        "after_sampled_cells": 2041,
+        "before_agreement_fraction": 0.917687408133268,
+        "after_agreement_fraction": 0.917687408133268,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_surficial_usgs_code_rst",
+        "vector": "geology_surficial_usgs_pg",
+        "class": "TK",
+        "expected_code": 38,
+        "before_sampled_cells": 1153,
+        "after_sampled_cells": 1153,
+        "before_agreement_fraction": 0.9913269731136166,
+        "after_agreement_fraction": 0.9913269731136166,
+        "exact_regression_pass": true
+      },
+      {
+        "raster": "geology_surficial_usgs_code_rst",
+        "vector": "geology_surficial_usgs_pg",
+        "class": "MzPz",
+        "expected_code": 20,
+        "before_sampled_cells": 78,
+        "after_sampled_cells": 78,
+        "before_agreement_fraction": 1.0,
+        "after_agreement_fraction": 1.0,
+        "exact_regression_pass": true
+      }
+    ]
+  },
+  "gada_illela_correction": {
+    "applied_at": "2026-11-08T07:14:54.283038+00:00",
+    "before_sha256": {
+      "admin_lgas_gadm_pg": "d9d09da55abb3de1601e3da3a833963b0c136edf4b4d20ff4c1264f6927493f8",
+      "admin_lga_centroids_pt": "993e700d15f36fd122b0d0fa9ea5553a97f16ba9d7bebe2a1459991a64c6b147",
+      "admin_wards_pt": "b61b24d2dfa075c3d59eada114d1fb39bfeb1dcff6ecb7427237fddd6f31457b",
+      "groundwater_boreholes_wpdx_pt": "dc912c1f19930230896e8e925fdb5c2e479f790422b9fb09598d85487ededeaf",
+      "settlements_gazetteer_diva_pt": "482609e097d4f2217ad1f014f27984431a8185f50131c88ed4fc67fd85a0d790",
+      "settlements_places_osm_pt": "685943334314fa61c8bbe27d52fc445cad2ac6095b801c77a2a12f0cbe7a8ef0",
+      "settlements_towns_map2023_pt": "b0495b9511bfdb777a0db1d0b422c19b160bdec2e2d6ee01b292039cc8e3fef8"
+    },
+    "after_sha256": {
+      "admin_lgas_gadm_pg": "51dc9673f0c4f0a9c01b562a16e4225f26919691279437d44e6e61b25587c5a9",
+      "admin_lga_centroids_pt": "b1c9ee1dca49c993d1539c99a2d562cfbdaa1fcfb531eefbcc5e6a5ecdfa3f31",
+      "admin_wards_pt": "97065ca02cf64444cdb5e265e48de4fd462e08c904a37b9fc8999f3f75aca534",
+      "groundwater_boreholes_wpdx_pt": "37cbf566c1ad868012927d32e2156e168b478021ae112c3120e5bf37f1cfd128",
+      "settlements_gazetteer_diva_pt": "fcf664e6d7522f60173812297f413219c2a68e95c83e33d79af8af2c202949ff",
+      "settlements_places_osm_pt": "670e72c17d6a2b6f1fdd44e2c5902a4aee5565764c79d76f78affbc125eee920",
+      "settlements_towns_map2023_pt": "3fc93c87244347e290a1638119ef11c50548a2dc4d43a1ab46b7ac2c14b6bea0"
+    },
+    "provenance": {
+      "admin_lgas_gadm_pg": {
+        "path": "data/Administrative boundaries/hidden_admin_lgas_gadm_identity_original_pg.gpkg",
+        "table": "admin_lgas_gadm_identity_original_pg",
+        "sha256": "013a9c64e87288dac46b55f08d4b378f95192f6c07d8b375308da5d7d66625d7"
+      },
+      "admin_lga_centroids_pt": {
+        "path": "data/Administrative boundaries/hidden_admin_lga_centroids_identity_original_pt.gpkg",
+        "table": "admin_lga_centroids_identity_original_pt",
+        "sha256": "e2bbfca294bbebe6f31ae901aad1c00d29334bbc933052295f043d333cfee0d9"
+      }
+    },
+    "ledger_sha256": "eb953d4bdff2dec9771774c3119d1f4a74c47f22b2e8efba3f713bae07e77a49",
+    "verification_sha256": "5803b377a85fc3c9630076bf6bdbf5861594be9f0a90cab851b8a76003a49837",
+    "counts": {
+      "polygon_identities": 2,
+      "centroid_identities": 2,
+      "ward_distances": 22,
+      "derived_joins": 575,
+      "total": 601
+    },
+    "post_correction": {
+      "polygon_identities": {
+        "708": "Illela",
+        "712": "Gada"
+      },
+      "ward_containment": {
+        "Gada": 11,
+        "Illela": 10
+      },
+      "ward_distances_km": {
+        "8105": 13.7,
+        "8106": 10.5,
+        "8107": 18.8,
+        "8108": 22.9,
+        "8109": 14.8,
+        "8110": 6.8,
+        "8111": 0.6,
+        "8112": 16.9,
+        "8113": 8.8,
+        "8114": 18.9,
+        "8115": 17.1,
+        "8148": 9.0,
+        "8149": 17.5,
+        "8150": 10.6,
+        "8151": 19.7,
+        "8152": 15.3,
+        "8153": 8.2,
+        "8154": 4.9,
+        "8155": 9.6,
+        "8156": 16.6,
+        "8157": 17.0,
+        "8158": 7.9
+      },
+      "ward_distance_range_km": [
+        0.6,
+        22.9
+      ],
+      "national_ward_exceptions": 40,
+      "reciprocal_gada_illela_exceptions": 0,
+      "darna_sabon_gari": {
+        "assigned_lga": "Illela",
+        "containing_lga": "Gwadabawa",
+        "distance_to_corrected_illela_km": 0.24204866496460706
+      },
+      "visible_derived_joins": 476,
+      "all_601_ledger_rows_rechecked": true,
+      "all_ledger_geometry_hashes_unchanged": true,
+      "kiri_14680_unchanged_illela": true
+    },
+    "checks": {
+      "seven_source_hashes_verified": true,
+      "two_hidden_originals_verified": true,
+      "all_601_ledger_rows_rechecked": true,
+      "zero_geometry_changes": true,
+      "official_wards_and_distances_verified": true,
+      "gada_11_and_illela_10_containment": true,
+      "darna_residual_retained": true,
+      "visible_derived_joins_476": true,
+      "kiri_unchanged": true
+    }
+  },
+  "raster_registration": {
+    "class_pairs": [
+      {
+        "raster": "geology_general_picture_code_rst",
+        "vector": "geology_general_picture_pg"
+      },
+      {
+        "raster": "geology_surficial_usgs_code_rst",
+        "vector": "geology_surficial_usgs_pg"
+      }
+    ],
+    "land_masks": {
+      "climate_prec_annual_worldclim_rst": {
+        "inside_land_valid_fraction": 0.9991271946020344,
+        "outside_land_valid_fraction": 0.026421255751818317,
+        "whole_grid_valid_fraction": 0.60594,
+        "sample_stride_cells": 2
+      },
+      "climate_srad_annual_worldclim_rst": {
+        "inside_land_valid_fraction": 0.9991271946020344,
+        "outside_land_valid_fraction": 0.026421255751818317,
+        "whole_grid_valid_fraction": 0.60594,
+        "sample_stride_cells": 2
+      },
+      "climate_tavg_annual_worldclim_rst": {
+        "inside_land_valid_fraction": 0.9991271946020344,
+        "outside_land_valid_fraction": 0.026421255751818317,
+        "whole_grid_valid_fraction": 0.60594,
+        "sample_stride_cells": 2
+      },
+      "elevation_srtm_terrarium_rst": {
+        "inside_land_valid_fraction": 0.9983550975192185,
+        "outside_land_valid_fraction": 0.0247390035129385,
+        "whole_grid_valid_fraction": 0.6048,
+        "sample_stride_cells": 2
+      },
+      "geology_general_picture_code_rst": {
+        "inside_land_valid_fraction": 0.9972381034260414,
+        "outside_land_valid_fraction": 0.011920924533924964,
+        "whole_grid_valid_fraction": 0.6094167481264255,
+        "sample_stride_cells": 4
+      },
+      "geology_surficial_usgs_code_rst": {
+        "inside_land_valid_fraction": 0.9998764131883248,
+        "outside_land_valid_fraction": 0.013319977482698102,
+        "whole_grid_valid_fraction": 0.6115672857608342,
+        "sample_stride_cells": 4
+      },
+      "geophysics_magnetic_emag2_rst": {
+        "inside_land_valid_fraction": 0.9020443787975427,
+        "outside_land_valid_fraction": 0.02572856365345604,
+        "whole_grid_valid_fraction": 0.54782,
+        "sample_stride_cells": 2
+      },
+      "groundwater_water_table_fan2017_rst": {
+        "inside_land_valid_fraction": 0.9987325090445133,
+        "outside_land_valid_fraction": 0.021949620982601063,
+        "whole_grid_valid_fraction": 0.603785,
+        "sample_stride_cells": 2
+      },
+      "hazards_flood_aqueduct_rst": {
+        "inside_land_valid_fraction": 0.9968780422303535,
+        "outside_land_valid_fraction": 0.016723566374746424,
+        "whole_grid_valid_fraction": 0.60068,
+        "sample_stride_cells": 2
+      },
+      "hazards_landslide_rainfall_wb_rst": {
+        "inside_land_valid_fraction": 0.9991271946020344,
+        "outside_land_valid_fraction": 0.026421255751818317,
+        "whole_grid_valid_fraction": 0.60594,
+        "sample_stride_cells": 2
+      },
+      "population_worldpop2025_rst": {
+        "inside_land_valid_fraction": 0.9988517959967096,
+        "outside_land_valid_fraction": 0.020530669895076674,
+        "whole_grid_valid_fraction": 0.6030510204081633,
+        "sample_stride_cells": 4
+      },
+      "settlements_builtup_ghsl2020_rst": {
+        "inside_land_valid_fraction": 0.9991271946020344,
+        "outside_land_valid_fraction": 0.026421255751818317,
+        "whole_grid_valid_fraction": 0.60594,
+        "sample_stride_cells": 2
+      },
+      "soil_ph_0_5cm_isric_rst": {
+        "inside_land_valid_fraction": 0.9944274732283729,
+        "outside_land_valid_fraction": 0.02424422344267973,
+        "whole_grid_valid_fraction": 0.60226,
+        "sample_stride_cells": 2
+      }
+    },
+    "comparison_notes": [
+      "Historical picture polygons for climate, soil and population are not the same product/year as the modern rasters; their value disagreement is not used as a coordinate-failure test.",
+      "Land-mask agreement detects gross raster shifts but does not validate the physical accuracy of each cell value."
+    ],
+    "magnetic_valid_fraction_by_state": [
+      {
+        "state": "Abia",
+        "cells": 613,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Adamawa",
+        "cells": 4505,
+        "valid_fraction": 0.9982241953385128
+      },
+      {
+        "state": "Akwa Ibom",
+        "cells": 878,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Anambra",
+        "cells": 597,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Bauchi",
+        "cells": 6503,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Bayelsa",
+        "cells": 1282,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Benue",
+        "cells": 4100,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Borno",
+        "cells": 8795,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Cross River",
+        "cells": 2785,
+        "valid_fraction": 0.999640933572711
+      },
+      {
+        "state": "Delta",
+        "cells": 2167,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Ebonyi",
+        "cells": 812,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Edo",
+        "cells": 2563,
+        "valid_fraction": 0.9520093640265314
+      },
+      {
+        "state": "Ekiti",
+        "cells": 697,
+        "valid_fraction": 0.0
+      },
+      {
+        "state": "Enugu",
+        "cells": 1009,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Federal Capital Territory",
+        "cells": 968,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Gombe",
+        "cells": 2410,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Imo",
+        "cells": 695,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Jigawa",
+        "cells": 3188,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Kaduna",
+        "cells": 5853,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Kano",
+        "cells": 2663,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Katsina",
+        "cells": 3153,
+        "valid_fraction": 0.956232159847764
+      },
+      {
+        "state": "Kebbi",
+        "cells": 4774,
+        "valid_fraction": 0.7702136573104315
+      },
+      {
+        "state": "Kogi",
+        "cells": 3790,
+        "valid_fraction": 0.9266490765171504
+      },
+      {
+        "state": "Kwara",
+        "cells": 4676,
+        "valid_fraction": 0.663601368691189
+      },
+      {
+        "state": "Lagos",
+        "cells": 501,
+        "valid_fraction": 0.9141716566866267
+      },
+      {
+        "state": "Nasarawa",
+        "cells": 3451,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Niger",
+        "cells": 9357,
+        "valid_fraction": 0.9858929143956396
+      },
+      {
+        "state": "Ogun",
+        "cells": 2098,
+        "valid_fraction": 0.5986653956148713
+      },
+      {
+        "state": "Ondo",
+        "cells": 1897,
+        "valid_fraction": 0.6937269372693727
+      },
+      {
+        "state": "Osun",
+        "cells": 1199,
+        "valid_fraction": 0.05587989991659716
+      },
+      {
+        "state": "Oyo",
+        "cells": 3597,
+        "valid_fraction": 0.30442035029190995
+      },
+      {
+        "state": "Plateau",
+        "cells": 3637,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Rivers",
+        "cells": 1111,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Sokoto",
+        "cells": 4240,
+        "valid_fraction": 0.40212264150943394
+      },
+      {
+        "state": "Taraba",
+        "cells": 7911,
+        "valid_fraction": 0.993679686512451
+      },
+      {
+        "state": "Water body",
+        "cells": 690,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Yobe",
+        "cells": 6053,
+        "valid_fraction": 1.0
+      },
+      {
+        "state": "Zamfara",
+        "cells": 4588,
+        "valid_fraction": 0.9941150828247602
+      }
+    ],
+    "landslide_value_distributions": {
+      "1": {
+        "sampled_cells": 11832,
+        "p0_p25_p50_p75_p95_p100": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.007716041523963213
+        ]
+      },
+      "2": {
+        "sampled_cells": 873,
+        "p0_p25_p50_p75_p95_p100": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0015780000016093253,
+          0.01084886770695448
+        ]
+      },
+      "3": {
+        "sampled_cells": 110,
+        "p0_p25_p50_p75_p95_p100": [
+          0.0010598588269203901,
+          0.0032211572397500277,
+          0.004284951603040099,
+          0.0057989859487861395,
+          0.009301359113305806,
+          0.017048446461558342
+        ]
+      },
+      "4": {
+        "sampled_cells": 6,
+        "p0_p25_p50_p75_p95_p100": [
+          0.009073466062545776,
+          0.011107642203569412,
+          0.011789130978286266,
+          0.017824353650212288,
+          0.01982509670779109,
+          0.01982579007744789
+        ]
+      }
+    },
+    "settlement_builtup_samples": {
+      "polygon_count": 12000,
+      "valid_samples": 12000,
+      "valid_sample_fraction": 1.0,
+      "positive_builtup_fraction_among_valid": 1.0,
+      "median_builtup_m2_per_cell": 14423.1865234375
+    },
+    "population_districts_over_50000km2": [
+      {
+        "district_id": "D0451",
+        "class_name": "232,288 - 1,319,571",
+        "area_km2": 121139.862,
+        "bounds": [
+          5.376948356628418,
+          9.001184463500977,
+          11.849165916442871,
+          13.17402458190918
+        ]
+      }
+    ]
+  },
+  "named_point_containment": {
+    "groundwater_boreholes_wpdx_pt": {
+      "counts": {
+        "named": 99245,
+        "contained": 99245,
+        "exact_name_match": 95110,
+        "raw_name_mismatch": 4135,
+        "spelling_or_naming_variant": 3821,
+        "substantive_mismatch_after_fuzzy_names": 314
+      },
+      "top_substantive_mismatches": [
+        {
+          "assigned_state": "Benue",
+          "assigned_lga": "Bukuru",
+          "containing_state": "Benue",
+          "containing_lga": "Buruku",
+          "count": 259
+        },
+        {
+          "assigned_state": "Adamawa",
+          "assigned_lga": "Girie",
+          "containing_state": "Adamawa",
+          "containing_lga": "Gombi",
+          "count": 34
+        },
+        {
+          "assigned_state": "Kano",
+          "assigned_lga": "Kano",
+          "containing_state": "Kano",
+          "containing_lga": "Kano Municipal",
+          "count": 11
+        },
+        {
+          "assigned_state": "Adamawa",
+          "assigned_lga": "Gombi",
+          "containing_state": "Adamawa",
+          "containing_lga": "Girei",
+          "count": 10
+        }
+      ]
+    },
+    "settlements_places_osm_pt": {
+      "counts": {
+        "missing_attributes": 3587,
+        "named": 47643,
+        "contained": 46955,
+        "exact_name_match": 46466,
+        "no_reference_container": 688,
+        "raw_name_mismatch": 489,
+        "substantive_mismatch_after_fuzzy_names": 474,
+        "spelling_or_naming_variant": 15
+      },
+      "top_substantive_mismatches": [
+        {
+          "assigned_state": "Benue",
+          "assigned_lga": "Gwer East",
+          "containing_state": "Benue",
+          "containing_lga": "Gboko",
+          "count": 9
+        },
+        {
+          "assigned_state": "Ogun",
+          "assigned_lga": "Odeda",
+          "containing_state": "Ogun",
+          "containing_lga": "Obafemi Owode",
+          "count": 8
+        },
+        {
+          "assigned_state": "Oyo",
+          "assigned_lga": "Ibarapa Central",
+          "containing_state": "Ogun",
+          "containing_lga": "Odeda",
+          "count": 5
+        },
+        {
+          "assigned_state": "Delta",
+          "assigned_lga": "Ughelli South",
+          "containing_state": "Delta",
+          "containing_lga": "Burutu",
+          "count": 5
+        },
+        {
+          "assigned_state": "Benue",
+          "assigned_lga": "Konshisha",
+          "containing_state": "Benue",
+          "containing_lga": "Gboko",
+          "count": 5
+        },
+        {
+          "assigned_state": "Borno",
+          "assigned_lga": "Shani",
+          "containing_state": "Adamawa",
+          "containing_lga": "Shelleng",
+          "count": 5
+        },
+        {
+          "assigned_state": "Oyo",
+          "assigned_lga": "Iseyin",
+          "containing_state": "Oyo",
+          "containing_lga": "Ibarapa East",
+          "count": 4
+        },
+        {
+          "assigned_state": "Jigawa",
+          "assigned_lga": "Kazaure",
+          "containing_state": "Jigawa",
+          "containing_lga": "Babura",
+          "count": 4
+        },
+        {
+          "assigned_state": "Ogun",
+          "assigned_lga": "Ado-Odo/Ota",
+          "containing_state": "Lagos",
+          "containing_lga": "Badagry",
+          "count": 3
+        },
+        {
+          "assigned_state": "Ogun",
+          "assigned_lga": "Imeko Afon",
+          "containing_state": "Ogun",
+          "containing_lga": "Abeokuta North",
+          "count": 3
+        },
+        {
+          "assigned_state": "Lagos",
+          "assigned_lga": "Ojo",
+          "containing_state": "Lagos",
+          "containing_lga": "Amuwo-Odofin",
+          "count": 3
+        },
+        {
+          "assigned_state": "Oyo",
+          "assigned_lga": "Oyo West",
+          "containing_state": "Oyo",
+          "containing_lga": "Atiba",
+          "count": 3
+        },
+        {
+          "assigned_state": "Ogun",
+          "assigned_lga": "Odogbolu",
+          "containing_state": "Ogun",
+          "containing_lga": "Ijebu Ode",
+          "count": 3
+        },
+        {
+          "assigned_state": "Oyo",
+          "assigned_lga": "Akinyele",
+          "containing_state": "Osun",
+          "containing_lga": "Iwo",
+          "count": 3
+        },
+        {
+          "assigned_state": "Ogun",
+          "assigned_lga": "Ijebu East",
+          "containing_state": "Lagos",
+          "containing_lga": "Epe",
+          "count": 3
+        },
+        {
+          "assigned_state": "Osun",
+          "assigned_lga": "Isokan",
+          "containing_state": "Osun",
+          "containing_lga": "Ayedaade",
+          "count": 3
+        },
+        {
+          "assigned_state": "Kwara",
+          "assigned_lga": "Asa",
+          "containing_state": "Oyo",
+          "containing_lga": "Ori Ire",
+          "count": 3
+        },
+        {
+          "assigned_state": "Oyo",
+          "assigned_lga": "Ori Ire",
+          "containing_state": "Kwara",
+          "containing_lga": "Asa",
+          "count": 3
+        },
+        {
+          "assigned_state": "Oyo",
+          "assigned_lga": "Ogbomosho North",
+          "containing_state": "Oyo",
+          "containing_lga": "Surulere",
+          "count": 3
+        },
+        {
+          "assigned_state": "Osun",
+          "assigned_lga": "Odo-Otin",
+          "containing_state": "Osun",
+          "containing_lga": "Ifelodun",
+          "count": 3
+        },
+        {
+          "assigned_state": "Ondo",
+          "assigned_lga": "Irele",
+          "containing_state": "Ondo",
+          "containing_lga": "Ese Odo",
+          "count": 3
+        },
+        {
+          "assigned_state": "Sokoto",
+          "assigned_lga": "Yabo",
+          "containing_state": "Sokoto",
+          "containing_lga": "Shagari",
+          "count": 3
+        },
+        {
+          "assigned_state": "Ekiti",
+          "assigned_lga": "Irepodun/Ifelodun",
+          "containing_state": "Ekiti",
+          "containing_lga": "Ado-Ekiti",
+          "count": 3
+        },
+        {
+          "assigned_state": "Sokoto",
+          "assigned_lga": "Rabah",
+          "containing_state": "Sokoto",
+          "containing_lga": "Kware",
+          "count": 3
+        },
+        {
+          "assigned_state": "Sokoto",
+          "assigned_lga": "Dange/Shuni",
+          "containing_state": "Sokoto",
+          "containing_lga": "Tureta",
+          "count": 3
+        },
+        {
+          "assigned_state": "Edo",
+          "assigned_lga": "Esan Central",
+          "containing_state": "Edo",
+          "containing_lga": "Esan West",
+          "count": 3
+        },
+        {
+          "assigned_state": "Delta",
+          "assigned_lga": "Ika North East",
+          "containing_state": "Delta",
+          "containing_lga": "Aniocha North",
+          "count": 3
+        },
+        {
+          "assigned_state": "Zamfara",
+          "assigned_lga": "Kaura Namoda",
+          "containing_state": "Zamfara",
+          "containing_lga": "Bungudu",
+          "count": 3
+        },
+        {
+          "assigned_state": "Rivers",
+          "assigned_lga": "Emohua",
+          "containing_state": "Rivers",
+          "containing_lga": "Ikwerre",
+          "count": 3
+        },
+        {
+          "assigned_state": "Enugu",
+          "assigned_lga": "Udi",
+          "containing_state": "Enugu",
+          "containing_lga": "Ezeagu",
+          "count": 3
+        }
+      ]
+    },
+    "settlements_gazetteer_diva_pt": {
+      "counts": {
+        "named": 42973,
+        "no_reference_container": 402,
+        "contained": 42571,
+        "exact_name_match": 42132,
+        "missing_attributes": 48,
+        "raw_name_mismatch": 439,
+        "substantive_mismatch_after_fuzzy_names": 420,
+        "spelling_or_naming_variant": 19
+      },
+      "top_substantive_mismatches": [
+        {
+          "assigned_state": "Benue",
+          "assigned_lga": "Gwer East",
+          "containing_state": "Benue",
+          "containing_lga": "Gboko",
+          "count": 11
+        },
+        {
+          "assigned_state": "Ogun",
+          "assigned_lga": "Odeda",
+          "containing_state": "Ogun",
+          "containing_lga": "Obafemi Owode",
+          "count": 8
+        },
+        {
+          "assigned_state": "Benue",
+          "assigned_lga": "Konshisha",
+          "containing_state": "Benue",
+          "containing_lga": "Gboko",
+          "count": 7
+        },
+        {
+          "assigned_state": "Niger",
+          "assigned_lga": "Rafi",
+          "containing_state": "Niger",
+          "containing_lga": "Shiroro",
+          "count": 5
+        },
+        {
+          "assigned_state": "Zamfara",
+          "assigned_lga": "Maru",
+          "containing_state": "Kaduna",
+          "containing_lga": "Birnin Gwari",
+          "count": 5
+        },
+        {
+          "assigned_state": "Oyo",
+          "assigned_lga": "Ibarapa Central",
+          "containing_state": "Ogun",
+          "containing_lga": "Odeda",
+          "count": 5
+        },
+        {
+          "assigned_state": "Jigawa",
+          "assigned_lga": "Kazaure",
+          "containing_state": "Jigawa",
+          "containing_lga": "Babura",
+          "count": 4
+        },
+        {
+          "assigned_state": "Zamfara",
+          "assigned_lga": "Kaura Namoda",
+          "containing_state": "Zamfara",
+          "containing_lga": "Birnin Magaji/Kiyaw",
+          "count": 4
+        },
+        {
+          "assigned_state": "Oyo",
+          "assigned_lga": "Iseyin",
+          "containing_state": "Oyo",
+          "containing_lga": "Ibarapa East",
+          "count": 4
+        },
+        {
+          "assigned_state": "Edo",
+          "assigned_lga": "Orhionmwon",
+          "containing_state": "Delta",
+          "containing_lga": "Ethiope East",
+          "count": 4
+        },
+        {
+          "assigned_state": "Taraba",
+          "assigned_lga": "Kurmi",
+          "containing_state": "Taraba",
+          "containing_lga": "Gashaka",
+          "count": 4
+        },
+        {
+          "assigned_state": "Adamawa",
+          "assigned_lga": "Numan",
+          "containing_state": "Adamawa",
+          "containing_lga": "Demsa",
+          "count": 3
+        },
+        {
+          "assigned_state": "Borno",
+          "assigned_lga": "Marte",
+          "containing_state": "Water body",
+          "containing_lga": "Lake Chad",
+          "count": 3
+        },
+        {
+          "assigned_state": "Gombe",
+          "assigned_lga": "Nafada",
+          "containing_state": "Gombe",
+          "containing_lga": "Funakaye",
+          "count": 3
+        },
+        {
+          "assigned_state": "Lagos",
+          "assigned_lga": "Lagos Island",
+          "containing_state": "Lagos",
+          "containing_lga": "Ikorodu",
+          "count": 3
+        },
+        {
+          "assigned_state": "Zamfara",
+          "assigned_lga": "Birnin Magaji/Kiyaw",
+          "containing_state": "Zamfara",
+          "containing_lga": "Kaura Namoda",
+          "count": 3
+        },
+        {
+          "assigned_state": "Oyo",
+          "assigned_lga": "Ogbomosho North",
+          "containing_state": "Oyo",
+          "containing_lga": "Surulere",
+          "count": 3
+        },
+        {
+          "assigned_state": "Sokoto",
+          "assigned_lga": "Wamako",
+          "containing_state": "Sokoto",
+          "containing_lga": "Dange/Shuni",
+          "count": 3
+        },
+        {
+          "assigned_state": "Abia",
+          "assigned_lga": "Isuikwuato",
+          "containing_state": "Abia",
+          "containing_lga": "Bende",
+          "count": 3
+        },
+        {
+          "assigned_state": "Oyo",
+          "assigned_lga": "Ori Ire",
+          "containing_state": "Kwara",
+          "containing_lga": "Asa",
+          "count": 3
+        },
+        {
+          "assigned_state": "Osun",
+          "assigned_lga": "Isokan",
+          "containing_state": "Osun",
+          "containing_lga": "Ayedaade",
+          "count": 3
+        },
+        {
+          "assigned_state": "Ogun",
+          "assigned_lga": "Imeko Afon",
+          "containing_state": "Ogun",
+          "containing_lga": "Abeokuta North",
+          "count": 3
+        },
+        {
+          "assigned_state": "Ogun",
+          "assigned_lga": "Odogbolu",
+          "containing_state": "Ogun",
+          "containing_lga": "Ijebu Ode",
+          "count": 3
+        },
+        {
+          "assigned_state": "Enugu",
+          "assigned_lga": "Udi",
+          "containing_state": "Enugu",
+          "containing_lga": "Ezeagu",
+          "count": 3
+        },
+        {
+          "assigned_state": "Enugu",
+          "assigned_lga": "Awgu",
+          "containing_state": "Enugu",
+          "containing_lga": "Aninri",
+          "count": 3
+        },
+        {
+          "assigned_state": "Adamawa",
+          "assigned_lga": "Numan",
+          "containing_state": "Adamawa",
+          "containing_lga": "Lamurde",
+          "count": 3
+        },
+        {
+          "assigned_state": "Ondo",
+          "assigned_lga": "Odigbo",
+          "containing_state": "Ogun",
+          "containing_lga": "Ogun Waterside",
+          "count": 3
+        },
+        {
+          "assigned_state": "Kwara",
+          "assigned_lga": "Asa",
+          "containing_state": "Oyo",
+          "containing_lga": "Ori Ire",
+          "count": 3
+        },
+        {
+          "assigned_state": "Sokoto",
+          "assigned_lga": "Tambuwal",
+          "containing_state": "Sokoto",
+          "containing_lga": "Kebbe",
+          "count": 3
+        },
+        {
+          "assigned_state": "Niger",
+          "assigned_lga": "Paikoro",
+          "containing_state": "Niger",
+          "containing_lga": "Gurara",
+          "count": 3
+        }
+      ]
+    },
+    "infrastructure_airports_osm_pt": {
+      "counts": {
+        "named": 1571,
+        "contained": 1569,
+        "exact_name_match": 1559,
+        "raw_name_mismatch": 10,
+        "substantive_mismatch_after_fuzzy_names": 10,
+        "no_reference_container": 2
+      },
+      "top_substantive_mismatches": [
+        {
+          "assigned_state": "Rivers",
+          "assigned_lga": null,
+          "containing_state": "Bayelsa",
+          "containing_lga": null,
+          "count": 6
+        },
+        {
+          "assigned_state": "Kwara",
+          "assigned_lga": null,
+          "containing_state": "Niger",
+          "containing_lga": null,
+          "count": 2
+        },
+        {
+          "assigned_state": "Federal Capital Territory",
+          "assigned_lga": null,
+          "containing_state": "Nasarawa",
+          "containing_lga": null,
+          "count": 1
+        },
+        {
+          "assigned_state": "Delta",
+          "assigned_lga": null,
+          "containing_state": "Ondo",
+          "containing_lga": null,
+          "count": 1
+        }
+      ]
+    },
+    "infrastructure_pois_osm_pt": {
+      "counts": {
+        "named": 60411,
+        "no_reference_container": 580,
+        "contained": 59831,
+        "exact_name_match": 58365,
+        "raw_name_mismatch": 1466,
+        "substantive_mismatch_after_fuzzy_names": 1466,
+        "missing_attributes": 79
+      },
+      "top_substantive_mismatches": [
+        {
+          "assigned_state": "Ogun",
+          "assigned_lga": null,
+          "containing_state": "Lagos",
+          "containing_lga": null,
+          "count": 166
+        },
+        {
+          "assigned_state": "Federal Capital Territory",
+          "assigned_lga": null,
+          "containing_state": "Nasarawa",
+          "containing_lga": null,
+          "count": 111
+        },
+        {
+          "assigned_state": "Jigawa",
+          "assigned_lga": null,
+          "containing_state": "Yobe",
+          "containing_lga": null,
+          "count": 109
+        },
+        {
+          "assigned_state": "Kano",
+          "assigned_lga": null,
+          "containing_state": "Jigawa",
+          "containing_lga": null,
+          "count": 83
+        },
+        {
+          "assigned_state": "Borno",
+          "assigned_lga": null,
+          "containing_state": "Water body",
+          "containing_lga": null,
+          "count": 81
+        },
+        {
+          "assigned_state": "Plateau",
+          "assigned_lga": null,
+          "containing_state": "Nasarawa",
+          "containing_lga": null,
+          "count": 79
+        },
+        {
+          "assigned_state": "Benue",
+          "assigned_lga": null,
+          "containing_state": "Kogi",
+          "containing_lga": null,
+          "count": 68
+        },
+        {
+          "assigned_state": "Rivers",
+          "assigned_lga": null,
+          "containing_state": "Imo",
+          "containing_lga": null,
+          "count": 66
+        },
+        {
+          "assigned_state": "Oyo",
+          "assigned_lga": null,
+          "containing_state": "Kwara",
+          "containing_lga": null,
+          "count": 62
+        },
+        {
+          "assigned_state": "Bauchi",
+          "assigned_lga": null,
+          "containing_state": "Jigawa",
+          "containing_lga": null,
+          "count": 56
+        },
+        {
+          "assigned_state": "Rivers",
+          "assigned_lga": null,
+          "containing_state": "Bayelsa",
+          "containing_lga": null,
+          "count": 50
+        },
+        {
+          "assigned_state": "Ogun",
+          "assigned_lga": null,
+          "containing_state": "Oyo",
+          "containing_lga": null,
+          "count": 45
+        },
+        {
+          "assigned_state": "Delta",
+          "assigned_lga": null,
+          "containing_state": "Bayelsa",
+          "containing_lga": null,
+          "count": 35
+        },
+        {
+          "assigned_state": "Nasarawa",
+          "assigned_lga": null,
+          "containing_state": "Benue",
+          "containing_lga": null,
+          "count": 33
+        },
+        {
+          "assigned_state": "Bayelsa",
+          "assigned_lga": null,
+          "containing_state": "Rivers",
+          "containing_lga": null,
+          "count": 28
+        },
+        {
+          "assigned_state": "Ondo",
+          "assigned_lga": null,
+          "containing_state": "Osun",
+          "containing_lga": null,
+          "count": 28
+        },
+        {
+          "assigned_state": "Jigawa",
+          "assigned_lga": null,
+          "containing_state": "Kano",
+          "containing_lga": null,
+          "count": 27
+        },
+        {
+          "assigned_state": "Borno",
+          "assigned_lga": null,
+          "containing_state": "Gombe",
+          "containing_lga": null,
+          "count": 26
+        },
+        {
+          "assigned_state": "Adamawa",
+          "assigned_lga": null,
+          "containing_state": "Borno",
+          "containing_lga": null,
+          "count": 26
+        },
+        {
+          "assigned_state": "Cross River",
+          "assigned_lga": null,
+          "containing_state": "Benue",
+          "containing_lga": null,
+          "count": 22
+        },
+        {
+          "assigned_state": "Ogun",
+          "assigned_lga": null,
+          "containing_state": "Ondo",
+          "containing_lga": null,
+          "count": 22
+        },
+        {
+          "assigned_state": "Adamawa",
+          "assigned_lga": null,
+          "containing_state": "Gombe",
+          "containing_lga": null,
+          "count": 14
+        },
+        {
+          "assigned_state": "Kano",
+          "assigned_lga": null,
+          "containing_state": "Kaduna",
+          "containing_lga": null,
+          "count": 13
+        },
+        {
+          "assigned_state": "Borno",
+          "assigned_lga": null,
+          "containing_state": "Yobe",
+          "containing_lga": null,
+          "count": 12
+        },
+        {
+          "assigned_state": "Imo",
+          "assigned_lga": null,
+          "containing_state": "Abia",
+          "containing_lga": null,
+          "count": 10
+        },
+        {
+          "assigned_state": "Borno",
+          "assigned_lga": null,
+          "containing_state": "Adamawa",
+          "containing_lga": null,
+          "count": 10
+        },
+        {
+          "assigned_state": "Bauchi",
+          "assigned_lga": null,
+          "containing_state": "Plateau",
+          "containing_lga": null,
+          "count": 10
+        },
+        {
+          "assigned_state": "Benue",
+          "assigned_lga": null,
+          "containing_state": "Nasarawa",
+          "containing_lga": null,
+          "count": 9
+        },
+        {
+          "assigned_state": "Sokoto",
+          "assigned_lga": null,
+          "containing_state": "Kebbi",
+          "containing_lga": null,
+          "count": 9
+        },
+        {
+          "assigned_state": "Niger",
+          "assigned_lga": null,
+          "containing_state": "Federal Capital Territory",
+          "containing_lga": null,
+          "count": 9
+        }
+      ]
+    }
+  },
+  "point_outlier_classifications": {
+    "expected offshore measurement": 36,
+    "expected marine/coastal extraction context": 3,
+    "expected neighbouring-country extraction context": 3104,
+    "expected Lake Chad/coastal port context": 38,
+    "expected marine/cross-border gazetteer context": 10,
+    "map content in neighbouring country; not a Nigerian coordinate shift": 6,
+    "probable scanned-map legend artefact; review": 1
+  },
+  "crs": {
+    "declarations": [
+      {
+        "srs_id": 4326,
+        "srs_metadata": [
+          "WGS 84 geodetic",
+          "EPSG",
+          4326
+        ],
+        "spatial_layer_count": 98
+      }
+    ],
+    "contents_geometry_srs_mismatches": []
+  }
+}

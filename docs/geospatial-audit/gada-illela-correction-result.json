@@ -1,0 +1,102 @@
+{
+  "applied_at": "2026-11-08T07:14:54.283038+00:00",
+  "before_sha256": {
+    "admin_lgas_gadm_pg": "d9d09da55abb3de1601e3da3a833963b0c136edf4b4d20ff4c1264f6927493f8",
+    "admin_lga_centroids_pt": "993e700d15f36fd122b0d0fa9ea5553a97f16ba9d7bebe2a1459991a64c6b147",
+    "admin_wards_pt": "b61b24d2dfa075c3d59eada114d1fb39bfeb1dcff6ecb7427237fddd6f31457b",
+    "groundwater_boreholes_wpdx_pt": "dc912c1f19930230896e8e925fdb5c2e479f790422b9fb09598d85487ededeaf",
+    "settlements_gazetteer_diva_pt": "482609e097d4f2217ad1f014f27984431a8185f50131c88ed4fc67fd85a0d790",
+    "settlements_places_osm_pt": "685943334314fa61c8bbe27d52fc445cad2ac6095b801c77a2a12f0cbe7a8ef0",
+    "settlements_towns_map2023_pt": "b0495b9511bfdb777a0db1d0b422c19b160bdec2e2d6ee01b292039cc8e3fef8"
+  },
+  "after_sha256": {
+    "admin_lgas_gadm_pg": "51dc9673f0c4f0a9c01b562a16e4225f26919691279437d44e6e61b25587c5a9",
+    "admin_lga_centroids_pt": "b1c9ee1dca49c993d1539c99a2d562cfbdaa1fcfb531eefbcc5e6a5ecdfa3f31",
+    "admin_wards_pt": "97065ca02cf64444cdb5e265e48de4fd462e08c904a37b9fc8999f3f75aca534",
+    "groundwater_boreholes_wpdx_pt": "37cbf566c1ad868012927d32e2156e168b478021ae112c3120e5bf37f1cfd128",
+    "settlements_gazetteer_diva_pt": "fcf664e6d7522f60173812297f413219c2a68e95c83e33d79af8af2c202949ff",
+    "settlements_places_osm_pt": "670e72c17d6a2b6f1fdd44e2c5902a4aee5565764c79d76f78affbc125eee920",
+    "settlements_towns_map2023_pt": "3fc93c87244347e290a1638119ef11c50548a2dc4d43a1ab46b7ac2c14b6bea0"
+  },
+  "provenance": {
+    "admin_lgas_gadm_pg": {
+      "path": "data/Administrative boundaries/hidden_admin_lgas_gadm_identity_original_pg.gpkg",
+      "table": "admin_lgas_gadm_identity_original_pg",
+      "sha256": "013a9c64e87288dac46b55f08d4b378f95192f6c07d8b375308da5d7d66625d7"
+    },
+    "admin_lga_centroids_pt": {
+      "path": "data/Administrative boundaries/hidden_admin_lga_centroids_identity_original_pt.gpkg",
+      "table": "admin_lga_centroids_identity_original_pt",
+      "sha256": "e2bbfca294bbebe6f31ae901aad1c00d29334bbc933052295f043d333cfee0d9"
+    }
+  },
+  "ledger_sha256": "eb953d4bdff2dec9771774c3119d1f4a74c47f22b2e8efba3f713bae07e77a49",
+  "verification_sha256": "5803b377a85fc3c9630076bf6bdbf5861594be9f0a90cab851b8a76003a49837",
+  "counts": {
+    "polygon_identities": 2,
+    "centroid_identities": 2,
+    "ward_distances": 22,
+    "derived_joins": 575,
+    "total": 601
+  },
+  "post_correction": {
+    "polygon_identities": {
+      "708": "Illela",
+      "712": "Gada"
+    },
+    "ward_containment": {
+      "Gada": 11,
+      "Illela": 10
+    },
+    "ward_distances_km": {
+      "8105": 13.7,
+      "8106": 10.5,
+      "8107": 18.8,
+      "8108": 22.9,
+      "8109": 14.8,
+      "8110": 6.8,
+      "8111": 0.6,
+      "8112": 16.9,
+      "8113": 8.8,
+      "8114": 18.9,
+      "8115": 17.1,
+      "8148": 9.0,
+      "8149": 17.5,
+      "8150": 10.6,
+      "8151": 19.7,
+      "8152": 15.3,
+      "8153": 8.2,
+      "8154": 4.9,
+      "8155": 9.6,
+      "8156": 16.6,
+      "8157": 17.0,
+      "8158": 7.9
+    },
+    "ward_distance_range_km": [
+      0.6,
+      22.9
+    ],
+    "national_ward_exceptions": 40,
+    "reciprocal_gada_illela_exceptions": 0,
+    "darna_sabon_gari": {
+      "assigned_lga": "Illela",
+      "containing_lga": "Gwadabawa",
+      "distance_to_corrected_illela_km": 0.24204866496460706
+    },
+    "visible_derived_joins": 476,
+    "all_601_ledger_rows_rechecked": true,
+    "all_ledger_geometry_hashes_unchanged": true,
+    "kiri_14680_unchanged_illela": true
+  },
+  "checks": {
+    "seven_source_hashes_verified": true,
+    "two_hidden_originals_verified": true,
+    "all_601_ledger_rows_rechecked": true,
+    "zero_geometry_changes": true,
+    "official_wards_and_distances_verified": true,
+    "gada_11_and_illela_10_containment": true,
+    "darna_residual_retained": true,
+    "visible_derived_joins_476": true,
+    "kiri_unchanged": true
+  }
+}

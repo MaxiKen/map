@@ -1,0 +1,23 @@
+agreement_fraction,class,dominant_codes,expected_code,raster,sampled_cells,vector
+0.9874320880811578,Quaternary alluvium / Mesozoic (mostly Cretaceous) sediments,1:102688; 6:1177; 2:41; 8:36; 4:34,1,geology_general_picture_code_rst,103995,geology_general_picture_pg
+0.9862262262262262,"Neogene (- Paleogene) sands, clays, lignites",2:24631; 6:288; 8:24; 7:21; 1:6,2,geology_general_picture_code_rst,24975,geology_general_picture_pg
+0.9825730394669401,Cenozoic volcanics,3:1917; 6:18; 7:8; 8:8,3,geology_general_picture_code_rst,1951,geology_general_picture_pg
+0.9276218611521418,Basic and intermediate intrusions,4:628; 6:36; 8:8; 5:3; 1:2,4,geology_general_picture_code_rst,677,geology_general_picture_pg
+0.9742969458723919,"Jurassic granites, syenites, gabbros, rhyolites",5:3222; 8:35; 6:27; 7:23,5,geology_general_picture_code_rst,3307,geology_general_picture_pg
+0.9804659780808956,"Metasediments, schists, quartzites",6:49741; 8:633; 1:194; 7:107; 2:29,6,geology_general_picture_code_rst,50732,geology_general_picture_pg
+0.9843568271691091,Older granites,7:16927; 8:246; 6:20; 2:2; 5:1,7,geology_general_picture_code_rst,17196,geology_general_picture_pg
+0.9920106008710072,Basement complex,8:128015; 7:528; 6:325; 5:137; 3:24,8,geology_general_picture_code_rst,129046,geology_general_picture_pg
+0.9968053865283878,pCm,44:150709; 12:172; 16:95; 39:84; 17:80,44,geology_surficial_usgs_code_rst,151192,geology_surficial_usgs_pg
+0.9926527031472749,K,12:54312; 30:116; 16:96; 37:62; 44:50,12,geology_surficial_usgs_code_rst,54714,geology_surficial_usgs_pg
+0.9980001797591228,Q,28:44415; 44:25; 12:20; 7:18; 37:15,28,geology_surficial_usgs_code_rst,44504,geology_surficial_usgs_pg
+0.9947085737020092,T,37:25002; 12:31; 29:30; 28:15; 31:14,37,geology_surficial_usgs_code_rst,25135,geology_surficial_usgs_pg
+0.9838314296145622,Qe,30:18863; 7:97; 12:81; 29:48; 37:28,30,geology_surficial_usgs_code_rst,19173,geology_surficial_usgs_pg
+0.9902019767941556,Kl,16:11521; 12:54; 30:34; 44:17; 7:3,16,geology_surficial_usgs_code_rst,11635,geology_surficial_usgs_pg
+0.991902358878066,QT,29:8452; 30:41; 31:14; 37:13; 7:1,29,geology_surficial_usgs_code_rst,8521,geology_surficial_usgs_pg
+0.981850376272687,Qp,31:4436; 37:43; 12:26; 29:5; 30:5,31,geology_surficial_usgs_code_rst,4518,geology_surficial_usgs_pg
+0.9808816914080072,H2O,7:4361; 30:76; 44:4; 12:3; 29:1,7,geology_surficial_usgs_code_rst,4446,geology_surficial_usgs_pg
+0.9939884997386305,Ti,39:3803; 44:17; 16:3; 12:2; 28:1,39,geology_surficial_usgs_code_rst,3826,geology_surficial_usgs_pg
+0.9928539526574364,Mi,17:2223; 44:15; 39:1,17,geology_surficial_usgs_code_rst,2239,geology_surficial_usgs_pg
+0.917687408133268,SEA,34:1873; 30:164; 29:4,34,geology_surficial_usgs_code_rst,2041,geology_surficial_usgs_pg
+0.9913269731136166,TK,38:1143; 37:7; 28:2; 16:1,38,geology_surficial_usgs_code_rst,1153,geology_surficial_usgs_pg
+1.0,MzPz,20:78,20,geology_surficial_usgs_code_rst,78,geology_surficial_usgs_pg
