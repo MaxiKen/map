@@ -262,6 +262,18 @@ file absence, JSON and GeoJSON parsing, CSV structure, PNG integrity, and exact 
 agreement. The regression suite additionally verifies correction evidence and hashes, source/public geometry
 agreement, source metadata, precision fallbacks, and every published geometry.
 
+With Node.js 22.17 or newer, the real-Chromium suite adds browser interactions, gzip-worker loading, offline reload,
+service-worker deployment updates, and desktop/mobile visual comparisons without external tiles or a browser CDN:
+
+```bash
+npm ci
+npm run test:browser
+```
+
+See [browser, offline and visual-regression testing](docs/browser-testing.md) for focused commands, snapshot update
+procedures, deterministic network/font setup, and failure traces. Node packages are development-only and are not used
+by the published static application.
+
 The reviewed state-capital correction is complete: 32 scanned-map positions were replaced individually with OSM
 city/town nodes and five corroborated gazetteer positions were retained. The original is hidden as
 `settlements_state_capitals_map2023_original_pt`; previous coordinates and QA remain in the visible attributes.

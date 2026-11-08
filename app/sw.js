@@ -8,7 +8,13 @@ const SHELL_FILES = ['./', 'index.html', 'css/app.css' + V, 'js/app.js' + V, 'js
                      'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(SHELL).then((c) => c.addAll(SHELL_FILES)).catch(() => {}).then(() => self.skipWaiting()));
+  // The first catalog request precedes controllerchange, so cache it explicitly for a
+  // first-visit offline reload. Keep it in DATA: later network-first refreshes replace
+  // this same entry and cannot be shadowed by an older shell-cache copy.
+  e.waitUntil(Promise.all([
+    caches.open(SHELL).then((c) => c.addAll(SHELL_FILES)),
+    caches.open(DATA).then((c) => c.addAll(['catalog.json'])),
+  ]).catch(() => {}).then(() => self.skipWaiting()));
 });
 self.addEventListener('message', (e) => {
   if (e.data === 'skip-waiting') self.skipWaiting();

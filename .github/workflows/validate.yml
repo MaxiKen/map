@@ -44,3 +44,26 @@ jobs:
 
       - name: Run full regression suite
         run: python -m unittest discover -s tests -v
+
+      - name: Set up Node.js for real-browser tests
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22.22.3'
+          cache: npm
+
+      - name: Install pinned browser-test dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run Chromium, offline and visual-regression tests
+        run: npm run test:browser
+
+      - name: Upload browser failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-diagnostics
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7

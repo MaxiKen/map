@@ -1,6 +1,6 @@
 // Service worker: app shell works offline; data and catalog are network-first (so GitHub refreshes show up),
 // with the last good copy used when offline. Map tiles are cached as you browse.
-const BUILD = 'cdb2545ab0';
+const BUILD = '3dc50b5988';
 const V = '?v=' + BUILD;                       // the build stamps the same version on every shell URL
 const SHELL = `nwg-shell-${BUILD}`, DATA = `nwg-data-${BUILD}`, TILES = 'nwg-tiles-v1';
 const SHELL_FILES = ['./', 'index.html', 'css/app.css' + V, 'js/app.js' + V, 'js/engine.js' + V,
@@ -8,7 +8,13 @@ const SHELL_FILES = ['./', 'index.html', 'css/app.css' + V, 'js/app.js' + V, 'js
                      'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(SHELL).then((c) => c.addAll(SHELL_FILES)).catch(() => {}).then(() => self.skipWaiting()));
+  // The first catalog request precedes controllerchange, so cache it explicitly for a
+  // first-visit offline reload. Keep it in DATA: later network-first refreshes replace
+  // this same entry and cannot be shadowed by an older shell-cache copy.
+  e.waitUntil(Promise.all([
+    caches.open(SHELL).then((c) => c.addAll(SHELL_FILES)),
+    caches.open(DATA).then((c) => c.addAll(['catalog.json'])),
+  ]).catch(() => {}).then(() => self.skipWaiting()));
 });
 self.addEventListener('message', (e) => {
   if (e.data === 'skip-waiting') self.skipWaiting();

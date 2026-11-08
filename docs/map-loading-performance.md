@@ -8,7 +8,8 @@ The map remains dependency-free and lazy-loads layers only when needed. Loading 
 2. **Worker parsing and conversion.** `js/vector-worker.js` fetches and decompresses GeoJSON, parses JSON,
    converts coordinates to Web Mercator and allocates typed geometry arrays away from the UI thread. Coordinate
    buffers transfer back without another copy. Styling and feature indices use the same `prepareFeature`
-   implementation as the fallback path.
+   implementation as the fallback path. Catalog paths are converted to absolute application-root URLs before they
+   are sent to the worker, because worker-relative `data/…` URLs would otherwise resolve below `/js/`.
 3. **Bounded, deduplicated loads.** `js/loading.js` permits two layer loads at once across startup, raster/image
    loading, bulk activation and author tools. Repeated calls for the same layer share one in-flight promise.
    "Show all" refreshes the full layer panel once after loading instead of rebuilding it for every layer.
@@ -53,3 +54,10 @@ python -m unittest discover -s tests -v
 
 `tests/js_loading_test.mjs` additionally executes scheduler and worker tests under Node.js when available,
 including gzip and uncompressed parsing, styling, typed-array transfer, HTTP failures and queue recovery.
+`tests/browser/loading.spec.mjs` verifies the actual Chromium worker/network path, including the absolute data URL
+and single-style legend; see [browser testing](browser-testing.md).
+
+For offline use, service-worker installation pre-caches `catalog.json` in the data cache as well as the versioned
+shell. This covers a first-visit reload, whose initial catalog request happened before the worker controlled the
+page. Later network-first responses replace that same data-cache entry. The browser suite performs a real offline
+reload and verifies cached catalog, gzip worker data and register bytes with server request counts.

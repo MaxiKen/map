@@ -1,4 +1,10 @@
 __pycache__/
 *.pyc
+
+# Development-only Node/browser-test dependencies and generated reports
+node_modules/
+test-results/
+playwright-report/
+blob-report/
 .venv/
 .DS_Store

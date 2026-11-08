@@ -162,10 +162,14 @@ async function start() {
 function setupServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   if (!(location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) return;
-  const hadController = !!navigator.serviceWorker.controller;   // false on the very first visit
+  let hadController = !!navigator.serviceWorker.controller;     // false on the very first visit
   let reloading = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!hadController || reloading) return;                    // a first install must not reload the page
+    if (reloading) return;
+    if (!hadController) {                                      // a first install must not reload the page
+      hadController = true;                                    // a later update in this same visit still must
+      return;
+    }
     reloading = true;
     saveProject();
     toast('New version — reloading…', 1600);
@@ -281,9 +285,13 @@ function workerVectorFeatures(m) {
       reject(new Error('Vector worker unavailable'));
     };
     const compressed = m.loadEncoding === 'gzip' && m.loadFile && typeof DecompressionStream !== 'undefined';
+    // Worker fetches resolve against /js/vector-worker.js, not the document. Anchor catalog
+    // paths at the application root so /js is never incorrectly prefixed to /data.
+    const applicationRoot = new URL('../', import.meta.url);
+    const dataUrl = new URL(compressed ? m.loadFile : m.file, applicationRoot).href;
     try {
       worker.postMessage({
-        url: compressed ? m.loadFile : m.file,
+        url: dataUrl,
         encoding: compressed ? 'gzip' : null,
         style: m.style,
       });
