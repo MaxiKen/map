@@ -178,6 +178,25 @@ exception CSVs to `docs/geospatial-audit/`. The audit never shifts or repairs so
 Read the [current audit report](docs/geospatial-audit/README.md) and its limitations before treating any layer as
 ground truth. In particular, visual overlap and a shared EPSG code are not proof of correct absolute coordinates.
 
+### Automated CI validation
+
+The [Validate geospatial data and site workflow](.github/workflows/validate.yml) runs on pull requests to `main`,
+pushes to `main`, and manual dispatch. It compiles the Python sources, checks every GeoPackage and generated audit or
+public artifact, and runs the full regression suite with a read-only repository token.
+
+Run the same checks locally from the repository root:
+
+```bash
+python -m pip install -r scripts/requirements.txt
+python -m compileall -q scripts tests
+python scripts/validate_artifacts.py
+python -m unittest discover -s tests -v
+```
+
+`validate_artifacts.py` is read-only. It checks SQLite integrity, source/audit/public inventory consistency, staging
+file absence, JSON and GeoJSON parsing, CSV structure, and PNG integrity. The regression suite additionally verifies
+correction evidence and hashes, source/public geometry agreement, precision fallbacks, and every published geometry.
+
 The reviewed state-capital correction is complete: 32 scanned-map positions were replaced individually with OSM
 city/town nodes and five corroborated gazetteer positions were retained. The original is hidden as
 `settlements_state_capitals_map2023_original_pt`; previous coordinates and QA remain in the visible attributes.
