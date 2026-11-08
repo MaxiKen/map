@@ -161,6 +161,15 @@ class ReleasePackageTests(unittest.TestCase):
             package(root, '1.2.3', root / 'dist', 'b' * 40)
 
 
+class WorkflowGuardTests(unittest.TestCase):
+    def test_mutable_push_fetches_only_run_on_main(self):
+        guard = "if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'"
+        for filename in ('fetch-layers.yml', 'fetch-final-layers.yml', 'fetch-geology-layers.yml'):
+            with self.subTest(workflow=filename):
+                text = (ROOT / '.github/workflows' / filename).read_text(encoding='utf8')
+                self.assertIn(guard, text)
+
+
 class ReleaseUtilityTests(unittest.TestCase):
     def test_version_and_public_build_validation(self):
         self.assertEqual(numeric_version('v0.0.0'), '0.0.0')

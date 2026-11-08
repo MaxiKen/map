@@ -12,6 +12,9 @@ permissions:
   contents: write
 jobs:
   fetch:
+    # Mutable source refreshes belong only to deliberate main changes or manual dispatch.
+    # Pull-request branch pushes and release tags must never fetch and commit data.
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
