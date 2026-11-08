@@ -43,7 +43,7 @@ from make_raster_gpkg import write_raster  # noqa: E402
 from data_paths import layer_path  # noqa: E402
 from fetch_layers import (  # noqa: E402
     BBOX, WEST, SOUTH, EAST, NORTH, NODATA, TMP,
-    download, unzip, asset, to_grid, write_vec,
+    download, unzip, asset, to_grid, write_vec, nigeria_mask,
 )
 
 DATA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
@@ -284,11 +284,19 @@ def magnetic_anomaly():
         print(f'  remote window failed ({e}); downloading full GeoTIFF', flush=True)
         path = download(EMAG2_TIF, os.path.join(TMP, 'emag2.tif'))
     a = to_grid(path, 500, 400, Resampling.average, src_nodata=-99999.0)
-    valid = a != NODATA
+    valid = (a != NODATA) & np.isfinite(a)
     if valid.sum() == 0:
         raise RuntimeError('EMAG2 produced an empty Nigeria grid')
-    print(f'  EMAG2 valid {valid.mean():.1%}, range '
+    land = nigeria_mask(a.shape[1], a.shape[0])
+    land_coverage = float(valid[land].mean())
+    print(f'  EMAG2 valid {valid.mean():.1%} of grid, {land_coverage:.1%} of land mask, range '
           f'[{a[valid].min():.1f}, {a[valid].max():.1f}] nT', flush=True)
+    if land_coverage < 0.98:
+        raise RuntimeError(
+            f'EMAG2 land coverage is only {land_coverage:.1%}; refusing to publish an '
+            'unlabelled national raster. Verify the source window and nodata handling, or '
+            'make a separate evidence-documented partial-coverage classification. '
+            'Do not interpolate missing magnetic values.')
     out = layer_path(DATA, 'geophysics_magnetic_emag2_rst')
     write_raster(out, 'geophysics_magnetic_emag2_rst', a, BBOX,
                  uom='nanoTesla', field='MagneticAnomaly',

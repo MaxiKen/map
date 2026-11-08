@@ -37,6 +37,9 @@ REQUIRED_AUDIT_FILES = (
     'ward-lga-review-verification.json',
     'ward-lga-correction-result.json',
     'ward-lga-review.md',
+    'magnetic-coverage-reclassification-verification.json',
+    'magnetic-coverage-reclassification-result.json',
+    'magnetic-coverage-reclassification.md',
 )
 
 

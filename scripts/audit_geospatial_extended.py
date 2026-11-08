@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import io
 import json
 import sqlite3
@@ -571,6 +572,19 @@ def crs_checks():
             'contents_geometry_srs_mismatches': mismatches}
 
 
+def magnetic_reclassification_is_current(result, raster):
+    if not result or result.get('status') != 'reclassified_and_verified':
+        return False
+    path = layer_index()['geophysics_magnetic_emag2_rst']['path']
+    return bool(
+        all(result.get('checks', {}).values()) and
+        hashlib.sha256(path.read_bytes()).hexdigest() == result.get('after_sha256') and
+        result['classification'] == 'partial_coverage_no_interpolation' and
+        result['coverage']['sampled_land']['valid_fraction'] ==
+        raster['land_masks']['geophysics_magnetic_emag2_rst']['inside_land_valid_fraction'] and
+        'partial coverage' in result['visible_label'].lower())
+
+
 def make_layer_review(core, raster, class_rows, named):
     """Return an explicit disposition for every spatial layer, not only exceptions."""
     rows = []
@@ -588,6 +602,10 @@ def make_layer_review(core, raster, class_rows, named):
         all(residual_result['checks'].values()) and
         residual_result['post_correction']['residual_exception_count'] ==
         core['administrative']['wards']['outside_named_lga'])
+    magnetic_result_path = ROOT / 'docs/geospatial-audit/magnetic-coverage-reclassification-result.json'
+    magnetic_result = (json.loads(magnetic_result_path.read_text(encoding='utf8'))
+                       if magnetic_result_path.exists() else None)
+    magnetic_disclosed = magnetic_reclassification_is_current(magnetic_result, raster)
     for table, meta in sorted(layer_index().items()):
         is_topology_provenance = table.endswith('_topology_original')
         is_identity_provenance = table.endswith('_identity_original_pg') or table.endswith('_identity_original_pt')
@@ -638,8 +656,14 @@ def make_layer_review(core, raster, class_rows, named):
                 action = 'Verify official LGA identities and rebuild derived joins; do not translate wards'
                 evidence.append('reciprocal containment and independent towns')
         if table == 'geophysics_magnetic_emag2_rst':
-            issues.append('incomplete valid-cell coverage')
-            action = 'Refetch/rebuild or describe explicitly as partial coverage'
+            fraction = raster['land_masks'][table]['inside_land_valid_fraction']
+            issues.append(f'partial valid-cell coverage ({fraction:.1%} of sampled land cells)')
+            if magnetic_disclosed:
+                action = ('Partial-coverage classification completed; retain the explicit label and NoData gaps; '
+                          'do not interpolate; a future source rebuild must pass the 98% land-coverage gate')
+                evidence.append('metadata-only reclassification; tile bytes, logical array and public assets unchanged')
+            else:
+                action = 'Refetch/rebuild or describe explicitly as partial coverage'
             evidence.append('valid cells by state')
         if table == 'settlements_towns_map2023_pt':
             issues.append('hidden “Tow ns” legend artefact in Cameroon')
@@ -691,9 +715,13 @@ def make_layer_review(core, raster, class_rows, named):
         if is_identity_provenance:
             scope = ('Pre-Gada/Illela-identity-correction source retained only for audit provenance; '
                      'its old labels are not current administration.')
+        if table == 'geophysics_magnetic_emag2_rst' and magnetic_disclosed:
+            scope = ('Explicit partial-coverage product; missing cells remain NoData and are not '
+                     'continuous national coverage or evidence of a coordinate shift.')
         if scope:
             evidence.append(scope)
         disposition = (
+            'Scope limitation disclosed' if table == 'geophysics_magnetic_emag2_rst' and magnetic_disclosed else
             'Reviewed with exceptions' if table == 'admin_wards_pt' and residual_reviewed else
             'Action required' if table in (
                 'admin_lgas_gadm_pg', 'admin_lga_centroids_pt', 'admin_wards_pt') and not gada_result else
@@ -931,7 +959,7 @@ def make_figures(out, capital_rows, ward_rows):
 
 def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, raster,
                 class_rows, named, outliers, crs, topology_correction=None, gada_correction=None,
-                residual_correction=None):
+                residual_correction=None, magnetic_reclassification=None):
     osm = capital['summary']['osm']
     diva = capital['summary']['diva']
     grey = next((v for k, v in capital['by_position_basis'].items() if 'grey square' in k), None)
@@ -979,6 +1007,7 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
         all(residual_correction['checks'].values()) and
         ward_summary.get('individual_review_complete') and
         ward_summary['total_outside_assigned_lga'] == 37)
+    magnetic_resolved = magnetic_reclassification_is_current(magnetic_reclassification, raster)
     if gada_resolved:
         gada_verification_path = ROOT / 'docs/geospatial-audit/gada-illela-verification.json'
         gada_verification = json.loads(gada_verification_path.read_text(encoding='utf8'))
@@ -1077,6 +1106,53 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
         ]
     else:
         residual_details = []
+    magnetic_fraction = raster['land_masks']['geophysics_magnetic_emag2_rst']['inside_land_valid_fraction']
+    magnetic_state_text = (
+        f'Ekiti {next(r for r in magnetic if r["state"] == "Ekiti")["valid_fraction"]:.1%}, '
+        f'Osun {next(r for r in magnetic if r["state"] == "Osun")["valid_fraction"]:.1%}, '
+        f'Oyo {next(r for r in magnetic if r["state"] == "Oyo")["valid_fraction"]:.1%}, and '
+        f'Sokoto {next(r for r in magnetic if r["state"] == "Sokoto")["valid_fraction"]:.1%}')
+    if magnetic_resolved:
+        full_cell = magnetic_reclassification['coverage']['full_cell_land']
+        magnetic_executive = (
+            f'4. **The magnetic raster is transparently classified as partial coverage.** '
+            f'{magnetic_fraction:.1%} of sampled land cells are valid; {magnetic_state_text}. '
+            'The visible label and source description disclose the limitation. Missing cells remain '
+            'NoData, and no magnetic values were interpolated or shifted.')
+        magnetic_details = [
+            '### B2 — Disclosed scope limitation: EMAG2 partial coverage', '',
+            '- Valid magnetic cells follow the same national grid, so this is not a misregistration '
+            'finding. Whole or large parts of states have no values; those gaps remain explicitly NoData.',
+            f'- **Two coverage denominators are retained:** the published stride-two sample is '
+            f'**{magnetic_fraction:.1%}**, while the independent full-cell calculation is '
+            f'**{full_cell["valid_fraction"]:.1%}** ({full_cell["valid_cells"]:,} of '
+            f'{full_cell["cells"]:,} land cells). They are not contradictory measurements.',
+            f'- **Transparent reclassification:** the visible name is '
+            f'“{magnetic_reclassification["visible_label"]}”. The GeoPackage description begins '
+            '“PARTIAL NIGERIA COVERAGE” and lists the state gaps and no-interpolation rule.',
+            '- **Preservation:** only `gpkg_contents.description` and `last_change` changed. Tile '
+            'bytes, the logical float32 array, every other table and the public PNG/value-grid assets '
+            'are hash-verified unchanged. No scientific values were fabricated.',
+            '- **Future rebuild control:** the EMAG2 fetch path now rejects output below 98% land '
+            'coverage instead of silently publishing it as nationally complete. A verified complete '
+            'source-window rebuild may replace the partial derivative as a separate evidence-led change.',
+            '- **Evidence:** `magnetic-coverage-reclassification-verification.json`, '
+            '`magnetic-coverage-reclassification-result.json`, '
+            '`magnetic-coverage-reclassification.md` and `raster-coverage-by-state.csv`.',
+        ]
+    else:
+        magnetic_executive = (
+            '4. **The visible magnetic raster has real completeness gaps.** '
+            f'Only {magnetic_fraction:.1%} of sampled land cells are valid. {magnetic_state_text}. '
+            'This is missing source/derived data, not evidence that valid cells are shifted.')
+        magnetic_details = [
+            '### B2 — Medium: EMAG2 coverage is incomplete', '',
+            '- Valid magnetic cells follow the same national grid, so this is not a misregistration '
+            'finding. The problem is that whole or large parts of states have no values.',
+            '- **Action:** refetch/rebuild from a verified complete EMAG2 window or replace the '
+            'product. Until then, describe the layer as partial coverage rather than continuous national coverage.',
+            '- **Evidence:** `raster-coverage-by-state.csv`.',
+        ]
     topology_resolved = bool(
         topology_correction and topology['total_invalid'] == 0 and
         topology['provenance_invalid'] == topology_correction['repair_count'] and
@@ -1251,7 +1327,23 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             '**Recommended next step:** preserve all correction and 40-case review provenance. Seek new '
             'authoritative evidence before changing the two suspect coordinates or Kwambai; otherwise '
             'address magnetic coverage and hidden-source artefacts independently.')
+    if magnetic_resolved and residual_resolved:
+        correction_note = (
+            'Only the documented capital, reviewed polygon-topology, Gada/Illela identity, three '
+            'evidence-gated residual LGA attribute corrections and metadata-only magnetic '
+            'partial-coverage reclassification were applied. Hidden artefacts remain a separate task; '
+            'the 37 reviewed ward exceptions are documented, not forced into containment. No blanket '
+            'translation, ward movement, geometry replacement, magnetic infilling or hidden-artefact '
+            'deletion was performed.')
+        next_step = (
+            '**Recommended next step:** preserve all correction, 40-case review and magnetic '
+            'reclassification provenance. Address hidden-source artefacts independently. Replace the '
+            'partial magnetic derivative only with a verified source rebuild that passes the coverage '
+            'gate; never infer missing magnetic values by interpolation.')
     executive_status = (
+        'The capital, polygon-topology, Gada/Illela identity and residual ward/LGA reviews plus the '
+        'magnetic partial-coverage disclosure are complete; hidden-source issues still require separate treatment:'
+        if magnetic_resolved and residual_resolved else
         'The capital, polygon-topology, Gada/Illela identity and residual ward/LGA reviews are complete; '
         'magnetic coverage and hidden-source issues still require separate treatment:'
         if residual_resolved else
@@ -1275,13 +1367,7 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
         capital_executive,
         admin_executive,
         topology_executive,
-        '4. **The visible magnetic raster has real completeness gaps.** '
-        f'Only {raster["land_masks"]["geophysics_magnetic_emag2_rst"]["inside_land_valid_fraction"]:.1%} of sampled land cells are valid. '
-        f'Ekiti has {next(r for r in magnetic if r["state"]=="Ekiti")["valid_fraction"]:.1%} coverage, '
-        f'Osun {next(r for r in magnetic if r["state"]=="Osun")["valid_fraction"]:.1%}, '
-        f'Oyo {next(r for r in magnetic if r["state"]=="Oyo")["valid_fraction"]:.1%}, and '
-        f'Sokoto {next(r for r in magnetic if r["state"]=="Sokoto")["valid_fraction"]:.1%}. '
-        'This is missing source/derived data, not evidence that valid cells are shifted.',
+        magnetic_executive,
         '', correction_note,
         '', '## Prioritized findings', '',
         *capital_details,
@@ -1292,10 +1378,7 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
         '',
         *topology_details,
         '',
-        '### B2 — Medium: EMAG2 coverage is incomplete', '',
-        '- Valid magnetic cells follow the same national grid, so this is not a misregistration finding. The problem is that whole or large parts of states have no values.',
-        '- **Action:** refetch/rebuild from a verified complete EMAG2 window or replace the product. Until then, describe the layer as partial coverage rather than continuous national coverage.',
-        '- **Evidence:** `raster-coverage-by-state.csv`.',
+        *magnetic_details,
         '',
         '### C — Hidden/source-data issues and scope qualifications', '',
         '- Hidden `settlements_towns_map2023_pt` includes a point named **“Tow ns”** at 12.434389 E, 5.750015 N, 139.50 km from Nigerian land in Cameroon. Its name and 15.8 pt label distance indicate a likely scanned-map legend artefact. It is hidden and not published, but should be removed or corrected in the source workflow.',
@@ -1313,7 +1396,7 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
         f'- **0 null geometries, 0 empty geometries, 0 non-finite coordinates and 0 out-of-range longitude/latitude geometries** across {len(core["vectors"])} vector layers.',
         f'- **{topology["total_invalid"]} active invalid geometries.** Hidden topology provenance separately retains **{topology["provenance_invalid"]}** historical invalid originals; those copies are not current production data.',
         '- Every computed vector extent agrees with its declared GeoPackage extent to better than 0.001°. All 16 raster/image tile matrices have positive pixel sizes, decodable tiles and bounds consistent with their contents metadata.',
-        f'- Excluding the incomplete magnetic product, sampled valid-data coverage inside Nigerian land is **{min(land_values):.1%}–{max(land_values):.1%}** across the other 12 numeric rasters; outside-land valid fractions are low edge effects. This confirms tile-grid and clipping-mask registration, but is not by itself proof of every cell value’s absolute accuracy.',
+        f'- Excluding the explicitly partial magnetic product, sampled valid-data coverage inside Nigerian land is **{min(land_values):.1%}–{max(land_values):.1%}** across the other 12 numeric rasters; outside-land valid fractions are low edge effects. This confirms tile-grid and clipping-mask registration, but is not by itself proof of every cell value’s absolute accuracy.',
         '',
         '### Exact raster/vector classification pairs', '',
         '| Raster / vector pair | Classes | Agreement range | Interpretation |',
@@ -1356,6 +1439,10 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
            'for boundary corroboration. Independent disagreements remain visible; no external geometry was '
            'substituted and no ward coordinate was moved.'
            ] if residual_resolved else []),
+        *(['- EMAG2 remains a partial derivative despite its global source product name. The 90.2% '
+           'sampled / 90.1% full-cell figures describe data presence, not scientific accuracy. NoData '
+           'must not be interpreted as zero nanoTesla or filled by spatial interpolation.'
+           ] if magnetic_resolved else []),
         '', '## Reproduction and evidence files', '',
         '```bash',
         'python -m pip install -r scripts/requirements.txt',
@@ -1379,6 +1466,11 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
            '`ward-lga-review.md`, `ward-lga-exceptions-before-residual-review.csv` and '
            '`references/ward-lga-review-sources.md` preserve the human review and source limitations.'
            ] if residual_resolved else []),
+        *(['- `magnetic-coverage-reclassification-verification.json` / '
+           '`magnetic-coverage-reclassification-result.json` / '
+           '`magnetic-coverage-reclassification.md`: explicit partial-coverage decision, full-cell '
+           'and sampled coverage, state register, before/after metadata and unchanged-data hashes.'
+           ] if magnetic_resolved else []),
         '- `topology-correction-ledger.csv` / `topology-correction-verification.json` / `topology-correction-result.json`: all 191 feature repairs, four explicit review dispositions, before/after areas and bounds, source/provenance hashes and post-apply checks.',
         '- `topology-exceptions.csv`: current active exceptions; `topology-exceptions-before.csv` preserves all 191 original defects and GEOS reasons.',
         '- `raster-class-agreement.csv`: all 22 exact geology class checks; `raster-class-agreement-before-topology.csv` preserves the pre-repair baseline.',
@@ -1440,6 +1532,10 @@ def main():
     residual_correction_path = out / 'ward-lga-correction-result.json'
     residual_correction = (json.loads(residual_correction_path.read_text(encoding='utf8'))
                            if residual_correction_path.exists() else None)
+    magnetic_reclassification_path = out / 'magnetic-coverage-reclassification-result.json'
+    magnetic_reclassification = (
+        json.loads(magnetic_reclassification_path.read_text(encoding='utf8'))
+        if magnetic_reclassification_path.exists() else None)
 
     extended = {
         'source_commit': core['source_commit'], 'capital_cross_source': capital,
@@ -1447,6 +1543,7 @@ def main():
         'topology_correction': topology_correction,
         'gada_illela_correction': gada_correction,
         'residual_ward_lga_correction': residual_correction,
+        'magnetic_coverage_reclassification': magnetic_reclassification,
         'raster_registration': raster, 'named_point_containment': named,
         'point_outlier_classifications': dict(Counter(r['classification'] for r in outliers)),
         'crs': crs,
@@ -1455,7 +1552,7 @@ def main():
         json.dumps(extended, indent=2, ensure_ascii=False) + '\n', encoding='utf8')
     report = make_report(core, capital, cap_rows, ward_summary, ward_rows, topology,
                          raster, class_rows, named, outliers, crs, topology_correction,
-                         gada_correction, residual_correction)
+                         gada_correction, residual_correction, magnetic_reclassification)
     (out / 'README.md').write_text(report, encoding='utf8')
     print(f'Wrote extended audit and professional report to {out}', flush=True)
 

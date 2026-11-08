@@ -1,20 +1,20 @@
 # Professional geospatial alignment and plausibility audit
 
-Audited source commit: `31a5d4c8bbe648b424ae25dd84b2e8a1b5596d3d`
+Audited source commit: `3a1ad98d54d0d60c35f4231181b967c724b58b51`
 Scope: **all 98 GeoPackages — 82 vector layers, 13 numeric rasters and 3 georeferenced image overlays; visible and hidden data included.**
 
 See `layer-review.md` for the explicit disposition and evidence level of every layer.
 
 ## Executive conclusion
 
-**The layers must not receive a blanket “all aligned” certification.** The audit found no evidence of a repository-wide CRS error, latitude/longitude swap, null-island coordinates or a single national translation. Most layers pass structural and gross-registration checks, and several independent pairs align strongly. The capital, polygon-topology, Gada/Illela identity and residual ward/LGA reviews are complete; magnetic coverage and hidden-source issues still require separate treatment:
+**The layers must not receive a blanket “all aligned” certification.** The audit found no evidence of a repository-wide CRS error, latitude/longitude swap, null-island coordinates or a single national translation. Most layers pass structural and gross-registration checks, and several independent pairs align strongly. The capital, polygon-topology, Gada/Illela identity and residual ward/LGA reviews plus the magnetic partial-coverage disclosure are complete; hidden-source issues still require separate treatment:
 
 1. **The state-capital correction is complete and reproducible.** 32 scanned-map positions were replaced individually with reviewed OSM city/town nodes and 5 corroborated gazetteer positions were retained. Strict held-out DIVA validation across 30 eligible matches gives median **1.244 km**, p95 **4.918 km** and maximum **5.272 km**; all 37 outputs also pass named-state containment. Other findings remain open.
 2. **The Gada/Illela reciprocal identity conflict is resolved without moving geometry.** All 11 Gada wards and 10 of 11 Illela wards now fall inside their corrected named polygons; 21 former reciprocal exceptions are resolved. Darna/Sabon Gari remains a separate Gwadabawa exception 0.242 km outside corrected Illela. No ward, polygon, centroid or derived-feature geometry was changed. The follow-on 40-case residual review is also complete: three LGA attributes were corrected and 37 evidence-documented exceptions remain, with zero ward geometry changes.
 3. **The reviewed polygon-topology correction is complete with zero active invalid geometries.** All 191 former exceptions across 16 layers are valid MultiPolygons. 5,635 untargeted geometry blobs and every attribute are unchanged; 191 invalid originals remain only in hidden provenance.
-4. **The visible magnetic raster has real completeness gaps.** Only 90.2% of sampled land cells are valid. Ekiti has 0.0% coverage, Osun 5.6%, Oyo 30.4%, and Sokoto 40.2%. This is missing source/derived data, not evidence that valid cells are shifted.
+4. **The magnetic raster is transparently classified as partial coverage.** 90.2% of sampled land cells are valid; Ekiti 0.0%, Osun 5.6%, Oyo 30.4%, and Sokoto 40.2%. The visible label and source description disclose the limitation. Missing cells remain NoData, and no magnetic values were interpolated or shifted.
 
-Only the documented capital, reviewed polygon-topology, Gada/Illela identity and three evidence-gated residual LGA attribute corrections were applied. Magnetic coverage and hidden artefacts remain separate tasks; the 37 reviewed ward exceptions are documented, not forced into containment. No blanket translation, ward movement, geometry replacement, magnetic infilling or hidden-artefact deletion was performed.
+Only the documented capital, reviewed polygon-topology, Gada/Illela identity, three evidence-gated residual LGA attribute corrections and metadata-only magnetic partial-coverage reclassification were applied. Hidden artefacts remain a separate task; the 37 reviewed ward exceptions are documented, not forced into containment. No blanket translation, ward movement, geometry replacement, magnetic infilling or hidden-artefact deletion was performed.
 
 ## Prioritized findings
 
@@ -58,11 +58,14 @@ Only the documented capital, reviewed polygon-topology, Gada/Illela identity and
 - **Provenance:** 16 full source copies are hidden as `*_topology_original`; their 191 invalid geometries are historical evidence and excluded from active-defect counts. `topology-correction-ledger.csv`, `topology-correction-verification.json` and `topology-correction-result.json` record every feature, review, area, bounds delta and hash.
 - **Evidence:** `topology-exceptions-before.csv` preserves the original 191 exceptions; `topology-exceptions.csv` is the now-empty active exception register. `raster-class-agreement-before-topology.csv` preserves the pre-repair raster baseline; `topology-reviewed-cases.png` shows all four reviewed before/after dispositions.
 
-### B2 — Medium: EMAG2 coverage is incomplete
+### B2 — Disclosed scope limitation: EMAG2 partial coverage
 
-- Valid magnetic cells follow the same national grid, so this is not a misregistration finding. The problem is that whole or large parts of states have no values.
-- **Action:** refetch/rebuild from a verified complete EMAG2 window or replace the product. Until then, describe the layer as partial coverage rather than continuous national coverage.
-- **Evidence:** `raster-coverage-by-state.csv`.
+- Valid magnetic cells follow the same national grid, so this is not a misregistration finding. Whole or large parts of states have no values; those gaps remain explicitly NoData.
+- **Two coverage denominators are retained:** the published stride-two sample is **90.2%**, while the independent full-cell calculation is **90.1%** (107,357 of 119,116 land cells). They are not contradictory measurements.
+- **Transparent reclassification:** the visible name is “Magnetic anomaly (EMAG2 v2, partial coverage)”. The GeoPackage description begins “PARTIAL NIGERIA COVERAGE” and lists the state gaps and no-interpolation rule.
+- **Preservation:** only `gpkg_contents.description` and `last_change` changed. Tile bytes, the logical float32 array, every other table and the public PNG/value-grid assets are hash-verified unchanged. No scientific values were fabricated.
+- **Future rebuild control:** the EMAG2 fetch path now rejects output below 98% land coverage instead of silently publishing it as nationally complete. A verified complete source-window rebuild may replace the partial derivative as a separate evidence-led change.
+- **Evidence:** `magnetic-coverage-reclassification-verification.json`, `magnetic-coverage-reclassification-result.json`, `magnetic-coverage-reclassification.md` and `raster-coverage-by-state.csv`.
 
 ### C — Hidden/source-data issues and scope qualifications
 
@@ -80,7 +83,7 @@ Only the documented capital, reviewed polygon-topology, Gada/Illela identity and
 - **0 null geometries, 0 empty geometries, 0 non-finite coordinates and 0 out-of-range longitude/latitude geometries** across 82 vector layers.
 - **0 active invalid geometries.** Hidden topology provenance separately retains **191** historical invalid originals; those copies are not current production data.
 - Every computed vector extent agrees with its declared GeoPackage extent to better than 0.001°. All 16 raster/image tile matrices have positive pixel sizes, decodable tiles and bounds consistent with their contents metadata.
-- Excluding the incomplete magnetic product, sampled valid-data coverage inside Nigerian land is **99.4%–100.0%** across the other 12 numeric rasters; outside-land valid fractions are low edge effects. This confirms tile-grid and clipping-mask registration, but is not by itself proof of every cell value’s absolute accuracy.
+- Excluding the explicitly partial magnetic product, sampled valid-data coverage inside Nigerian land is **99.4%–100.0%** across the other 12 numeric rasters; outside-land valid fractions are low edge effects. This confirms tile-grid and clipping-mask registration, but is not by itself proof of every cell value’s absolute accuracy.
 
 ### Exact raster/vector classification pairs
 
@@ -117,6 +120,7 @@ Only the documented capital, reviewed polygon-topology, Gada/Illela identity and
 - Historical picture polygons for climate, soil pH and population are different products/years from the modern rasters. Their numeric disagreement was not misused as a coordinate test.
 - INEC controls ward-to-LGA assignments and ward names; its directory is not a legal polygon survey. The ArcGIS reference provides independent identity corroboration, but its simplified two-feature extract was not used as replacement geometry or relabelled as an official GRID3 product.
 - The residual review uses INEC for assignment and 40 independent point-intersection responses for boundary corroboration. Independent disagreements remain visible; no external geometry was substituted and no ward coordinate was moved.
+- EMAG2 remains a partial derivative despite its global source product name. The 90.2% sampled / 90.1% full-cell figures describe data presence, not scientific accuracy. NoData must not be interpreted as zero nanoTesla or filled by spatial interpolation.
 
 ## Reproduction and evidence files
 
@@ -134,10 +138,11 @@ python scripts/audit_geospatial_extended.py
 - `ward-lga-exceptions.csv` and `sokoto-gada-illela.png`: all 37 current assigned-LGA exceptions and the current Sokoto evidence.
 - `gada-illela-correction-ledger.csv` / `gada-illela-verification.json` / `gada-illela-correction-result.json`: official controls, independent identity direction, all 601 attribute-only decisions, before/after source and provenance hashes and post-apply checks. `references/` documents the exact two-feature boundary response and source limitations.
 - `ward-lga-review-ledger.csv` / `ward-lga-review-verification.json` / `ward-lga-correction-result.json`: all 40 individual dispositions, three attribute-only corrections, official and independent evidence, before/after hashes and post-apply checks. `ward-lga-review.md`, `ward-lga-exceptions-before-residual-review.csv` and `references/ward-lga-review-sources.md` preserve the human review and source limitations.
+- `magnetic-coverage-reclassification-verification.json` / `magnetic-coverage-reclassification-result.json` / `magnetic-coverage-reclassification.md`: explicit partial-coverage decision, full-cell and sampled coverage, state register, before/after metadata and unchanged-data hashes.
 - `topology-correction-ledger.csv` / `topology-correction-verification.json` / `topology-correction-result.json`: all 191 feature repairs, four explicit review dispositions, before/after areas and bounds, source/provenance hashes and post-apply checks.
 - `topology-exceptions.csv`: current active exceptions; `topology-exceptions-before.csv` preserves all 191 original defects and GEOS reasons.
 - `raster-class-agreement.csv`: all 22 exact geology class checks; `raster-class-agreement-before-topology.csv` preserves the pre-repair baseline.
 - `raster-coverage-by-state.csv`: magnetic valid-cell fraction by state.
 - `point-outliers-classified.csv`: offshore/neighbouring-country/review interpretation for every point over 10 km from land.
 
-**Recommended next step:** preserve all correction and 40-case review provenance. Seek new authoritative evidence before changing the two suspect coordinates or Kwambai; otherwise address magnetic coverage and hidden-source artefacts independently.
+**Recommended next step:** preserve all correction, 40-case review and magnetic reclassification provenance. Address hidden-source artefacts independently. Replace the partial magnetic derivative only with a verified source rebuild that passes the coverage gate; never infer missing magnetic values by interpolation.
