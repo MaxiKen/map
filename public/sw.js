@@ -1,6 +1,6 @@
 // Service worker: app shell works offline; data and catalog are network-first (so GitHub refreshes show up),
 // with the last good copy used when offline. Map tiles are cached as you browse.
-const BUILD = '1542587428';
+const BUILD = '9b40d19a7b';
 const V = '?v=' + BUILD;                       // the build stamps the same version on every shell URL
 const SHELL = `nwg-shell-${BUILD}`, DATA = `nwg-data-${BUILD}`, TILES = 'nwg-tiles-v1';
 const SHELL_FILES = ['./', 'index.html', 'css/app.css' + V, 'js/app.js' + V, 'js/engine.js' + V,

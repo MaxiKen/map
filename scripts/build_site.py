@@ -19,6 +19,8 @@ import numpy as np
 from PIL import Image
 from shapely.geometry import shape
 
+from cross_border_policy import catalog_policy, load_policy, public_metadata, resolve_layer
+
 Image.MAX_IMAGE_PIXELS = None
 MAX_IMG = 2800        # longest side of a raster / picture overlay (pixels)
 MAX_VAL = 1400        # longest side of the value grid used for click-to-read values
@@ -610,6 +612,7 @@ def main():
     t0 = time.time()
     config = json.load(open(a.config, encoding='utf8')) if os.path.exists(a.config) else {}
     lcfg = config.get('layers', {})
+    cross_border = load_policy()
     try:
         discovered = discover_geopackages(a.data)
     except ValueError as e:
@@ -638,6 +641,9 @@ def main():
             row = {'id': lid, 'table': table, 'source': os.path.relpath(path, a.data).replace('\\', '/'),
                    'group': group_name,
                    'label': cfg.get('label') or label_from_name(table), 'description': desc or ''}
+            if dtype != 'attributes':
+                row['crossBorder'] = public_metadata(resolve_layer(
+                    table, visible=True, kind=dtype, policy=cross_border))
             try:
                 if dtype == 'features':
                     gc, gt = gcols[table]
@@ -667,6 +673,7 @@ def main():
         groups.setdefault(name, {'id': name, 'label': name, 'order': gl.get(name, {}).get('order', 100)})
     cat = {'title': config.get('app', {}).get('title', 'Nigeria WebGIS'), 'center': config.get('app', {}).get('center', [8.7, 9.1]),
            'zoom': config.get('app', {}).get('zoom', 5.4), 'basemap': config.get('app', {}).get('basemap', 'light'),
+           'crossBorderPolicy': catalog_policy(cross_border),
            'built': time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime()), 'groups': sorted(groups.values(), key=lambda g: (g['order'], g['label'])),
            'layers': sorted(layers, key=lambda l: (l.get('order', 100), l['group'], l['label']))}
     blob = json.dumps(cat, separators=(',', ':'), ensure_ascii=False)

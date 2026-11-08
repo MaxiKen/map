@@ -15,6 +15,8 @@ from pathlib import Path
 
 from PIL import Image
 
+import cross_border_policy as cross_border
+
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / 'data'
 AUDIT = ROOT / 'docs' / 'geospatial-audit'
@@ -47,6 +49,7 @@ REQUIRED_AUDIT_FILES = (
     'admin-identifier-verification.json',
     'admin-identifier-result.json',
     'admin-identifier-resolution.md',
+    'cross-border-policy-register.csv',
 )
 IDENTIFIER_DOC_FILES = (
     'README.md',
@@ -152,11 +155,13 @@ def validate_geopackages() -> tuple[list[Path], dict[str, dict]]:
         require(spatial_rows, f'{relative(path)}: no spatial layers registered in gpkg_contents')
         for table, kind in spatial_rows:
             require(table not in layers, f'Duplicate spatial table {table!r} in {relative(path)}')
-            layers[table] = {'path': path, 'kind': kind}
+            layers[table] = {
+                'path': path, 'kind': kind, 'visible': not path.name.startswith('hidden_'),
+            }
     return paths, layers
 
 
-def validate_inventory(paths: list[Path], layers: dict[str, dict]) -> None:
+def validate_inventory(paths: list[Path], layers: dict[str, dict]) -> tuple[dict, dict]:
     audit_path = AUDIT / 'audit.json'
     audit = read_json(audit_path)
     relative_paths = {relative(path) for path in paths}
@@ -186,6 +191,45 @@ def validate_inventory(paths: list[Path], layers: dict[str, dict]) -> None:
         if published_file:
             require((PUBLIC / published_file).is_file(),
                     f'public/catalog.json: missing file for {layer_id}: {published_file}')
+    return audit, catalog
+
+
+def validate_cross_border_policy(layers: dict[str, dict], audit: dict, catalog: dict) -> None:
+    try:
+        policy = cross_border.load_policy()
+        cross_border.validate_inventory(layers, policy)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        raise ValidationError(f'Invalid cross-border policy: {exc}') from exc
+
+    expected_summary = cross_border.policy_summary(layers, policy)
+    require(audit.get('cross_border_policy') == expected_summary,
+            'audit.json: cross-border policy summary is stale or incomplete')
+    for table, meta in layers.items():
+        collection = audit['vectors'] if meta['kind'] == 'features' else audit['rasters']
+        expected = cross_border.resolve_layer(
+            table, visible=meta['visible'], kind=meta['kind'], policy=policy)
+        require(collection[table].get('cross_border_policy') == expected,
+                f'audit.json: stale cross-border rule for {table}')
+
+    register_path = AUDIT / 'cross-border-policy-register.csv'
+    with register_path.open(encoding='utf8', newline='') as handle:
+        actual_rows = list(csv.DictReader(handle))
+    expected_rows = [
+        {key: str(value) for key, value in row.items()}
+        for row in cross_border.register_rows(layers, policy)
+    ]
+    require(actual_rows == expected_rows,
+            'cross-border-policy-register.csv: inventory or rules differ from config/data')
+
+    require(catalog.get('crossBorderPolicy') == cross_border.catalog_policy(policy),
+            'public/catalog.json: missing or stale crossBorderPolicy definitions')
+    for layer in catalog['layers']:
+        table = layer['table']
+        meta = layers[table]
+        expected = cross_border.public_metadata(cross_border.resolve_layer(
+            table, visible=True, kind=meta['kind'], policy=policy))
+        require(layer.get('crossBorder') == expected,
+                f'public/catalog.json: missing or stale crossBorder rule for {table}')
 
 
 def main() -> None:
@@ -197,7 +241,8 @@ def main() -> None:
     require((PUBLIC / 'catalog.json').is_file(), 'public/catalog.json is missing')
 
     paths, layers = validate_geopackages()
-    validate_inventory(paths, layers)
+    audit, catalog = validate_inventory(paths, layers)
+    validate_cross_border_policy(layers, audit, catalog)
 
     audit_structured = sorted(path for path in AUDIT.rglob('*')
                               if path.suffix in ('.json', '.geojson'))

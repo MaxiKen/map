@@ -31,6 +31,7 @@ from audit_geospatial import (
     natural_earth_nigeria, nigeria_reference, norm, percentile, shapely_metric,
 )
 import build_site
+from cross_border_policy import load_policy, resolve_layer
 
 
 def write_csv(path, rows, fieldnames=None):
@@ -626,6 +627,26 @@ def admin_identifiers_are_current(result):
     return True
 
 
+def cross_border_policy_is_current(core):
+    try:
+        policy = load_policy()
+        summary = core.get('cross_border_policy', {})
+        if (summary.get('policy_id') != policy['policy_id'] or
+                summary.get('policy_sha256') != policy['_sha256'] or
+                summary.get('layer_count') != len(layer_index()) or
+                not summary.get('all_sources_preserved_unclipped')):
+            return False
+        for table, meta in layer_index().items():
+            collection = core['vectors'] if meta['kind'] == 'features' else core['rasters']
+            expected = resolve_layer(
+                table, visible=meta['visible'], kind=meta['kind'], policy=policy)
+            if collection[table].get('cross_border_policy') != expected:
+                return False
+        return (ROOT / 'docs/geospatial-audit/cross-border-policy-register.csv').is_file()
+    except (KeyError, OSError, ValueError):
+        return False
+
+
 def make_layer_review(core, raster, class_rows, named):
     """Return an explicit disposition for every spatial layer, not only exceptions."""
     rows = []
@@ -661,6 +682,15 @@ def make_layer_review(core, raster, class_rows, named):
         issues = []
         evidence = []
         action = 'None indicated by the applicable checks'
+        policy_rule = resolve_layer(
+            table, visible=meta['visible'], kind=meta['kind'])
+        if policy_rule['scope_class'] != 'nigeria_focused':
+            evidence.append(
+                f'ngmap-cross-border-v1: {policy_rule["scope_class"]}; '
+                f'{policy_rule["national_statistics"]}')
+            if action == 'None indicated by the applicable checks':
+                action = ('Preserve the unclipped source and apply the cross-border policy before '
+                          'Nigeria-only aggregation')
         if table == 'settlements_state_capitals_map2023_pt':
             action = ('Correction completed: retain the 37-row ledger and hidden original; '
                       'do not apply a blanket translation')
@@ -1309,6 +1339,43 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             '6. **Stable administrative identifiers still need installation.** Names and source-row '
             'numbers remain the only cross-layer administrative join keys.')
         identifier_details = []
+    cross_border_defined = cross_border_policy_is_current(core)
+    if cross_border_defined:
+        policy_summary = core['cross_border_policy']
+        class_counts = ', '.join(
+            f'{name} {count}' for name, count in policy_summary['class_counts'].items())
+        cross_border_executive = (
+            f'7. **A cross-border data policy governs all {layer_count} spatial layers.** '
+            '`ngmap-cross-border-v1` preserves complete sources, distinguishes foreign/marine context '
+            'from Nigerian administration, and requires explicit Nigeria-only filters and clipped '
+            'measurements. No source geometry was clipped, moved or deleted for this policy.')
+        cross_border_details = [
+            '### E — Defined: cross-border geographic data policy', '',
+            f'- **Coverage:** {policy_summary["visible_layer_count"]} visible and '
+            f'{policy_summary["hidden_layer_count"]} hidden layers have explicit scope metadata; '
+            f'{policy_summary["provenance_layer_count"]} hidden provenance layers inherit their active '
+            f'layer’s class. Current class counts: {class_counts}.',
+            '- **Retention and publication:** every class requires `preserve_unclipped`. Visibility remains '
+            'unchanged; foreign extraction context, transboundary systems, regional references, map sheets '
+            'and hidden originals are not silently removed or published.',
+            '- **National statistics:** an explicit named Nigeria mask is required. Foreign-only, boundary, '
+            'marine and wholly internal features are separate categories. Nigeria-only polygon areas and '
+            'line lengths are derived clipped measurements; whole transboundary totals are reported separately.',
+            '- **Boundary limits:** GADM and Natural Earth are diagnostic references, not legal sovereignty, '
+            'international-boundary, territorial-sea or EEZ determinations. Water body / Lake Chad is not '
+            'Nigerian administration or wholesale Nigerian land. NoData remains unknown, never zero.',
+            '- **Application contract:** catalog `crossBorder` metadata describes required interpretation; '
+            'the focus-area Area summary is not an automatic country filter. Foreign features never receive '
+            'Nigerian canonical IDs through nearest-distance or fuzzy-name inference.',
+            '- **Evidence:** `../cross-border-data-policy.md`, `../../config/cross-border-policy.json`, '
+            '`cross-border-policy-register.csv`, the core audit policy summary and public catalog metadata '
+            'provide the versioned rules and all 98 layer assignments.',
+        ]
+    else:
+        cross_border_executive = (
+            '7. **A cross-border data policy still needs to be propagated.** Foreign, marine, transboundary '
+            'and map-sheet content requires consistent retention and Nigeria-only aggregation rules.')
+        cross_border_details = []
     topology_resolved = bool(
         topology_correction and topology['total_invalid'] == 0 and
         topology['provenance_invalid'] == topology_correction['repair_count'] and
@@ -1527,6 +1594,16 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             'registry. Use canonical IDs for new joins; never backfill the 220 unresolved INEC ward '
             'links without new authoritative evidence. Reopen a case only for new evidence or a '
             'verified source rebuild.')
+    if cross_border_defined:
+        correction_note += (
+            ' The cross-border task changed policy, audit and catalog metadata only; it did not alter '
+            'any GeoPackage, feature value or geometry.')
+        next_step = (
+            '**Recommended next step:** no further automatic correction is recommended. Preserve all six '
+            'correction/reclassification evidence chains, the administrative identifier registry and '
+            '`ngmap-cross-border-v1`. Apply the cross-border register before any Nigeria-only aggregation; '
+            'use canonical IDs for new joins and never backfill unresolved INEC links or clip transboundary '
+            'sources without a separately documented derivative.')
     executive_status = (
         'All six prioritized correction/reclassification tasks are complete; the reviewed ward '
         'exceptions, partial magnetic coverage, unresolved external identifier links and other '
@@ -1564,6 +1641,7 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
         magnetic_executive,
         hidden_executive,
         identifier_executive,
+        cross_border_executive,
         '', correction_note,
         '', '## Prioritized findings', '',
         *capital_details,
@@ -1580,6 +1658,8 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
         *hidden_details,
         '',
         *identifier_details,
+        '',
+        *cross_border_details,
     ]
     if pop_outliers:
         for item in pop_outliers:
@@ -1587,7 +1667,7 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
     lines += [
         '- Visible WDPA includes correctly identified Cameroon features such as Korup, Takamanda and Waza-Logone; the large Gulf of Guinea polygon is explicitly marine; offshore heat-flow records are tagged `domain=marine`. Lake Chad ports are intentionally outside the land-only reference but remain valid water/port context. These are scope issues, not coordinate errors.',
         f'- Classified point-outlier outcomes: ' + '; '.join(f'**{key}: {value}**' for key, value in sorted(classifications.items())) + '.',
-        '- OSM/DIVA extraction envelopes contain neighbouring-country settlements. If the intended product is Nigeria-only, clip or label them as surrounding context rather than moving them.',
+        '- OSM/DIVA extraction envelopes contain neighbouring-country settlements. If the intended product is Nigeria-only, use a separately documented clipped derivative or label them as surrounding context rather than moving them or clipping the source in place.',
         '', '## Checks that support alignment', '',
         '### Coordinate systems, geometry decoding and raster grids', '',
         f'- **{database_count}/{database_count} SQLite integrity checks passed.** All {layer_count} spatial layers declare EPSG:4326 with no contents/geometry-column SRS mismatch.',
@@ -1650,6 +1730,11 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
            'The 220 null INEC ward links are intentional unresolved evidence gaps, not missing '
            'canonical IDs; do not infer them from fuzzy names or row order.'
            ] if admin_identified else []),
+        *(['- Cross-border scope classes govern retention and aggregation, not sovereignty. GADM and '
+           'Natural Earth remain diagnostic references; map inclusion does not prove Nigerian '
+           'administration, a legal boundary, territorial waters or an EEZ. The catalog policy metadata '
+           'does not turn the generic focus-area summary into an automatic country filter.'
+           ] if cross_border_defined else []),
         '', '## Reproduction and evidence files', '',
         '```bash',
         'python -m pip install -r scripts/requirements.txt',
@@ -1688,6 +1773,11 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
            'the 9,622-row registry, pinned INEC source manifest, external-link limitations, complete '
            'original-row/geometry digests and six before/after source hash chains.'
            ] if admin_identified else []),
+        *(['- `../cross-border-data-policy.md` / `../../config/cross-border-policy.json` / '
+           '`cross-border-policy-register.csv`: versioned retention, publication and aggregation rules, '
+           'diagnostic-boundary limitations and all 98 per-layer scope assignments. Public catalog '
+           '`crossBorderPolicy` and per-layer `crossBorder` fields carry the same policy ID and rules.'
+           ] if cross_border_defined else []),
         '- `topology-correction-ledger.csv` / `topology-correction-verification.json` / `topology-correction-result.json`: all 191 feature repairs, four explicit review dispositions, before/after areas and bounds, source/provenance hashes and post-apply checks.',
         '- `topology-exceptions.csv`: current active exceptions; `topology-exceptions-before.csv` preserves all 191 original defects and GEOS reasons.',
         '- `raster-class-agreement.csv`: all 22 exact geology class checks; `raster-class-agreement-before-topology.csv` preserves the pre-repair baseline.',
@@ -1769,6 +1859,7 @@ def main():
         'magnetic_coverage_reclassification': magnetic_reclassification,
         'hidden_source_artifact_resolution': hidden_artifacts,
         'administrative_identifiers': admin_identifiers,
+        'cross_border_policy': core.get('cross_border_policy'),
         'raster_registration': raster, 'named_point_containment': named,
         'point_outlier_classifications': dict(Counter(r['classification'] for r in outliers)),
         'crs': crs,

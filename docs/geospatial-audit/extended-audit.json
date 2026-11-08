@@ -1,5 +1,5 @@
 {
-  "source_commit": "cf6bfda9cfdc25386e14d631c57e82e57a3751cd",
+  "source_commit": "eccc307d1533ef3329510d5b2fc4242dd40b328f",
   "capital_cross_source": {
     "summary": {
       "osm": {
@@ -2292,6 +2292,35 @@
       "settlements_state_capitals_map2023_pt_feature_count": true,
       "settlements_state_capitals_map2023_pt_installed_values": true
     }
+  },
+  "cross_border_policy": {
+    "policy_id": "ngmap-cross-border-v1",
+    "schema_version": 1,
+    "policy_path": "config/cross-border-policy.json",
+    "policy_sha256": "dcb89229da1748568de0dad065eb63cc92374c9d3fb06df28f170a6ff7b0da0b",
+    "status": "defined_and_propagated",
+    "source_geometry_changes": 0,
+    "layer_count": 98,
+    "visible_layer_count": 59,
+    "hidden_layer_count": 39,
+    "provenance_layer_count": 19,
+    "class_counts": {
+      "map_sheet": 35,
+      "nigeria_focused": 16,
+      "nigeria_with_context": 13,
+      "raster_window": 11,
+      "regional_reference": 5,
+      "transboundary_system": 18
+    },
+    "visible_class_counts": {
+      "map_sheet": 10,
+      "nigeria_focused": 11,
+      "nigeria_with_context": 10,
+      "raster_window": 11,
+      "regional_reference": 4,
+      "transboundary_system": 13
+    },
+    "all_sources_preserved_unclipped": true
   },
   "raster_registration": {
     "class_pairs": [

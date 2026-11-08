@@ -134,6 +134,8 @@ data/
 - Names and columns are not fixed. Optional layer labels, layer order, default-visible layers, label fields and colours
   go in `config/layers.config.json`. Its `groups` section controls **group order only** and is keyed by the exact folder
   name; per-layer `group` overrides are not used.
+- Declare the new layer's geographic scope in `config/cross-border-policy.json` when the safe default is not
+  sufficient. Regenerate the policy register and catalog, and do not silently remove foreign or transboundary features.
 - GitHub rejects files over 100 MB; keep each gpkg below that.
 
 ### Import master layers without publishing them
@@ -176,6 +178,21 @@ The IDs are repository-issued, not statutory codes. A separate INEC crosswalk co
 [the identifier guide and stability rules](docs/admin-identifiers/README.md) and
 [the installation evidence](docs/geospatial-audit/admin-identifier-resolution.md). Run
 `python scripts/introduce_admin_identifiers.py` to verify the installed registry without changing data.
+
+### Cross-border geographic scope
+
+`ngmap-cross-border-v1` defines how foreign, transboundary, coastal/marine, regional-reference, map-sheet,
+and raster-window content is retained and aggregated. Sources are never clipped or deleted merely for
+crossing the diagnostic Nigeria boundary. Nigeria-only counts require an explicit analysis mask; national
+area/length measurements use documented clipped derivatives, while whole transboundary totals are reported
+separately. NoData remains unknown, and Water body / Lake Chad is not Nigerian administration or wholesale
+Nigerian land.
+
+Read the [cross-border data policy](docs/cross-border-data-policy.md) and
+[per-layer register](docs/geospatial-audit/cross-border-policy-register.csv) before producing national
+statistics. The public catalog exposes the same rules as `crossBorderPolicy` and per-layer `crossBorder`
+metadata. These fields guide interpretation; the generic focus-area summary is not an automatic country
+filter or a legal sovereignty determination.
 
 ### Geospatial quality audit
 
