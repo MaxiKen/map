@@ -617,6 +617,15 @@ def hidden_artifact_resolution_is_current(result, core):
     return True
 
 
+def admin_identifiers_are_current(result):
+    if not result or result.get('status') != 'installed_and_verified' or not all(result.get('checks', {}).values()):
+        return False
+    for table, expected in result.get('after_sha256', {}).items():
+        if table not in layer_index() or hashlib.sha256(layer_index()[table]['path'].read_bytes()).hexdigest() != expected:
+            return False
+    return True
+
+
 def make_layer_review(core, raster, class_rows, named):
     """Return an explicit disposition for every spatial layer, not only exceptions."""
     rows = []
@@ -642,6 +651,10 @@ def make_layer_review(core, raster, class_rows, named):
     hidden_artifacts = (json.loads(hidden_artifact_path.read_text(encoding='utf8'))
                         if hidden_artifact_path.exists() else None)
     hidden_resolved = hidden_artifact_resolution_is_current(hidden_artifacts, core)
+    admin_identifier_path = ROOT / 'docs/geospatial-audit/admin-identifier-result.json'
+    admin_identifiers = (json.loads(admin_identifier_path.read_text(encoding='utf8'))
+                         if admin_identifier_path.exists() else None)
+    admin_identified = admin_identifiers_are_current(admin_identifiers)
     for table, meta in sorted(layer_index().items()):
         is_topology_provenance = table.endswith('_topology_original')
         is_identity_provenance = table.endswith('_identity_original_pg') or table.endswith('_identity_original_pt')
@@ -719,6 +732,16 @@ def make_layer_review(core, raster, class_rows, named):
             else:
                 issues.append('hidden connected-region abstraction D0451 exceeds 121,000 km²')
                 action = 'Review vectorisation semantics before any district-level use'
+        if admin_identified and table in admin_identifiers['after_sha256']:
+            evidence.append('ngmap-admin-v1 stable IDs and parent keys; original attributes and geometry byte-identical')
+            if table in ('admin_states_gadm_pg', 'population_density2016_states_pg'):
+                evidence.append('37 state IDs; Water body remains non-administrative with null ID')
+            elif table in ('admin_lgas_gadm_pg', 'admin_lga_centroids_pt'):
+                evidence.append('774 shared LGA IDs and INEC links; Lake Chad remains non-administrative')
+            elif table == 'admin_wards_pt':
+                evidence.append('8,809 unique ward IDs; 8,589 one-to-one INEC links; 220 null external links retained')
+            if action == 'None indicated by the applicable checks':
+                action = 'Use stable admin_id and parent keys for joins; preserve the registry and INEC crosswalk limits'
         if table == 'groundwater_boreholes_wpdx_pt':
             count = named[table]['counts'].get('substantive_mismatch_after_fuzzy_names', 0)
             evidence.append(f'all points contained; {count} non-equivalent LGA-name joins')
@@ -1015,7 +1038,8 @@ def make_figures(out, capital_rows, ward_rows):
 
 def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, raster,
                 class_rows, named, outliers, crs, topology_correction=None, gada_correction=None,
-                residual_correction=None, magnetic_reclassification=None, hidden_artifacts=None):
+                residual_correction=None, magnetic_reclassification=None, hidden_artifacts=None,
+                admin_identifiers=None):
     osm = capital['summary']['osm']
     diva = capital['summary']['diva']
     grey = next((v for k, v in capital['by_position_basis'].items() if 'grey square' in k), None)
@@ -1065,6 +1089,7 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
         ward_summary['total_outside_assigned_lga'] == 37)
     magnetic_resolved = magnetic_reclassification_is_current(magnetic_reclassification, raster)
     hidden_resolved = hidden_artifact_resolution_is_current(hidden_artifacts, core)
+    admin_identified = admin_identifiers_are_current(admin_identifiers)
     if gada_resolved:
         gada_verification_path = ROOT / 'docs/geospatial-audit/gada-illela-verification.json'
         gada_verification = json.loads(gada_verification_path.read_text(encoding='utf8'))
@@ -1249,6 +1274,41 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             'label distance indicate a likely scanned-map legend artefact. It is hidden and not '
             'published, but should be removed or corrected in the source workflow.',
         ]
+    if admin_identified:
+        coverage = admin_identifiers['coverage']
+        identifier_executive = (
+            '6. **Stable administrative identifiers are installed.** All 37 states, 774 LGAs and '
+            '8,809 wards have persistent `ngmap-admin-v1` IDs and parent keys. The separate INEC '
+            'crosswalk covers every state/LGA and 8,589/8,809 wards; 220 ambiguous or unmatched '
+            'ward links remain explicitly null rather than guessed.')
+        identifier_details = [
+            '### D — Resolved: stable administrative identifiers', '',
+            '- **Canonical keys:** states use `ngmap:state:NG-AB`, LGAs `ngmap:lga:0001` and wards '
+            '`ngmap:ward:000001`. These are persistent repository-issued IDs, not statutory codes. '
+            'LGA polygons and centroids share keys; wards carry both state and LGA parent keys; '
+            'population-state polygons and capitals reference state keys.',
+            '- **Non-administrative context:** Water body and Lake Chad retain null administrative '
+            'and INEC identifiers. They are not counted as a 38th state or 775th LGA.',
+            f'- **INEC crosswalk:** 37/37 states, 774/774 LGAs and '
+            f'**{coverage["wards_with_inec_id"]:,}/8,809 wards** have one-to-one INEC links. '
+            'The ward links comprise 8,189 exact-name and 400 conservative numeral-normalized matches. '
+            f'The remaining **{coverage["wards_without_inec_id"]}** comprise 198 unmatched names and '
+            '22 rows in 11 duplicate local-label groups; canonical project IDs remain complete.',
+            '- **Name stability:** Gada and Illela retain separate persistent project IDs while their '
+            'INEC codes 04 and 08 are explicit. The Gbonyin/Aiyekire alias demonstrates why labels '
+            'must not be used as identifiers. Existing names and assignments were not rewritten.',
+            '- **Preservation:** only declared identifier columns, indexes and metadata were added. '
+            'All original attributes and geometry blobs passed staged and final byte-for-byte comparisons. '
+            'Hidden pre-correction provenance was not modified.',
+            '- **Evidence:** `admin-identifier-verification.json`, `admin-identifier-result.json`, '
+            '`admin-identifier-resolution.md` and `../admin-identifiers/` contain the 9,622-row registry, '
+            'pinned source manifest, matching rules, coverage and before/after hashes.',
+        ]
+    else:
+        identifier_executive = (
+            '6. **Stable administrative identifiers still need installation.** Names and source-row '
+            'numbers remain the only cross-layer administrative join keys.')
+        identifier_details = []
     topology_resolved = bool(
         topology_correction and topology['total_invalid'] == 0 and
         topology['provenance_invalid'] == topology_correction['repair_count'] and
@@ -1452,7 +1512,26 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             'all five correction/reclassification evidence chains and the remaining ward/coastal and '
             'partial-magnetic scope limitations. Reopen a case only for new authoritative evidence '
             'or a verified complete source rebuild.')
+    if admin_identified and hidden_resolved and magnetic_resolved and residual_resolved:
+        correction_note = (
+            'Only the documented capital, reviewed polygon-topology, Gada/Illela identity, three '
+            'evidence-gated residual LGA attribute corrections, metadata-only magnetic '
+            'partial-coverage reclassification, two evidence-gated hidden-artifact resolutions and '
+            'schema-only stable administrative identifier additions were applied. FID 479 was '
+            'quarantined—not silently deleted—while every D0451 feature attribute and geometry byte '
+            'was retained. Identifier installation preserved every original value and geometry byte. '
+            'No blanket translation, ward movement, geometry replacement or magnetic infilling was performed.')
+        next_step = (
+            '**Recommended next step:** no further automatic correction is recommended. Preserve '
+            'all six correction/reclassification evidence chains and the administrative identifier '
+            'registry. Use canonical IDs for new joins; never backfill the 220 unresolved INEC ward '
+            'links without new authoritative evidence. Reopen a case only for new evidence or a '
+            'verified source rebuild.')
     executive_status = (
+        'All six prioritized correction/reclassification tasks are complete; the reviewed ward '
+        'exceptions, partial magnetic coverage, unresolved external identifier links and other '
+        'documented scope qualifications remain explicit:'
+        if admin_identified and hidden_resolved and magnetic_resolved and residual_resolved else
         'All five prioritized correction/reclassification tasks are complete; the reviewed ward '
         'exceptions, partial magnetic coverage and other documented scope qualifications remain explicit:'
         if hidden_resolved and magnetic_resolved and residual_resolved else
@@ -1484,6 +1563,7 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
         topology_executive,
         magnetic_executive,
         hidden_executive,
+        identifier_executive,
         '', correction_note,
         '', '## Prioritized findings', '',
         *capital_details,
@@ -1498,6 +1578,8 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
         '',
         '### C — Hidden/source-data issues and scope qualifications', '',
         *hidden_details,
+        '',
+        *identifier_details,
     ]
     if pop_outliers:
         for item in pop_outliers:
@@ -1563,6 +1645,11 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
            'settlement gazetteer. Population picture regions are class connected regions, not legal '
            'districts; D0451’s semantic exclusion must survive any future export or republication.'
            ] if hidden_resolved else []),
+        *(['- `ngmap-admin-v1` IDs are repository-issued, not official government codes. INEC internal '
+           'IDs and local codes describe electoral registration areas, not legal boundary surveys. '
+           'The 220 null INEC ward links are intentional unresolved evidence gaps, not missing '
+           'canonical IDs; do not infer them from fuzzy names or row order.'
+           ] if admin_identified else []),
         '', '## Reproduction and evidence files', '',
         '```bash',
         'python -m pip install -r scripts/requirements.txt',
@@ -1596,6 +1683,11 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
            'quarantined legend row and D0451 semantic exclusion, nearest-settlement and '
            'state/LGA-intersection evidence, sidecar provenance and complete before/after digests.'
            ] if hidden_resolved else []),
+        *(['- `admin-identifier-verification.json` / `admin-identifier-result.json` / '
+           '`admin-identifier-resolution.md` and `../admin-identifiers/`: canonical assignment rules, '
+           'the 9,622-row registry, pinned INEC source manifest, external-link limitations, complete '
+           'original-row/geometry digests and six before/after source hash chains.'
+           ] if admin_identified else []),
         '- `topology-correction-ledger.csv` / `topology-correction-verification.json` / `topology-correction-result.json`: all 191 feature repairs, four explicit review dispositions, before/after areas and bounds, source/provenance hashes and post-apply checks.',
         '- `topology-exceptions.csv`: current active exceptions; `topology-exceptions-before.csv` preserves all 191 original defects and GEOS reasons.',
         '- `raster-class-agreement.csv`: all 22 exact geology class checks; `raster-class-agreement-before-topology.csv` preserves the pre-repair baseline.',
@@ -1664,6 +1756,9 @@ def main():
     hidden_artifact_path = out / 'hidden-source-artifact-result.json'
     hidden_artifacts = (json.loads(hidden_artifact_path.read_text(encoding='utf8'))
                         if hidden_artifact_path.exists() else None)
+    admin_identifier_path = out / 'admin-identifier-result.json'
+    admin_identifiers = (json.loads(admin_identifier_path.read_text(encoding='utf8'))
+                         if admin_identifier_path.exists() else None)
 
     extended = {
         'source_commit': core['source_commit'], 'capital_cross_source': capital,
@@ -1673,6 +1768,7 @@ def main():
         'residual_ward_lga_correction': residual_correction,
         'magnetic_coverage_reclassification': magnetic_reclassification,
         'hidden_source_artifact_resolution': hidden_artifacts,
+        'administrative_identifiers': admin_identifiers,
         'raster_registration': raster, 'named_point_containment': named,
         'point_outlier_classifications': dict(Counter(r['classification'] for r in outliers)),
         'crs': crs,
@@ -1682,7 +1778,7 @@ def main():
     report = make_report(core, capital, cap_rows, ward_summary, ward_rows, topology,
                          raster, class_rows, named, outliers, crs, topology_correction,
                          gada_correction, residual_correction, magnetic_reclassification,
-                         hidden_artifacts)
+                         hidden_artifacts, admin_identifiers)
     (out / 'README.md').write_text(report, encoding='utf8')
     print(f'Wrote extended audit and professional report to {out}', flush=True)
 

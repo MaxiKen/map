@@ -163,6 +163,20 @@ Geometry, primary keys and configured legend join keys are preserved, and stale 
 from the layer config. It also uses smaller lossless DEFLATE TIFF tiles when an exact dtype, shape and cell-value
 read-back check passes. Vector geometries and picture overlays are never simplified or recompressed.
 
+### Administrative identifiers
+
+States, LGAs and wards have persistent `ngmap-admin-v1` identifiers that do not depend on display names or
+GeoPackage export FIDs. Use `admin_id` for the entity itself, `state_admin_id` for its state, and
+`lga_admin_id` for a ward's LGA. LGA polygons and centroids share IDs; population-state polygons and
+state capitals reference state IDs. Assigned IDs are exported both as GeoJSON feature `id` members and
+as properties. Water body / Lake Chad remain non-administrative and have null IDs.
+
+The IDs are repository-issued, not statutory codes. A separate INEC crosswalk covers every state/LGA and
+8,589 of 8,809 wards; the other 220 external ward links remain null rather than being guessed. See
+[the identifier guide and stability rules](docs/admin-identifiers/README.md) and
+[the installation evidence](docs/geospatial-audit/admin-identifier-resolution.md). Run
+`python scripts/introduce_admin_identifiers.py` to verify the installed registry without changing data.
+
 ### Geospatial quality audit
 
 ```bash

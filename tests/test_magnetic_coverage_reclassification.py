@@ -121,7 +121,7 @@ class MagneticCoverageReclassificationTests(unittest.TestCase):
         self.assertIn('90.1%', report)
         self.assertIn('NoData must not be interpreted as zero nanoTesla', report)
         self.assertNotIn('B2 — Medium: EMAG2 coverage is incomplete', report)
-        self.assertIn('All five prioritized correction/reclassification tasks are complete', report)
+        self.assertIn('All six prioritized correction/reclassification tasks are complete', report)
 
 
 if __name__ == '__main__':

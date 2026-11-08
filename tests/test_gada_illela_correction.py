@@ -44,6 +44,9 @@ class GadaIllelaCorrectionTests(unittest.TestCase):
         hidden_path = OUT / 'hidden-source-artifact-result.json'
         cls.hidden_artifact_result = (json.loads(hidden_path.read_text(encoding='utf8'))
                                       if hidden_path.exists() else None)
+        admin_path = OUT / 'admin-identifier-result.json'
+        cls.admin_identifier_result = (json.loads(admin_path.read_text(encoding='utf8'))
+                                       if admin_path.exists() else None)
         cls.by_layer = {}
         for row in cls.ledger:
             cls.by_layer.setdefault(row['layer'], {})[int(row['fid'])] = row
@@ -80,10 +83,20 @@ class GadaIllelaCorrectionTests(unittest.TestCase):
     def test_all_source_hashes_ledger_attributes_geometry_and_hidden_originals(self):
         for table in self.by_layer:
             path = self.index[table]['path']
-            if table == 'admin_wards_pt' and self.residual_result:
+            if (table in ('admin_lgas_gadm_pg', 'admin_lga_centroids_pt') and
+                    self.admin_identifier_result):
+                self.assertEqual(self.admin_identifier_result['before_sha256'][table],
+                                 self.result['after_sha256'][table])
+                self.assertEqual(sha256(path), self.admin_identifier_result['after_sha256'][table])
+            elif table == 'admin_wards_pt' and self.residual_result:
                 self.assertEqual(self.residual_result['before_sha256'],
                                  self.result['after_sha256'][table])
-                self.assertEqual(sha256(path), self.residual_result['after_sha256'])
+                if self.admin_identifier_result:
+                    self.assertEqual(self.admin_identifier_result['before_sha256'][table],
+                                     self.residual_result['after_sha256'])
+                    self.assertEqual(sha256(path), self.admin_identifier_result['after_sha256'][table])
+                else:
+                    self.assertEqual(sha256(path), self.residual_result['after_sha256'])
             elif table == 'settlements_towns_map2023_pt' and self.hidden_artifact_result:
                 self.assertEqual(self.hidden_artifact_result['sources']['towns']['before_sha256'],
                                  self.result['after_sha256'][table])

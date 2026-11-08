@@ -44,6 +44,14 @@ REQUIRED_AUDIT_FILES = (
     'hidden-source-artifact-verification.json',
     'hidden-source-artifact-result.json',
     'hidden-source-artifact-resolution.md',
+    'admin-identifier-verification.json',
+    'admin-identifier-result.json',
+    'admin-identifier-resolution.md',
+)
+IDENTIFIER_DOC_FILES = (
+    'README.md',
+    'admin-identifier-registry.csv',
+    'inec-source-manifest.json',
 )
 
 
@@ -125,7 +133,7 @@ def validate_geopackages() -> tuple[list[Path], dict[str, dict]]:
     require(not list(DATA.glob('*.gpkg')),
             'GeoPackages must be inside top-level group folders, not directly in data/')
     staging = sorted(path for path in DATA.rglob('*')
-                     if path.name.endswith(('.correcting.gpkg', '.creating.gpkg')))
+                     if path.name.endswith(('.correcting.gpkg', '.creating.gpkg', '.identifying.gpkg')))
     require(not staging, 'Staging GeoPackages remain: ' + ', '.join(map(relative, staging)))
 
     paths = sorted(DATA.glob('*/**/*.gpkg'))
@@ -183,6 +191,9 @@ def validate_inventory(paths: list[Path], layers: dict[str, dict]) -> None:
 def main() -> None:
     missing = [name for name in REQUIRED_AUDIT_FILES if not (AUDIT / name).is_file()]
     require(not missing, 'Missing required audit artifacts: ' + ', '.join(missing))
+    identifier_docs = ROOT / 'docs/admin-identifiers'
+    missing_identifiers = [name for name in IDENTIFIER_DOC_FILES if not (identifier_docs / name).is_file()]
+    require(not missing_identifiers, 'Missing administrative identifier artifacts: ' + ', '.join(missing_identifiers))
     require((PUBLIC / 'catalog.json').is_file(), 'public/catalog.json is missing')
 
     paths, layers = validate_geopackages()
@@ -190,12 +201,14 @@ def main() -> None:
 
     audit_structured = sorted(path for path in AUDIT.rglob('*')
                               if path.suffix in ('.json', '.geojson'))
+    audit_structured.append(identifier_docs / 'inec-source-manifest.json')
     public_structured = sorted(path for path in PUBLIC.rglob('*')
                                if path.suffix in ('.json', '.geojson'))
     audit_counts = validate_json_and_geojson(audit_structured)
     public_counts = validate_json_and_geojson(public_structured)
 
     csv_paths = sorted(AUDIT.rglob('*.csv'))
+    csv_paths.append(identifier_docs / 'admin-identifier-registry.csv')
     csv_rows = sum(validate_csv(path) for path in csv_paths)
     png_paths = sorted(AUDIT.rglob('*.png'))
     for path in png_paths:

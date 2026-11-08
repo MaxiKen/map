@@ -779,7 +779,16 @@ def apply_correction(approve):
 
 def verify_existing_result():
     result = json.loads(RESULT.read_text(encoding='utf8'))
-    if sha256(source_path()) != result['after_sha256']:
+    current_hash = sha256(source_path())
+    admin_identifier_path = OUT / 'admin-identifier-result.json'
+    admin_identifiers = (json.loads(admin_identifier_path.read_text(encoding='utf8'))
+                         if admin_identifier_path.exists() else None)
+    superseded_identifiers = bool(
+        admin_identifiers and admin_identifiers.get('status') == 'installed_and_verified' and
+        admin_identifiers['before_sha256'][TABLE] == result['after_sha256'] and
+        admin_identifiers['after_sha256'][TABLE] == current_hash and
+        all(admin_identifiers.get('checks', {}).values()))
+    if current_hash != result['after_sha256'] and not superseded_identifiers:
         raise RuntimeError('current ward hash differs from correction result')
     for path, key in ((BASELINE, 'baseline_sha256'), (LEDGER, 'ledger_sha256'),
                       (VERIFICATION, 'verification_sha256')):

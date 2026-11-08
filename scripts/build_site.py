@@ -386,7 +386,12 @@ def build_vector(con, table, row, gcol, geomtype, out, cfg):
             if v is None or v == '' or c in hide: continue
             if k == 'number' and isinstance(v, float): v = round(v, 6)
             props[c] = v
-        feats.append({'type': 'Feature', 'properties': props, 'geometry': g})
+        feature = {'type': 'Feature', 'properties': props, 'geometry': g}
+        # Administrative IDs are stable entity identifiers, not row-number FIDs.
+        # Preserve them in the standard GeoJSON id member as well as properties.
+        if props.get('admin_id'):
+            feature['id'] = props['admin_id']
+        feats.append(feature)
         rowsd.append(props)
     fields = [{'name': c, 'type': k, 'label': cfg.get('fields', {}).get(c, {}).get('label', pretty(c))} for c, k in cols if c not in hide]
     style = choose_style(row['kind'], fields, rowsd, cfg, table)

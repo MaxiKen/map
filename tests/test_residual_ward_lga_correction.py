@@ -34,6 +34,9 @@ class ResidualWardLgaCorrectionTests(unittest.TestCase):
         cls.current_exceptions = rows('ward-lga-exceptions.csv')
         cls.verification = json.loads((OUT / 'ward-lga-review-verification.json').read_text())
         cls.result = json.loads((OUT / 'ward-lga-correction-result.json').read_text())
+        admin_path = OUT / 'admin-identifier-result.json'
+        cls.admin_identifier_result = (json.loads(admin_path.read_text(encoding='utf8'))
+                                       if admin_path.exists() else None)
         cls.path = layer_index()['admin_wards_pt']['path']
         cls.wards = all_ward_rows(cls.path)
         cls.by_fid = {row['fid']: row for row in cls.wards}
@@ -65,7 +68,13 @@ class ResidualWardLgaCorrectionTests(unittest.TestCase):
                          self.result['verification_sha256'])
         self.assertEqual(sha256(OUT / 'ward-lga-exceptions-before-residual-review.csv'),
                          self.result['baseline_sha256'])
-        self.assertEqual(sha256(self.path), self.result['after_sha256'])
+        if self.admin_identifier_result:
+            self.assertEqual(self.admin_identifier_result['before_sha256']['admin_wards_pt'],
+                             self.result['after_sha256'])
+            self.assertEqual(sha256(self.path),
+                             self.admin_identifier_result['after_sha256']['admin_wards_pt'])
+        else:
+            self.assertEqual(sha256(self.path), self.result['after_sha256'])
 
     def test_all_40_before_after_attributes_fids_and_geometry_hashes(self):
         self.assertEqual(len(self.wards), 8809)

@@ -1,0 +1,373 @@
+{
+  "source_repository": "https://github.com/kcemenike/find-my-polling-unit",
+  "source_commit": "8a5bebf12f2e688ed26c313a632f1b729115d095",
+  "source_description": "INEC CVR-derived state/LGA/registration-area hierarchy; IDs are INEC internal database IDs.",
+  "terms_note": "The upstream README calls the public INEC data free to use but declares no formal repository licence. Attribution and source URLs are retained.",
+  "source_readme_sha256": "5bff01b8339b2e35165cbe311ebcc177cbf26a56bd1d1cd50175bbc7bc7c8a8c",
+  "source_files": [
+    {
+      "path": "inec_scraped/state_10_delta.json",
+      "sha256": "844cca98c4b9eb4eb3d7903314bda0d95957302c717eed8b2802c883091d7abe"
+    },
+    {
+      "path": "inec_scraped/state_11_ebonyi.json",
+      "sha256": "84d8f9aaa9e025b2cc915b9b9a0c156916cf9e5a15108b135af82922ac34cfe3"
+    },
+    {
+      "path": "inec_scraped/state_12_edo.json",
+      "sha256": "3b77a5be1c939a056c52ef1844c7b4df353319aa1e55313f7cc5405d8c6dc364"
+    },
+    {
+      "path": "inec_scraped/state_13_ekiti.json",
+      "sha256": "7f5e02fe228026f3e7cab84018f16e6385536383603eebd0ebd0b36998211b35"
+    },
+    {
+      "path": "inec_scraped/state_14_enugu.json",
+      "sha256": "5ecf2c179d35779ade165aad68eff84051ec73d5000303cc8f1414c42b7000f9"
+    },
+    {
+      "path": "inec_scraped/state_15_fct.json",
+      "sha256": "b21e3e97d2fd654170d6efe8ff9bd1069139a686e18f54fae006c73334e29c93"
+    },
+    {
+      "path": "inec_scraped/state_16_gombe.json",
+      "sha256": "ca100404168dadd842c274f738d241db9900dcc55115faf6001a7df327a71a17"
+    },
+    {
+      "path": "inec_scraped/state_17_imo.json",
+      "sha256": "a8d29822282388c281cf3054bd9188f96007081945cc0b4e7746700c2f670508"
+    },
+    {
+      "path": "inec_scraped/state_18_jigawa.json",
+      "sha256": "02e5a9376d227711ea9bc7568fda6385d2b6337c151a0b2c44b84c72fbd8e742"
+    },
+    {
+      "path": "inec_scraped/state_19_kaduna.json",
+      "sha256": "bb37c11e255972251ec09ffdd4f1c6387e4cddb25207bd85087e930cd5cd9812"
+    },
+    {
+      "path": "inec_scraped/state_1_abia.json",
+      "sha256": "0157178360ad43a7b1ca5f6b76f7b300777ed71265d6b7a207542e791bf70829"
+    },
+    {
+      "path": "inec_scraped/state_20_kano.json",
+      "sha256": "08b3655e2b31ac99e000425b5beb59ea5bb7e58163a9c689cb73870ba67f2f33"
+    },
+    {
+      "path": "inec_scraped/state_21_katsina.json",
+      "sha256": "0abc503e63a85cf92c5df86599a80cc4e6cb59a701aee35509e2e393a47b3b67"
+    },
+    {
+      "path": "inec_scraped/state_22_kebbi.json",
+      "sha256": "379856f60e2c343734e1f03634e44779fd321c1cde2b9fb466d6e2a7ce50aa57"
+    },
+    {
+      "path": "inec_scraped/state_23_kogi.json",
+      "sha256": "881f8865ed2cbd002f5ed5c7acc303316e56994d19e7473fb491054064d67272"
+    },
+    {
+      "path": "inec_scraped/state_24_kwara.json",
+      "sha256": "8e178b75b245d1c2b83dac0226dbc5ccb1d4ffca0357a742dea71a6de0ba2fc7"
+    },
+    {
+      "path": "inec_scraped/state_25_lagos.json",
+      "sha256": "861ba941c46e90c5c7f374273b1fc1f1ab5e4cd722f5ce7989dd09a76018ce93"
+    },
+    {
+      "path": "inec_scraped/state_26_nasarawa.json",
+      "sha256": "3e3c371e6781a02c86d497f2c7f8ae0638c38feec5481286b0bba481b4fb5a87"
+    },
+    {
+      "path": "inec_scraped/state_27_niger.json",
+      "sha256": "df746bb2304bff9d1ab8986a0c56f04a5941a72882a686ff5b256d5badfa8ab7"
+    },
+    {
+      "path": "inec_scraped/state_28_ogun.json",
+      "sha256": "d8a6b44537cbb2b5f2ce84b402e330aafbc7804a92492efe75b746fab8e74b62"
+    },
+    {
+      "path": "inec_scraped/state_29_ondo.json",
+      "sha256": "4ddb9582f915fbbc5c118ff1def4aa6ffbdc383d1d795abd58aaa62a68915f68"
+    },
+    {
+      "path": "inec_scraped/state_2_adamawa.json",
+      "sha256": "7aae2e81bb9c184605b66c6b46b93b3bb6277de777543f66d6aefd44ca0fd4b5"
+    },
+    {
+      "path": "inec_scraped/state_30_osun.json",
+      "sha256": "969aeaf945e63d3a683286db5cbbf79363bf289a6eb0ae7125883da1c89f14a1"
+    },
+    {
+      "path": "inec_scraped/state_31_oyo.json",
+      "sha256": "730b3db8672dac31d35fa220e9588bc269ac36ad0ae0b592000c9fa661228090"
+    },
+    {
+      "path": "inec_scraped/state_32_plateau.json",
+      "sha256": "63066c2a4155caa68bd0f3c2ecdf4ba358d5ef7315d32f1f8026518312039b13"
+    },
+    {
+      "path": "inec_scraped/state_33_rivers.json",
+      "sha256": "94a3c31901c450b89c1a6cf95b5e526fe3576801193c393b78a579e271e238c6"
+    },
+    {
+      "path": "inec_scraped/state_34_sokoto.json",
+      "sha256": "25702dcec233a1fa2f3d425dbdc1d5e9ed37433863eaae02df34727e2a161b1d"
+    },
+    {
+      "path": "inec_scraped/state_35_taraba.json",
+      "sha256": "c15276009498e51695fdb685ae960474822b95dbe512e12073d900b8ae62d989"
+    },
+    {
+      "path": "inec_scraped/state_36_yobe.json",
+      "sha256": "a347b3f1b453bb192a1001e6745cda7d393de39d01ec22d721de81e6fa21dac6"
+    },
+    {
+      "path": "inec_scraped/state_37_zamfara.json",
+      "sha256": "6caae2c5c1a6ef8e3c0e646d5ee7feb6ff6e431ab6589ab739c68c62ce93b197"
+    },
+    {
+      "path": "inec_scraped/state_3_akwa-ibom.json",
+      "sha256": "e369eebdf745ef30b611d2c866b9bbde00239c85c207f854c96cab901108e722"
+    },
+    {
+      "path": "inec_scraped/state_4_anambra.json",
+      "sha256": "a73ef727be24fb2612278c3597436b6cd16f5a03daf6f2cd0e876637d4ca1308"
+    },
+    {
+      "path": "inec_scraped/state_5_bauchi.json",
+      "sha256": "66f9f4aaa689b95cf8ba5558b7390a78cffaea563670a74a1d6941fbce0e306c"
+    },
+    {
+      "path": "inec_scraped/state_6_bayelsa.json",
+      "sha256": "be15935285afc9cd19bb312db254eba3ae95cd737ea4777ebea82c3f81e179e5"
+    },
+    {
+      "path": "inec_scraped/state_7_benue.json",
+      "sha256": "17141bf30b1c4381df2da3a20eb7c173173f17778d2f1e807d4ffff96a62b90c"
+    },
+    {
+      "path": "inec_scraped/state_8_borno.json",
+      "sha256": "002b826465dbb717933fbdb2668cf646a6e9b50dd31d0b86895bd58e713f4abb"
+    },
+    {
+      "path": "inec_scraped/state_9_cross-river.json",
+      "sha256": "b01a4f928dc27f4dbada48567b736c06be515b6fde5649e4c237d8408c2b423b"
+    }
+  ],
+  "raw_counts": {
+    "states": 37,
+    "lgas": 774,
+    "wards": 8810
+  },
+  "curated_counts": {
+    "states": 37,
+    "lgas": 774,
+    "wards": 8809
+  },
+  "excluded_duplicate_source_record": {
+    "reason": "Exact duplicate Mbaikyaan registration area in Gwer East; ID 8810 duplicates persistent ID 1462 and code 09.",
+    "state": "BENUE",
+    "lga_id": "125",
+    "lga": "GWER EAST",
+    "ward": {
+      "id": "8810",
+      "code": "09",
+      "name": "MBAIKYAAN",
+      "pus": []
+    },
+    "retained_inec_ward_id": "1462"
+  },
+  "lga_aliases": [
+    {
+      "state": "Abia",
+      "local_lga": "Obi Ngwa",
+      "inec_lga": "OBINGWA"
+    },
+    {
+      "state": "Akwa Ibom",
+      "local_lga": "Esit Eket",
+      "inec_lga": "ESIT EKET (UQUO)"
+    },
+    {
+      "state": "Bauchi",
+      "local_lga": "Damban",
+      "inec_lga": "DAMBAM"
+    },
+    {
+      "state": "Borno",
+      "local_lga": "Maiduguri",
+      "inec_lga": "MAIDUGURI M. C."
+    },
+    {
+      "state": "Cross River",
+      "local_lga": "Calabar Municipal",
+      "inec_lga": "CALABAR MUNICIPALITY"
+    },
+    {
+      "state": "Edo",
+      "local_lga": "Uhunmwonde",
+      "inec_lga": "UHUNMWODE"
+    },
+    {
+      "state": "Ekiti",
+      "local_lga": "Gbonyin",
+      "inec_lga": "AIYEKIRE"
+    },
+    {
+      "state": "Federal Capital Territory",
+      "local_lga": "Abuja",
+      "inec_lga": "MUNICIPAL"
+    },
+    {
+      "state": "Gombe",
+      "local_lga": "Yamaltu/Deba",
+      "inec_lga": "YALMALTU/ DEBA"
+    },
+    {
+      "state": "Jigawa",
+      "local_lga": "Biriniwa",
+      "inec_lga": "BIRNIWA"
+    },
+    {
+      "state": "Jigawa",
+      "local_lga": "Kiri Kasama",
+      "inec_lga": "KIRIKA SAMMA"
+    },
+    {
+      "state": "Kano",
+      "local_lga": "Dambatta",
+      "inec_lga": "DANBATA"
+    },
+    {
+      "state": "Kano",
+      "local_lga": "Dawakin Kudu",
+      "inec_lga": "DAWAKI KUDU"
+    },
+    {
+      "state": "Kano",
+      "local_lga": "Dawakin Tofa",
+      "inec_lga": "DAWAKI TOFA"
+    },
+    {
+      "state": "Katsina",
+      "local_lga": "Malumfashi",
+      "inec_lga": "MALUFASHI"
+    },
+    {
+      "state": "Kebbi",
+      "local_lga": "Arewa Dandi",
+      "inec_lga": "AREWA"
+    },
+    {
+      "state": "Kebbi",
+      "local_lga": "Danko-Wasagu",
+      "inec_lga": "WASAGU/DANKO"
+    },
+    {
+      "state": "Kogi",
+      "local_lga": "Kogi",
+      "inec_lga": "KOGI . K. K."
+    },
+    {
+      "state": "Kogi",
+      "local_lga": "Mopa-Muro",
+      "inec_lga": "MOPA MORO"
+    },
+    {
+      "state": "Kogi",
+      "local_lga": "Ogori/Magongo",
+      "inec_lga": "OGORI MANGOGO"
+    },
+    {
+      "state": "Kwara",
+      "local_lga": "Pategi",
+      "inec_lga": "PATIGI"
+    },
+    {
+      "state": "Lagos",
+      "local_lga": "Ifako-Ijaiye",
+      "inec_lga": "IFAKO-IJAYE"
+    },
+    {
+      "state": "Niger",
+      "local_lga": "Edati",
+      "inec_lga": "EDATTI"
+    },
+    {
+      "state": "Ogun",
+      "local_lga": "Ogun Waterside",
+      "inec_lga": "OGUN WATER SIDE"
+    },
+    {
+      "state": "Ogun",
+      "local_lga": "Shagamu",
+      "inec_lga": "SAGAMU"
+    },
+    {
+      "state": "Ogun",
+      "local_lga": "Yewa North",
+      "inec_lga": "EGBADO NORTH"
+    },
+    {
+      "state": "Ogun",
+      "local_lga": "Yewa South",
+      "inec_lga": "EGBADO SOUTH"
+    },
+    {
+      "state": "Ondo",
+      "local_lga": "Ile Oluji/Okeigbo",
+      "inec_lga": "ILEOLUJI/OKEIGBO"
+    },
+    {
+      "state": "Osun",
+      "local_lga": "Aiyedire",
+      "inec_lga": "AYEDIRE"
+    },
+    {
+      "state": "Osun",
+      "local_lga": "Atakunmosa East",
+      "inec_lga": "ATAKUMOSA EAST"
+    },
+    {
+      "state": "Osun",
+      "local_lga": "Atakunmosa West",
+      "inec_lga": "ATAKUMOSA WEST"
+    },
+    {
+      "state": "Oyo",
+      "local_lga": "Ogbomosho North",
+      "inec_lga": "OGBOMOSO NORTH"
+    },
+    {
+      "state": "Oyo",
+      "local_lga": "Ogbomosho South",
+      "inec_lga": "OGBOMOSO SOUTH"
+    },
+    {
+      "state": "Plateau",
+      "local_lga": "Barkin Ladi",
+      "inec_lga": "BARIKIN LADI"
+    },
+    {
+      "state": "Sokoto",
+      "local_lga": "Sabon Birni",
+      "inec_lga": "S/BIRNI"
+    },
+    {
+      "state": "Sokoto",
+      "local_lga": "Wamako",
+      "inec_lga": "WAMAKKO"
+    },
+    {
+      "state": "Yobe",
+      "local_lga": "Karasuwa",
+      "inec_lga": "KARASAWA"
+    },
+    {
+      "state": "Zamfara",
+      "local_lga": "Birnin Magaji/Kiyaw",
+      "inec_lga": "BIRNIN MAGAJI"
+    }
+  ],
+  "ward_matching": "One-to-one exact names, then conservative terminal Roman/Arabic numeral normalization only; duplicate local labels and unmatched names retain null INEC ward fields."
+}

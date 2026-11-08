@@ -135,7 +135,7 @@ class HiddenSourceArtifactTests(unittest.TestCase):
         self.assertEqual(review[POPULATION]['review_findings'], 'None in applicable checks')
         self.assertIn('16 states and 124 LGAs', review[POPULATION]['evidence'])
         report = (OUT / 'README.md').read_text(encoding='utf8')
-        self.assertIn('All five prioritized correction/reclassification tasks are complete', report)
+        self.assertIn('All six prioritized correction/reclassification tasks are complete', report)
         self.assertIn('Both hidden-source artefacts are resolved without coordinate shifts', report)
         self.assertIn('479 → 478', report)
         self.assertIn('hidden-source-artifact-resolution.md', report)

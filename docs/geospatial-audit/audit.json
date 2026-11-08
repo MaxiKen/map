@@ -1,6 +1,6 @@
 {
-  "generated_utc": "2026-11-08T13:24:27.554373+00:00",
-  "source_commit": "ff9f57c4c83e6f64714c3b39fd7394f44fc7c01e",
+  "generated_utc": "2026-11-08T14:15:12.704649+00:00",
+  "source_commit": "cf6bfda9cfdc25386e14d631c57e82e57a3751cd",
   "metric_crs": "EPSG:32632",
   "method_limitations": [
     "Internal agreement does not by itself prove absolute ground truth.",

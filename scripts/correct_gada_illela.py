@@ -749,6 +749,9 @@ def verify_existing_result():
     hidden_path = OUT / 'hidden-source-artifact-result.json'
     hidden = (json.loads(hidden_path.read_text(encoding='utf8'))
               if hidden_path.exists() else None)
+    admin_identifier_path = OUT / 'admin-identifier-result.json'
+    admin_identifiers = (json.loads(admin_identifier_path.read_text(encoding='utf8'))
+                         if admin_identifier_path.exists() else None)
     for table, expected in result['after_sha256'].items():
         current_hash = sha256(source_path(table))
         if current_hash == expected:
@@ -768,7 +771,16 @@ def verify_existing_result():
             hidden['sources']['towns']['before_sha256'] == expected and
             hidden['after_sha256']['towns'] == current_hash and
             all(hidden.get('checks', {}).values()))
-        if not superseded_wards and not superseded_towns:
+        predecessor = expected
+        if table == WARDS and residual:
+            predecessor = residual['after_sha256']
+        superseded_identifiers = bool(
+            table in (POLYGONS, CENTROIDS, WARDS) and admin_identifiers and
+            admin_identifiers.get('status') == 'installed_and_verified' and
+            admin_identifiers['before_sha256'][table] == predecessor and
+            admin_identifiers['after_sha256'][table] == current_hash and
+            all(admin_identifiers.get('checks', {}).values()))
+        if not superseded_wards and not superseded_towns and not superseded_identifiers:
             raise RuntimeError(f'{table}: current hash differs from correction result')
     for table, saved in result['provenance'].items():
         if sha256(ROOT / saved['path']) != saved['sha256']:
