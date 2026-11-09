@@ -30,6 +30,18 @@ test('browser loads a gzip vector in its worker and renders a single-style legen
   expect((after.requestCounts[compressed] || 0) - (before.requestCounts[compressed] || 0)).toBe(1);
   expect((after.requestCounts[uncompressed] || 0) - (before.requestCounts[uncompressed] || 0)).toBe(0);
 
+  const row = page.locator(`#layerlist .lrow[data-id="${NATIONAL_BOUNDARY}"]`);
+  await expect(row.locator('a[download][href$=".geojson"]')).toHaveCount(0);
+  await page.locator('.tab[data-tab="tools"]').click();
+  await page.locator('[data-tool="export"]').click();
+  await expect(page.locator('#modal')).toBeVisible();
+  await expect(page.locator('#modal-title')).toHaveText('Export results');
+  await expect(page.locator('#e-geo')).toHaveCount(0);
+  await expect(page.locator('#modal-body')).not.toContainText('GeoJSON');
+  await expect(page.locator('#e-png')).toBeVisible();
+  await expect(page.locator('#e-csv')).toBeVisible();
+  await page.locator('#modal-close').click();
+
   await page.locator('.tab[data-tab="legend"]').click();
   const legend = page.locator(`#legend .lg[data-layer="${NATIONAL_BOUNDARY}"]`);
   await expect(legend.locator('.lghead')).toContainText('National boundary (geoBoundaries)');

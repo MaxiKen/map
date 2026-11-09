@@ -1,6 +1,6 @@
-import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature } from './engine.js?v=e65bacf01a';
-import { createLoadScheduler } from './loading.js?v=e65bacf01a';
-import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=e65bacf01a';
+import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature } from './engine.js?v=afdc0bda83';
+import { createLoadScheduler } from './loading.js?v=afdc0bda83';
+import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=afdc0bda83';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -496,7 +496,6 @@ function layerRow(id) {
       ${isTable ? '' : `<span class="chip" data-act="labels">${icon('tag')}Labels</span>`}
       <span class="chip" data-act="table">${icon('table')}Attributes</span>
       ${quality ? `<button type="button" class="chip quality-link q-${quality.tone}" data-act="quality">${icon('quality')}Quality &amp; source</button>` : ''}
-      ${m.file && m.kind !== 'table' ? `<a class="chip" href="${esc(m.file)}" download>${icon('down')}GeoJSON</a>` : ''}
       ${st.on ? `<span class="chip" data-act="off">${icon('eyeoff')}Hide</span>` : `<span class="chip" data-act="on">${icon('eye')}Show</span>`}
     </div>`;
   row.querySelector('.lt').onclick = (e) => { e.stopPropagation(); row.classList.toggle('open'); if (row.classList.contains('open')) expanded.add(id); else expanded.delete(id); };
@@ -855,7 +854,6 @@ async function showResults(res, lonlat) {
         <button class="btn" data-x="layer-quality" data-id="${esc(m.id)}">${icon('quality')}Quality</button>
         ${AUTHOR ? `<button class="btn" data-x="label">${icon('tag')}Label</button>` : ''}
         <button class="btn" data-x="copy">${icon('copy')}Copy</button>
-        <button class="btn" data-x="json">${icon('down')}JSON</button>
       </div></div>`);
   }
   box.innerHTML = parts.join('') || '<p class="empty">Tap the map to see what is there.</p>';
@@ -872,19 +870,9 @@ async function showResults(res, lonlat) {
       else if (x === 'copy') {
         const txt = Object.entries(f.props).map(([k, v]) => `${k}: ${v}`).join('\n');
         navigator.clipboard?.writeText(txt).then(() => toast('Attributes copied'), () => toast('Could not copy'));
-      } else if (x === 'json') {
-        const gj = { type: 'Feature', properties: f.props, geometry: toGeoJSON(f) };
-        download('feature.json', JSON.stringify(gj, null, 1), 'application/json');
       }
     };
   });
-}
-function toGeoJSON(f) {
-  const unring = (arr) => { const out = []; for (let i = 0; i < arr.length; i += 2) out.push([+unX(arr[i]).toFixed(6), +unY(arr[i + 1]).toFixed(6)]); return out; };
-  if (f.type === 'point') return { type: 'Point', coordinates: unring(f.parts)[0] };
-  if (f.type === 'line') return f.parts.length === 1 ? { type: 'LineString', coordinates: unring(f.parts[0]) } : { type: 'MultiLineString', coordinates: f.parts.map(unring) };
-  const polys = f.parts.map((poly) => poly.map(unring));
-  return polys.length === 1 ? { type: 'Polygon', coordinates: polys[0] } : { type: 'MultiPolygon', coordinates: polys };
 }
 function onClick(x, y) {
   const [lo, la] = map.lonlatAt(x, y);
@@ -1093,7 +1081,7 @@ const TOOL_GROUPS = {
     ['labels', 'tag', 'Feature labels', 'Write a field on the map'],
     ['zoomlayer', 'zoom', 'Zoom to a layer', 'Fit a whole layer on screen'],
     ['shot', 'camera', 'Save map picture', 'Download the screen as a PNG'],
-    ['export', 'down', 'Export data', 'Download layers as GeoJSON / CSV'],
+    ['export', 'down', 'Export results', 'Save a map picture or attribute rows as CSV'],
   ],
   author: [
     ['symbology', 'palette', 'Symbology', 'Fill, stroke, size and labels'],
@@ -1976,7 +1964,7 @@ function toolZoomLayer() {
 // ------------------------------------------------ tool: import
 function toolImport() {
   openModal('Import GeoJSON', (body) => {
-    body.innerHTML = `<p class="muted">Bring a GeoJSON file (points, lines or polygons) onto the map. It is added as a layer for this session and can be styled, labelled and exported like any other layer.</p>
+    body.innerHTML = `<p class="muted">Bring a GeoJSON file (points, lines or polygons) onto the map. It is added as a layer for this session and can be styled and labelled; its attribute rows can be exported as CSV.</p>
       <div class="frow"><label>File</label><input id="i-file" type="file" accept=".geojson,.json,application/geo+json,application/json"></div>
       <div class="frow"><label>or paste</label><textarea id="i-text" placeholder='{"type":"FeatureCollection","features":[…]}'></textarea></div>
       <div class="frow act"><button class="btn primary" id="i-add">Add to the map</button></div>`;
@@ -2017,25 +2005,14 @@ function toolImport() {
 
 // ------------------------------------------------ tool: export
 function toolExport() {
-  openModal('Export data', (body) => {
+  openModal('Export results', (body) => {
     body.innerHTML = `<p class="muted">Everything stays on your device — these are plain downloads.</p>
       <div class="frow act" style="justify-content:stretch"><button class="btn primary" id="e-png">${icon('camera')} Map picture (PNG)</button></div>
-      <div class="frow act" style="justify-content:stretch"><button class="btn" id="e-geo">${icon('down')} Visible layers as GeoJSON</button></div>
       <div class="frow act" style="justify-content:stretch"><button class="btn" id="e-csv">${icon('table')} Attribute table as CSV</button></div>
       <div class="frow"><label>CSV layer</label><select id="e-layer"></select></div>`;
     const sel = body.querySelector('#e-layer');
     sel.innerHTML = [...L.values()].filter((s) => s.meta.kind !== 'image').map((s) => `<option value="${esc(s.meta.id)}">${esc(s.meta.label)}</option>`).join('');
     body.querySelector('#e-png').onclick = () => { closeModal(); saveMapImage(); };
-    body.querySelector('#e-geo').onclick = async () => {
-      const out = [];
-      for (const id of stack) {
-        const st = L.get(id); if (!st.obj?.features) continue;
-        for (const f of st.obj.features) if (!f.hidden) out.push({ type: 'Feature', properties: { _layer: st.meta.label, ...f.props }, geometry: toGeoJSON(f) });
-      }
-      if (!out.length) { toast('No vector layers are on the map'); return; }
-      download('visible-layers.geojson', JSON.stringify({ type: 'FeatureCollection', features: out }), 'application/geo+json');
-      toast(out.length + ' features exported');
-    };
     body.querySelector('#e-csv').onclick = async () => {
       const st = L.get(sel.value); if (!st) return;
       if (!st.obj) await loadLayer(st);

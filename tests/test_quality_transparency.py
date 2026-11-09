@@ -44,6 +44,23 @@ class QualityTransparencyTests(unittest.TestCase):
         netlify = (ROOT / 'netlify.toml').read_text(encoding='utf8')
         self.assertIn('for = "/quality-register.json"', netlify)
 
+    def test_raw_geospatial_download_controls_are_removed(self):
+        app = (ROOT / 'app/js/app.js').read_text(encoding='utf8')
+        quality = (ROOT / 'app/js/quality.js').read_text(encoding='utf8')
+        for forbidden in (
+            'href="${esc(m.file)}" download', 'href="${esc(meta.file)}" download',
+            'data-x="json"', 'id="e-geo"', "download('feature.json'",
+            "download('visible-layers.geojson'", 'function toGeoJSON(',
+            'Download layers as GeoJSON / CSV', 'Download GeoJSON',
+        ):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, app + quality)
+        self.assertIn("['export', 'down', 'Export results'", app)
+        self.assertIn('id="e-csv"', app)
+        self.assertIn('id="e-png"', app)
+        self.assertIn('Import GeoJSON', app)
+        self.assertIn('Download full JSON register', quality)
+
     @unittest.skipUnless(shutil.which('node'), 'Node.js is needed for JavaScript runtime tests')
     def test_quality_renderer_runtime_and_javascript_syntax(self):
         subprocess.run([

@@ -10,6 +10,14 @@ collected under **Unreleased** until `scripts/prepare_release.py` assigns a vers
 
 - Restrict mutable source-fetch workflows to main-branch pushes or manual dispatch so release tags and
   pull-request branch pushes never fetch and commit replacement data.
+- Correct the EMAG2 future-fetch mask's height/width order, exercise the failed non-square grid, and make the
+  seven-layer geology refresh manual-only. The 98% coverage guard still refuses unreviewed partial data.
+
+### Removed
+
+- All application GeoJSON acquisition controls: expanded-layer and Quality-panel links, single-feature JSON export,
+  and visible-layer GeoJSON export. Rendering/fallback artifacts, source provenance, user-owned GeoJSON import,
+  CSV/PNG export and the non-geometric quality-register download remain intact.
 
 ## [1.0.0] - 2026-11-08
 

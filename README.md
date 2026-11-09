@@ -40,7 +40,8 @@ CARTO tiles are deliberately not used — since August 2026 the free CARTO tiles
 ## The app
 The map is built for **readers**. Whoever uploads the GeoPackages owns the content; everyone else opens
 the site to look at it. So the tools are about *seeing and analysing*, not authoring: nothing a visitor
-touches changes the data, and no visitor is asked to import, style or label anything.
+touches changes the data, and no visitor is asked to import, style or label anything. The application UI does
+not offer GeoPackage or GeoJSON download controls; source names and hashes remain visible as provenance.
 
 ### Focus on an area (the main viewing tool)
 Nigeria-wide layers are noisy. **Clip to an area** (Tools -> *Clip to an area*, or the **Clip** button
@@ -103,8 +104,9 @@ For scripting and support the console exposes `window.__nwg` (`map`, `L`, `stack
 
 ## Loading performance
 
-Vector layers retain their original GeoJSON downloads and also publish deterministic `.geojson.gz` transport
-sidecars. A module worker handles fetching, decompression, JSON parsing and typed-geometry conversion off the UI
+Vector layers retain their original GeoJSON artifacts for standards-compatible rendering/fallback and also publish
+deterministic `.geojson.gz` transport sidecars; the UI does not expose those artifacts as download actions. A module
+worker handles fetching, decompression, JSON parsing and typed-geometry conversion off the UI
 thread; compatible browsers without those APIs use a yielding fallback. A shared scheduler limits all layer loads
 to two at once and deduplicates repeated requests. The current 43 vector sidecars are **83.9% smaller** than their
 original representations. See [map loading performance](docs/map-loading-performance.md) for measurements,
