@@ -1091,6 +1091,9 @@ const TOOL_GROUPS = {
     ['goto', 'target', 'Go to coordinates', 'Type a latitude and longitude'],
     ['bearing', 'compass', 'Distance & bearing', 'Between two coordinates'],
     ['grid', 'grid', 'Grid lines', 'Latitude / longitude graticule'],
+    ['locate', 'locate', 'Locate Me', 'Center map on your current location'],
+    ['bookmarks', 'pin', 'View Bookmarks', 'Save and restore map view bookmarks'],
+    ['rotate', 'compass', 'Rotate Map', 'Rotate the map display with north arrow'],
   ],
   search: [
     ['find', 'search', 'Feature Finder', 'Search features by attribute across layers'],
@@ -1165,6 +1168,9 @@ function runTool(t) {
     case 'measure-dist': startMeasure('line'); break;
     case 'measure-area': startMeasure('area'); break;
     case 'grid': gridOn = !gridOn; map.setGrid(gridOn); updateToolState(); saveProject(); toast(gridOn ? 'Grid on' : 'Grid off'); break;
+    case 'locate': toolLocate(); break;
+    case 'bookmarks': toolBookmarks(); break;
+    case 'rotate': toolRotateMap(); break;
     case 'shot': exportMapImage(); break;
     case 'goto': toolGoto(); break;
     case 'symbology': toolSymbology(); break;
@@ -3039,7 +3045,8 @@ function toolCoordInspector() {
     }
     const handler = (e) => {
       const r = map.cv.getBoundingClientRect();
-      const [lo, la] = map.lonlatAt(e.clientX - r.left, e.clientY - r.top);
+      const [px, py] = map.rotPos(e.clientX - r.left, e.clientY - r.top);
+      const [lo, la] = map.lonlatAt(px, py);
       setCoord(la, lo);
     };
     map.cv.addEventListener('pointerclick', handler);
@@ -3288,6 +3295,100 @@ function toolBearing() {
     };
   });
 }
+
+// ------------------------------------------------ tool: locate me
+function toolLocate() {
+  openModal('Locate Me', (body) => {
+    body.innerHTML = '<p>Use your browser\'s location services to center the map on your current position.</p>' +
+      '<div class="frow"><label>Accuracy</label><span id="loc-acc" class="muted">Waiting for location…</span></div>' +
+      '<div class="frow act"><button class="btn primary" id="loc-find">' + icon('locate') + ' Find My Location</button></div>' +
+      '<p class="muted" style="margin-top:8px">Your location is only used in your browser — it is never sent anywhere.</p>';
+    const accEl = body.querySelector('#loc-acc');
+    let watchId = null;
+    function showPos(pos) {
+      const { latitude, longitude, accuracy } = pos.coords;
+      accEl.textContent = 'Accuracy ±' + Math.round(accuracy) + ' m — ' + latitude.toFixed(4) + ', ' + longitude.toFixed(4);
+      map.setView(longitude, latitude, 14);
+      toast('Located: ' + latitude.toFixed(4) + ', ' + longitude.toFixed(4));
+    }
+    function showErr() {
+      accEl.textContent = 'Location not available — please check browser permissions.';
+      toast('Could not determine your location');
+    }
+    body.querySelector('#loc-find').onclick = () => {
+      if (!navigator.geolocation) { toast('Geolocation not supported by this browser'); return; }
+      accEl.textContent = 'Locating…'; watchId = navigator.geolocation.watchPosition(showPos, showErr, { enableHighAccuracy: true, timeout: 10000 });
+      setTimeout(() => { if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; } }, 10000);
+    };
+  });
+}
+
+// ------------------------------------------------ tool: bookmarks
+function toolBookmarks() {
+  const bmKey = 'nwg.bookmarks';
+  const bms = JSON.parse(localStorage.getItem(bmKey) || '{}');
+  openModal('View Bookmarks', (body) => {
+    body.innerHTML = '<p>Save named map views (center + zoom) and return to them later. Stored in your browser only.</p>' +
+      '<div class="frow"><label>Bookmark name</label><input id="bm-name" type="text" placeholder="e.g. Office site"></div>' +
+      '<div class="frow act"><button class="btn primary" id="bm-save">' + icon('pin') + ' Save Current View</button></div>' +
+      '<div id="bm-list" style="margin-top:10px;max-height:260px;overflow-y:auto;border:1px solid var(--line);border-radius:6px;padding:6px"></div>';
+    function render() {
+      const keys = Object.keys(bms);
+      body.querySelector('#bm-list').innerHTML = keys.length
+        ? keys.map((k) => '<div style="padding:6px 8px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center"><div><b>' + esc(k) + '</b><br><small style="color:var(--muted)">' + bms[k].la.toFixed(4) + ', ' + bms[k].lo.toFixed(4) + ' · zoom ' + bms[k].z.toFixed(1) + '</small></div><div style="display:flex;gap:4px"><button class="btn" data-go="' + esc(k) + '">Go</button><button class="chip" data-del="' + esc(k) + '">Del</button></div></div>').join('')
+        : '<p class="empty">No bookmarks saved.</p>';
+      body.querySelectorAll('[data-go]').forEach((b) => { b.onclick = () => { const m = bms[b.dataset.go]; map.setView(m.lo, m.la, m.z); closeModal(); toast('View: ' + b.dataset.go); }; });
+      body.querySelectorAll('[data-del]').forEach((b) => { b.onclick = () => { delete bms[b.dataset.del]; localStorage.setItem(bmKey, JSON.stringify(bms)); render(); }; });
+    }
+    render();
+    body.querySelector('#bm-save').onclick = () => {
+      const name = body.querySelector('#bm-name').value.trim();
+      if (!name) { toast('Enter a bookmark name'); return; }
+      const c = map.center();
+      bms[name] = { lo: c[0], la: c[1], z: map.zoom };
+      localStorage.setItem(bmKey, JSON.stringify(bms));
+      render();
+      toast('Bookmark "' + name + '" saved');
+    };
+  });
+}
+
+// ------------------------------------------------ tool: rotate map
+function toolRotateMap() {
+  openModal('Rotate Map', (body) => {
+    body.innerHTML = '<p>Rotate the map display. A north arrow shows the current orientation.</p>' +
+      '<div class="frow"><label>Rotation (degrees clockwise)</label><input id="rot-angle" type="number" min="-360" max="360" step="1" value="0"></div>' +
+      '<div class="frow act"><button class="btn" id="rot-reset">' + icon('refresh') + ' Reset to North</button><button class="btn primary" id="rot-apply">' + icon('compass') + ' Apply Rotation</button></div>' +
+      '<div id="rot-north" style="margin-top:12px;display:flex;justify-content:center"></div>' +
+      '<p class="muted" style="margin-top:8px">Map rotation is visual only — coordinates and measurements are unaffected.</p>';
+    const angleEl = body.querySelector('#rot-angle');
+    const northDiv = body.querySelector('#rot-north');
+    function drawNorthArrow() {
+      const deg = map.rotation;
+      const s = 30;
+      northDiv.innerHTML = '';
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('width', s * 2); svg.setAttribute('height', s * 2);
+      svg.style.transform = 'rotate(' + deg + 'deg)';
+      svg.innerHTML = '<rect x="' + s + '" y="4" width="4" height="' + s + '" fill="#16201b"/>' +
+        '<polygon points="' + s + ',4 ' + (s - 6) + ',16 ' + (s + 6) + ',16" fill="#16201b"/>' +
+        '<text x="' + (s * 2) + '" y="' + (s + 20) + '" text-anchor="middle" font-size="12" fill="#16201b">N</text>' +
+        '<text x="' + s + '" y="' + (s * 2 + 16) + '" text-anchor="middle" font-size="10" fill="#666">' + deg.toFixed(0) + '°</text>';
+      northDiv.appendChild(svg);
+    }
+    drawNorthArrow();
+    angleEl.oninput = drawNorthArrow;
+    body.querySelector('#rot-reset').onclick = () => { angleEl.value = 0; map.setRotation(0); drawNorthArrow(); toast('Rotation reset'); };
+    body.querySelector('#rot-apply').onclick = () => {
+      const deg = +angleEl.value;
+      if (!isFinite(deg)) { toast('Enter a valid angle'); return; }
+      map.setRotation(deg);
+      drawNorthArrow();
+      toast('Map rotated ' + deg.toFixed(0) + '°');
+    };
+  });
+}
+
 
 // ------------------------------------------------ measure
 function startMeasure(mode) {

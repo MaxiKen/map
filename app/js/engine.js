@@ -110,6 +110,7 @@ export class GeoMap {
     this.extraTop = [];                                        // drawn above everything, incl. grid labels
     this.basemap = 'light'; this.tiles = new Map(); this.minZoom = 2; this.maxZoom = 19;
     this.grid = { on: false, step: null };
+    this.rotation = 0; // degrees, clockwise
     this.overlay = null;         // transient drawing preview (focus-area capture)
     this.clip = null;            // focus area: {type:'rect', wb:[]} | {type:'poly', rings:[[x,y,...]]} | {type:'circle', c:[x,y], r}
     this.listeners = { view: [], click: [], hover: [], layers: [], tileerror: [] };
@@ -146,6 +147,16 @@ export class GeoMap {
   fromScreen(px, py) { const S = this.S; return [this.cx + (px - this.W / 2) / S, this.cy + (py - this.H / 2) / S]; }
   lonlatAt(px, py) { const [wx, wy] = this.fromScreen(px, py); return [unX(wx), unY(wy)]; }
   screenOf(lon, lat) { return this.toScreen(mercX(lon), mercY(lat)); }
+  // Screen pixel position adjusted for map rotation (inverse of canvas rotation)
+  rotPos(px, py) {
+    if (!this.rotation) return [px, py];
+    const cx = this.W / 2, cy = this.H / 2;
+    const dx = px - cx, dy = py - cy;
+    const angle = (this.rotation * Math.PI) / 180;
+    const x = dx * Math.cos(angle) + dy * Math.sin(angle);
+    const y = -dx * Math.sin(angle) + dy * Math.cos(angle);
+    return [cx + x, cy + y];
+  }
   zoomAt(px, py, dz) {
     const [wx, wy] = this.fromScreen(px, py); const nz = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoom + dz));
     if (nz === this.zoom) return; this.zoom = nz; const S = this.S;
@@ -173,11 +184,18 @@ export class GeoMap {
   drawOrder() { return this.layers.filter(l => l.visible); }
   setBasemap(k) { this.basemap = k; this.tileErrors = 0; this.render(); }
   setGrid(on) { this.grid.on = !!on; this.render(); }
+  setRotation(deg) { this.rotation = ((deg % 360) + 360) % 360; this.render(); }
   // ---- rendering
   render() { if (this._raf) return; this._raf = requestAnimationFrame(() => { this._raf = 0; this._draw(); }); }
   _draw() {
     const ctx = this.ctx, d = this.dpr; ctx.setTransform(d, 0, 0, d, 0, 0);
     const bm = BASEMAPS[this.basemap] || BASEMAPS.none;
+    // Apply map rotation around canvas center
+    if (this.rotation) {
+      ctx.translate(this.W / 2, this.H / 2);
+      ctx.rotate((this.rotation * Math.PI) / 180);
+      ctx.translate(-this.W / 2, -this.H / 2);
+    }
     ctx.fillStyle = bm.bg; ctx.fillRect(0, 0, this.W, this.H);
     ctx.globalAlpha = 1;
     if (bm.url) this._drawTiles(bm);
@@ -552,7 +570,7 @@ export class GeoMap {
   // ---- interaction
   _bind() {
     const cv = this.cv, P = new Map(); let tapT = 0, tapX = 0, tapY = 0, lastTap = 0, lastTapX = 0, lastTapY = 0, moved = 0, pinch = null;
-    const pos = (e) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+    const pos = (e) => { const r = cv.getBoundingClientRect(); return this.rotPos(e.clientX - r.left, e.clientY - r.top); };
     cv.style.touchAction = 'none';
     cv.addEventListener('pointerdown', (e) => {
       cv.setPointerCapture(e.pointerId); P.set(e.pointerId, pos(e)); this._moving = true;
