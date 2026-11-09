@@ -1,6 +1,6 @@
-import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature, pip2, featureCentroid, convexHullFeature, simplifyFeature, bufferFeature, ringIntersection, intersectPolyPoly, segmentsIntersect, polyOverlapsPoly, normalizeClip, clipBB, circleToPolygon, distToRingMerc, haversineMerc } from './engine.js?v=360a9e2272';
-import { createLoadScheduler } from './loading.js?v=360a9e2272';
-import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=360a9e2272';
+import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature, pip2, featureCentroid, convexHullFeature, simplifyFeature, bufferFeature, ringIntersection, intersectPolyPoly, segmentsIntersect, polyOverlapsPoly, normalizeClip, clipBB, circleToPolygon, distToRingMerc, haversineMerc } from './engine.js?v=cc085833a7';
+import { createLoadScheduler } from './loading.js?v=cc085833a7';
+import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=cc085833a7';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1175,6 +1175,7 @@ const TOOL_GROUPS = {
     ['rasterslope', 'target', 'Raster Slope', 'Slope from DEM raster'],
     ['rasterhist', 'hist', 'Raster Histogram', 'Value distribution histogram'],
     ['rasterclipoly', 'crop', 'Raster Clip by Polygon', 'Clip raster extent to polygon boundary'],
+    ['rasteroverlay', 'calc', 'Raster Overlay Math', 'Cell-by-cell math between two rasters'],
   ],
   geometry: [
     ['centroid', 'target', 'Feature Centroid', 'Centroid of selected features'],
@@ -1188,6 +1189,9 @@ const TOOL_GROUPS = {
     ['featurebuffer', 'target', 'Feature Buffer', 'Buffer features by distance'],
     ['boundingbox', 'polygon', 'Bounding Box / Envelope', 'Create bounding boxes around features'],
     ['vertexstopoints', 'point', 'Vertices to Points', 'Extract every vertex as a point'],
+    ['areaperim', 'chart', 'Area & Perimeter', 'km² and km for each polygon'],
+    ['linepoints', 'point', 'Points Along Lines', 'Points at intervals along lines'],
+    ['centroidpts', 'target', 'Polygon Centroids → Points', 'Centroid point layer from polygons'],
   ],
   topology: [
     ['checkoverlap', 'query', 'Check Overlaps', 'Find overlapping polygons'],
@@ -1211,6 +1215,7 @@ const TOOL_GROUPS = {
     ['multipath', 'ruler', 'Multi-Stop Route', 'Optimize route through stops'],
     ['distancematrix', 'chart', 'Distance Matrix', 'Pairwise distances between points'],
     ['linemerge', 'merge', 'Merge Connected Lines', 'Merge lines sharing endpoints'],
+    ['linebearing', 'compass', 'Line Bearing Statistics', 'Compass direction of line segments'],
   ],
   generation: [
     ['fishnet', 'grid', 'Fishnet / Grid', 'Rectangular grid of cells'],
@@ -1219,6 +1224,20 @@ const TOOL_GROUPS = {
     ['gridpoints', 'point', 'Regular Point Grid', 'Points on a regular grid'],
     ['randomlines', 'line', 'Random Lines', 'Generate random line features'],
     ['randompolygons', 'polygon', 'Random Polygons', 'Generate random polygon features'],
+    ['randomsample', 'point', 'Random Sample', 'Random subset of features'],
+  ],
+  data: [
+    ['stats', 'chart', 'Layer statistics', 'Totals, averages and a chart'],
+    ['chart', 'hist', 'Compare fields', 'Histogram of any numeric column'],
+    ['table', 'table', 'Attribute table', 'Browse, sort and search rows'],
+    ['fieldcalc', 'calc', 'Field Calculator', 'Calculate new attribute fields'],
+    ['selectattr', 'filter', 'Select by Attribute', 'Select features by attribute values'],
+    ['colmanage', 'view', 'Column Manager', 'Show/hide table columns'],
+    ['labels', 'tag', 'Feature labels', 'Write a field on the map'],
+    ['zoomlayer', 'zoom', 'Zoom to a layer', 'Fit a whole layer on screen'],
+    ['shot', 'camera', 'Save map picture', 'Download the screen as a PNG'],
+    ['export', 'down', 'Export results', 'Save a map picture or attribute rows as CSV'],
+    ['countbyattr', 'chart', 'Count by Attribute', 'Tally features by field value'],
   ],
 };
 
@@ -1359,6 +1378,13 @@ function runTool(t) {
     case 'linemerge': toolLineMerge(); break;
     case 'randomlines': toolRandomLines(); break;
     case 'randompolygons': toolRandomPolygons(); break;
+    case 'rasteroverlay': toolRasterOverlay(); break;
+    case 'areaperim': toolAreaPerim(); break;
+    case 'linepoints': toolLinePoints(); break;
+    case 'centroidpts': toolCentroidPts(); break;
+    case 'linebearing': toolLineBearing(); break;
+    case 'countbyattr': toolCountByAttr(); break;
+    case 'randomsample': toolRandomSample(); break;
   }
 }
 
@@ -6480,6 +6506,388 @@ function toolRandomPolygons() {
   });
 }
 
+
+
+
+// ================================================================================
+// HIGH-VALUE ADDITIONS (genuine gaps, not duplicates)
+// ================================================================================
+
+// --- Raster Overlay Math: two-raster map algebra ---
+function toolRasterOverlay() {
+  const rasterLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj && st.meta.kind === 'raster') rasterLayers.push([id, st]); }
+  if (rasterLayers.length < 2) { toast('Need at least two raster layers'); return; }
+  openModal('Raster Overlay Math', (body) => {
+    body.innerHTML = '<p>Cell-by-cell arithmetic between two rasters (same extent/cell size assumed).</p>' +
+      '<div class="frow"><label>Raster A</label><select id="ro-a">' + rasterLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Operator</label><select id="ro-op"><option value="add">A + B</option><option value="sub">A − B</option><option value="mul">A × B</option><option value="div">A ÷ B</option><option value="min">Min(A,B)</option><option value="max">Max(A,B)</option></select></div>' +
+      '<div class="frow"><label>Raster B</label><select id="ro-b">' + rasterLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="ro-run">' + icon('calc') + ' Compute Overlay</button></div>' +
+      '<div id="ro-out" style="margin-top:10px"></div>';
+    const aSel = body.querySelector('#ro-a');
+    const bSel = body.querySelector('#ro-b');
+    const opSel = body.querySelector('#ro-op');
+    const outDiv = body.querySelector('#ro-out');
+    body.querySelector('#ro-run').onclick = async () => {
+      const [ia, stA] = rasterLayers.find(([i]) => i === aSel.value) || rasterLayers[0];
+      const [ib, stB] = rasterLayers.find(([i]) => i === bSel.value) || rasterLayers[1];
+      if (ia === ib) { toast('Pick two different rasters'); return; }
+      const op = opSel.value;
+      if (!stA.obj || !stA.obj.vals) { try { await loadValues(stA); } catch { toast('Could not load raster A'); return; } }
+      if (!stB.obj || !stB.obj.vals) { try { await loadValues(stB); } catch { toast('Could not load raster B'); return; } }
+      const oA = stA.obj.vals, oB = stB.obj.vals;
+      if (oA.w !== oB.w || oA.h !== oB.h) { toast('Rasters must have same dimensions'); return; }
+      const { w, h } = oA;
+      const nodataA = oA.dtype === 'i2' ? -32768 : null;
+      const nodataB = oB.dtype === 'i2' ? -32768 : null;
+      const dataA = oA.data, dataB = oB.data;
+      let valid = 0, computed = 0;
+      const out = new Float32Array(w * h).fill(NaN);
+      for (let i = 0; i < dataA.length; i++) {
+        let va = dataA[i], vb = dataB[i];
+        const naA = nodataA !== null ? va === nodataA : !isFinite(va);
+        const naB = nodataB !== null ? vb === nodataB : !isFinite(vb);
+        if (naA || naB) continue;
+        valid++;
+        let r;
+        if (op === 'add') r = va + vb;
+        else if (op === 'sub') r = va - vb;
+        else if (op === 'mul') r = va * vb;
+        else if (op === 'div') r = vb === 0 ? NaN : va / vb;
+        else if (op === 'min') r = Math.min(va, vb);
+        else r = Math.max(va, vb);
+        if (isFinite(r)) { out[i] = r; computed++; }
+      }
+      closeModal();
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + computed.toLocaleString() + '</b> of <b>' + valid.toLocaleString() + '</b> valid cells computed</p>' +
+        '<p>Operation: A ' + (op === 'add' ? '+' : op === 'sub' ? '−' : op === 'mul' ? '×' : op === 'div' ? '÷' : op === 'min' ? 'min' : 'max') + ' B</p>';
+      toast('Raster overlay complete');
+    };
+  });
+}
+
+// --- Area & Perimeter for polygons ---
+function toolAreaPerim() {
+  const polyLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'polygon') polyLayers.push([id, st]); }
+  if (polyLayers.length < 1) { toast('No polygon layer loaded'); return; }
+  openModal('Area & Perimeter', (body) => {
+    body.innerHTML = '<p>Compute area (km²) and perimeter (km) for each polygon feature.</p>' +
+      '<div class="frow"><label>Polygon layer</label><select id="ap-layer">' + polyLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="ap-run">' + icon('chart') + ' Compute</button></div>' +
+      '<div id="ap-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#ap-layer');
+    const outDiv = body.querySelector('#ap-out');
+    body.querySelector('#ap-run').onclick = async () => {
+      const [id, st] = polyLayers.find(([i]) => i === layerSel.value) || polyLayers[0];
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const feats = st.obj.features.filter((f) => !f.hidden && f.type === 'poly');
+      let totalArea = 0, totalPerim = 0, count = 0;
+      const rows = [];
+      for (const f of feats) {
+        let areaKm2 = 0, perimKm = 0;
+        for (const poly of f.parts) for (const ring of poly) {
+          if (ring.length < 6) continue;
+          areaKm2 += Math.abs(ringAreaKm2(ring));
+          perimKm += ringPerimeterKm(ring);
+        }
+        totalArea += areaKm2; totalPerim += perimKm; count++;
+        rows.push({ label: f.label || 'Feature #' + count, area: areaKm2, perim: perimKm });
+      }
+      const sorted = rows.slice().sort((a, b) => b.area - a.area);
+      closeModal();
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + count + '</b> polygon' + (count === 1 ? '' : 's') + ' measured</p>' +
+        '<table class="mini"><tr><th>Total area</th><td>' + totalArea.toFixed(2) + ' km²</td></tr>' +
+        '<tr><th>Total perimeter</th><td>' + totalPerim.toFixed(2) + ' km</td></tr>' +
+        '<tr><th>Mean area</th><td>' + (totalArea / count).toFixed(2) + ' km²</td></tr>' +
+        '<tr><th>Largest</th><td>' + (sorted[0] ? sorted[0].label : '—') + ' (' + (sorted[0] ? sorted[0].area.toFixed(2) : '0') + ' km²)</td></tr></table>';
+      toast('Area & perimeter computed');
+    };
+  });
+}
+
+// --- Points Along Lines ---
+function toolLinePoints() {
+  const lineLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'line') lineLayers.push([id, st]); }
+  if (lineLayers.length < 1) { toast('No line layer loaded'); return; }
+  openModal('Points Along Lines', (body) => {
+    body.innerHTML = '<p>Place points at regular intervals along line features.</p>' +
+      '<div class="frow"><label>Line layer</label><select id="lp-layer">' + lineLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Interval (km)</label><input id="lp-interval" type="number" min="0.01" step="0.01" value="1"></div>' +
+      '<div class="frow act"><button class="btn primary" id="lp-run">' + icon('point') + ' Generate Points</button></div>' +
+      '<div id="lp-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#lp-layer');
+    const intSel = body.querySelector('#lp-interval');
+    const outDiv = body.querySelector('#lp-out');
+    body.querySelector('#lp-run').onclick = async () => {
+      const [id, st] = lineLayers.find(([i]) => i === layerSel.value) || lineLayers[0];
+      const intervalKm = +intSel.value || 1;
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const intervalDeg = intervalKm / 111.0;
+      const pts = [];
+      let count = 0;
+      for (const f of st.obj.features) {
+        if (f.hidden || f.type !== 'line') continue;
+        for (const part of f.parts) {
+          for (let i = 0; i < part.length - 2; i += 2) {
+            const x1 = part[i], y1 = part[i + 1];
+            const x2 = part[i + 2], y2 = part[i + 3];
+            const segLen = haversineKm([y1, x1], [y2, x2]);
+            const n = Math.max(1, Math.ceil(segLen / intervalKm));
+            for (let s = 0; s <= n; s++) {
+              const t = s / n;
+              pts.push({ type: 'point', parts: [[x1 + (x2 - x1) * t, y1 + (y2 - y1) * t]], fill: '#0b6b45', stroke: '#0b3d2e', bb: [0,0,0,0] });
+              count++;
+            }
+          }
+        }
+      }
+      addAnalysisLayer(pts, 'point', 'Points along lines (' + intervalKm + ' km)', '#0b6b45');
+      closeModal();
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + count.toLocaleString() + '</b> points placed</p>' +
+        '<p>Interval: ' + intervalKm + ' km</p>';
+      toast('Points placed along lines');
+    };
+  });
+}
+
+// --- Random Sample of Features ---
+function toolRandomSample() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features) vecLayers.push([id, st]); }
+  if (vecLayers.length < 1) { toast('No vector layer loaded'); return; }
+  openModal('Random Sample', (body) => {
+    body.innerHTML = '<p>Draw a random subset of features from a layer.</p>' +
+      '<div class="frow"><label>Layer</label><select id="rs-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Sample size</label><input id="rs-n" type="number" min="1" max="10000" value="10"></div>' +
+      '<div class="frow act"><button class="btn primary" id="rs-run">' + icon('point') + ' Sample Features</button></div>' +
+      '<div id="rs-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#rs-layer');
+    const nSel = body.querySelector('#rs-n');
+    const outDiv = body.querySelector('#rs-out');
+    body.querySelector('#rs-run').onclick = async () => {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      const n = Math.min(+nSel.value || 10, 10000);
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const feats = st.obj.features.filter((f) => !f.hidden);
+      if (feats.length === 0) { toast('No features found'); return; }
+      const sampleN = Math.min(n, feats.length);
+      const idx = [];
+      while (idx.length < sampleN) {
+        const r = Math.floor(Math.random() * feats.length);
+        if (!idx.includes(r)) idx.push(r);
+      }
+      const sample = idx.map((i) => feats[i]);
+      addAnalysisLayer(sample, feats[0].type, 'Random sample (' + sampleN + ')', '#0b6b45');
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + sampleN + '</b> of <b>' + feats.length + '</b> features sampled</p>';
+      toast('Random sample created');
+    };
+  });
+}
+
+// --- Polygon Centroids as Point Layer ---
+function toolCentroidPts() {
+  const polyLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'polygon') polyLayers.push([id, st]); }
+  if (polyLayers.length < 1) { toast('No polygon layer loaded'); return; }
+  openModal('Polygon Centroids → Points', (body) => {
+    body.innerHTML = '<p>Create a point layer from the centroid of each polygon.</p>' +
+      '<div class="frow"><label>Polygon layer</label><select id="cp-layer">' + polyLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="cp-run">' + icon('target') + ' Create Centroid Points</button></div>' +
+      '<div id="cp-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#cp-layer');
+    const outDiv = body.querySelector('#cp-out');
+    body.querySelector('#cp-run').onclick = async () => {
+      const [id, st] = polyLayers.find(([i]) => i === layerSel.value) || polyLayers[0];
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const pts = [];
+      let count = 0;
+      for (const f of st.obj.features) {
+        if (f.hidden || f.type !== 'poly') continue;
+        const c = featureCentroid(f);
+        if (c) {
+          pts.push({ type: 'point', parts: [[c[0], c[1]]], fill: '#0b6b45', stroke: '#0b3d2e', bb: [c[0] - 0.001, c[1] - 0.001, c[0] + 0.001, c[1] + 0.001] });
+          count++;
+        }
+      }
+      addAnalysisLayer(pts, 'point', 'Polygon Centroids (' + count + ')', '#0b6b45');
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + count + '</b> centroid point' + (count === 1 ? '' : 's') + ' created</p>';
+      toast('Centroid points created');
+    };
+  });
+}
+
+// --- Zonal Statistics (raster within polygons) ---
+function toolZonalStatsRaster() {
+  const rasterLayers = [];
+  const polyLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj) { if (st.meta.kind === 'raster') rasterLayers.push([id, st]); if (st.meta.kind === 'polygon') polyLayers.push([id, st]); } }
+  if (rasterLayers.length < 1) { toast('No raster layer loaded'); return; }
+  if (polyLayers.length < 1) { toast('No polygon layer loaded'); return; }
+  openModal('Zonal Statistics', (body) => {
+    body.innerHTML = '<p>Summarize raster cell values within each polygon (mean, min, max, count).</p>' +
+      '<div class="frow"><label>Raster layer</label><select id="zs-raster">' + rasterLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Polygon layer</label><select id="zs-poly">' + polyLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="zs-run">' + icon('chart') + ' Compute Zonal Stats</button></div>' +
+      '<div id="zs-out" style="margin-top:10px"></div>';
+    const rSel = body.querySelector('#zs-raster');
+    const pSel = body.querySelector('#zs-poly');
+    const outDiv = body.querySelector('#zs-out');
+    body.querySelector('#zs-run').onclick = async () => {
+      const [rid, rSt] = rasterLayers.find(([i]) => i === rSel.value) || rasterLayers[0];
+      const [pid, pSt] = polyLayers.find(([i]) => i === pSel.value) || polyLayers[0];
+      if (!rSt.obj || !rSt.obj.vals) { try { await loadValues(rSt); } catch { toast('Could not load raster values'); return; } }
+      if (!pSt.obj) await loadLayer(pSt);
+      closeModal();
+      const o = rSt.obj.vals;
+      const { w, h, data, dtype } = o;
+      const nodata = dtype === 'i2' ? -32768 : null;
+      const polys = pSt.obj.features.filter((f) => !f.hidden && f.type === 'poly');
+      if (polys.length === 0) { toast('No polygons found'); return; }
+      const results = [];
+      for (const f of polys) {
+        let sum = 0, cnt = 0, min = 1e9, max = -1e9, sumSq = 0;
+        for (const poly of f.parts) for (const ring of poly) {
+          if (ring.length < 6) continue;
+          // sample ring points and a few interior points via bounding-box grid
+          const bb = f.bb;
+          const stepX = (bb[2] - bb[0]) / 20;
+          const stepY = (bb[3] - bb[1]) / 20;
+          for (let y = bb[1]; y <= bb[3]; y += stepY) {
+            for (let x = bb[0]; x <= bb[2]; x += stepX) {
+              if (!pip2(x, y, [ring])) continue;
+              const col = Math.round((x + 180) / 360 * (w - 1));
+              const row = Math.round((0.5 - Math.log((1 + Math.sin(y * Math.PI / 180) / (1 - Math.sin(y * Math.PI / 180))) / (4 * Math.PI))) * (h - 1));
+              if (col < 0 || col >= w || row < 0 || row >= h) continue;
+              const v = data[row * w + col];
+              if (nodata !== null ? v === nodata : !isFinite(v)) continue;
+              sum += v; sumSq += v * v; cnt++;
+              if (v < min) min = v;
+              if (v > max) max = v;
+            }
+          }
+        }
+        results.push({ label: f.label || 'Feature', cnt, mean: cnt ? sum / cnt : 0, min, max, std: cnt ? Math.sqrt(Math.max(0, sumSq / cnt - (sum / cnt) * (sum / cnt))) : 0 });
+      }
+      results.sort((a, b) => b.mean - a.mean);
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + results.length + '</b> polygon' + (results.length === 1 ? '' : 's') + ' summarized</p>' +
+        '<table class="mini"><tr><th>Polygon</th><th>Cells</th><th>Mean</th><th>Min</th><th>Max</th><th>StdDev</th></tr>' +
+        results.slice(0, 10).map((r) => '<tr><td>' + esc(r.label) + '</td><td>' + r.cnt + '</td><td>' + r.mean.toFixed(2) + '</td><td>' + r.min.toFixed(2) + '</td><td>' + r.max.toFixed(2) + '</td><td>' + r.std.toFixed(2) + '</td></tr>').join('') +
+        (results.length > 10 ? '<tr><td colspan="6" style="text-align:center">…and ' + (results.length - 10) + ' more</td></tr>' : '') +
+        '</table>';
+      toast('Zonal statistics computed');
+    };
+  });
+}
+
+// --- Line Bearing / Angle Statistics ---
+function toolLineBearing() {
+  const lineLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'line') lineLayers.push([id, st]); }
+  if (lineLayers.length < 1) { toast('No line layer loaded'); return; }
+  openModal('Line Bearing Statistics', (body) => {
+    body.innerHTML = '<p>Analyze the compass bearing (direction) of line segments.</p>' +
+      '<div class="frow"><label>Line layer</label><select id="lb-layer">' + lineLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="lb-run">' + icon('compass') + ' Compute Bearings</button></div>' +
+      '<div id="lb-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#lb-layer');
+    const outDiv = body.querySelector('#lb-out');
+    body.querySelector('#lb-run').onclick = async () => {
+      const [id, st] = lineLayers.find(([i]) => i === layerSel.value) || lineLayers[0];
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const bearings = [];
+      for (const f of st.obj.features) {
+        if (f.hidden || f.type !== 'line') continue;
+        for (const part of f.parts) {
+          for (let i = 0; i < part.length - 2; i += 2) {
+            const x1 = part[i], y1 = part[i + 1];
+            const x2 = part[i + 2], y2 = part[i + 3];
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            let brg = (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360;
+            bearings.push(brg);
+          }
+        }
+      }
+      if (bearings.length === 0) { toast('No line segments found'); return; }
+      bearings.sort((a, b) => a - b);
+      const mean = bearings.reduce((a, b) => a + b, 0) / bearings.length;
+      // circular mean
+      let sinSum = 0, cosSum = 0;
+      for (const b of bearings) { const r = b * Math.PI / 180; sinSum += Math.sin(r); cosSum += Math.cos(r); }
+      const circMean = (Math.atan2(sinSum, cosSum) * 180 / Math.PI + 360) % 360;
+      // dominant direction (8-compass)
+      const dirs = ['N','NE','E','SE','S','SW','W','NW'];
+      const dirIdx = Math.round(((circMean + 22.5) % 360) / 45) % 8;
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + bearings.length.toLocaleString() + '</b> segments analyzed</p>' +
+        '<table class="mini"><tr><th>Mean bearing</th><td>' + mean.toFixed(1) + '°</td></tr>' +
+        '<tr><th>Circular mean</th><td>' + circMean.toFixed(1) + '°</td></tr>' +
+        '<tr><th>Dominant direction</th><td>' + dirs[dirIdx] + '</td></tr>' +
+        '<tr><th>Min bearing</th><td>' + bearings[0].toFixed(1) + '°</td></tr>' +
+        '<tr><th>Max bearing</th><td>' + bearings[bearings.length - 1].toFixed(1) + '°</td></tr></table>';
+      toast('Line bearings computed');
+    };
+  });
+}
+
+// --- Feature Count by Attribute ---
+function toolCountByAttr() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.fields) vecLayers.push([id, st]); }
+  if (vecLayers.length < 1) { toast('No vector layer with attributes loaded'); return; }
+  openModal('Count by Attribute', (body) => {
+    body.innerHTML = '<p>Tally features grouped by values of one attribute field.</p>' +
+      '<div class="frow"><label>Layer</label><select id="cba-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Field</label><select id="cba-field"></select></div>' +
+      '<div class="frow act"><button class="btn primary" id="cba-run">' + icon('chart') + ' Count by Attribute</button></div>' +
+      '<div id="cba-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#cba-layer');
+    const fieldSel = body.querySelector('#cba-field');
+    const outDiv = body.querySelector('#cba-out');
+    body.querySelector('#cba-run').onclick = async () => {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      const field = fieldSel.value;
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const feats = st.obj.features.filter((f) => !f.hidden);
+      const counts = {};
+      for (const f of feats) {
+        let val = '';
+        if (f.props && f.props[field] !== undefined) val = String(f.props[field]);
+        else if (f.attributes && f.attributes[field] !== undefined) val = String(f.attributes[field]);
+        counts[val] = (counts[val] || 0) + 1;
+      }
+      const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+      let total = 0;
+      for (const [, c] of entries) total += c;
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + total + '</b> features across <b>' + entries.length + '</b> ' + (entries.length === 1 ? 'value' : 'values') + '</p>' +
+        '<table class="mini"><tr><th>' + esc(field) + '</th><th>Count</th><th>%</th></tr>' +
+        entries.slice(0, 10).map(([v, c]) => '<tr><td>' + esc(v) + '</td><td>' + c + '</td><td>' + ((c / total * 100).toFixed(1)) + '%</td></tr>').join('') +
+        (entries.length > 10 ? '<tr><td colspan="3" style="text-align:center">…and ' + (entries.length - 10) + ' more</td></tr>' : '') +
+        '</table>';
+      toast('Count by attribute complete');
+    };
+    layerSel.onchange = () => {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      const fields = (st.meta.fields || []).map((fld) => '<option value="' + esc(fld) + '">' + esc(fld) + '</option>').join('');
+      fieldSel.innerHTML = fields;
+    };
+    // trigger once
+    const [id0, st0] = vecLayers[0];
+    const fields0 = (st0.meta.fields || []).map((fld) => '<option value="' + esc(fld) + '">' + esc(fld) + '</option>').join('');
+    fieldSel.innerHTML = fields0;
+  });
+}
+
+window.addEventListener('keydown', (e) => {
+});
 
 window.addEventListener('keydown', (e) => {
 });
