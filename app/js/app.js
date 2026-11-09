@@ -59,6 +59,8 @@ const IC = {
   convert: '<path d="M4 4h16v16H4zM12 2l4 6M8 14l4-6"/><path d="M2 12h20"/><path d="M12 22V2"/>',
   savemeas: '<path d="M12 2v20M12 8l-4 4M12 8l4 4"/><circle cx="12" cy="16" r="4"/>',
   style: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="5" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  time: '<circle cx="12" cy="12" r="9"/><polyline fill="none" stroke="currentColor" stroke-width="2" points="12,7 12,12 16,12"/><circle cx="12" cy="12" r="1" fill="currentColor"/>',
+  timer: '<path d="M12 2v20M12 8l-4 4M12 8l4 4"/><path d="M5 12h14M12 5v14"/><circle cx="12" cy="12" r="1"/>',
 };
 const icon = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
 const KIND_LABEL = { point: 'Points', line: 'Lines', polygon: 'Polygons', raster: 'Raster', image: 'Picture', table: 'Table' };
@@ -1102,6 +1104,11 @@ const TOOL_GROUPS = {
     ['draw-list', 'layers', 'Saved Drawings', 'View and restore saved drawings'],
     ['draw-style', 'palette', 'Drawing Style', 'Set color and stroke for drawings'],
   ],
+  temporal: [
+    ['timefilter', 'filter', 'Temporal Filter', 'Filter features by date or year field'],
+    ['timelayers', 'layers', 'Temporal Layers', 'Browse layers with time coverage'],
+    ['timeslider', 'sliders', 'Time Slider', 'Step through years to see change'],
+  ],
   search: [
     ['find', 'search', 'Feature Finder', 'Search features by attribute across layers'],
     ['coords', 'target', 'Coordinate Inspector', 'Click map to read coordinates (DD / DMS)'],
@@ -1222,6 +1229,9 @@ function runTool(t) {
     case 'printlayout': toolPrintLayout(); break;
     case 'resetview': resetView(); break;
     case 'fullscreen': toggleFullscreen(); break;
+    case 'timefilter': toolTemporalFilter(); break;
+    case 'timelayers': toolTemporalLayers(); break;
+    case 'timeslider': toolTimeSlider(); break;
   }
 }
 
@@ -3533,6 +3543,248 @@ function toolDrawStyle() {
 }
 
 
+
+// ------------------------------------------------ time & temporal tools
+
+// Temporal state: active time filter per layer
+let timeFilters = {}; // layerId -> { field, min, max, op: 'range'|'before'|'after'|'exact' }
+let timeAnimTimer = null;
+let timeAnimPlaying = false;
+
+function temporalDateFields(st) {
+  if (!st.meta.fields) return [];
+  return st.meta.fields.filter((f) =>
+    f.type === 'date' ||
+    /year|date|time/.test(f.name.toLowerCase())
+  );
+}
+
+function getTemporalLayers() {
+  const out = [];
+  for (const id of stack) {
+    const st = L.get(id);
+    if (st?.obj?.features && st.meta.fields) {
+      const df = temporalDateFields(st);
+      if (df.length) out.push([id, st, df]);
+    }
+  }
+  return out;
+}
+
+function toolTemporalFilter() {
+  const layers = getTemporalLayers();
+  if (!layers.length) { toast('No layer with a date/year field is active'); return; }
+  openModal('Temporal Filter', (body) => {
+    body.innerHTML = '<p>Filter features by date or year field. Only matching features are shown on the map — no data is exported.</p>' +
+      '<div class="frow"><label>Layer</label><select id="tf-layer">' + layers.map(([id, st, dfs]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Field</label><select id="tf-field"></select></div>' +
+      '<div class="frow"><label>Operator</label><select id="tf-op">' +
+        '<option value="range">Between (range)</option>' +
+        '<option value="before">On or before</option>' +
+        '<option value="after">On or after</option>' +
+        '<option value="exact">Equals</option>' +
+      '</select></div>' +
+      '<div id="tf-range" style="margin-top:8px"><label>From</label><input id="tf-min" type="number"><label>To</label><input id="tf-max" type="number"></div>' +
+      '<div id="tf-single" style="margin-top:8px;display:none"><label>Value</label><input id="tf-single-val" type="number"></div>' +
+      '<div class="frow act"><button class="btn primary" id="tf-apply">' + icon('filter') + ' Apply Filter</button><button class="btn" id="tf-clear">' + icon('trash') + ' Clear Filter</button></div>' +
+      '<div id="tf-info" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#tf-layer');
+    const fieldSel = body.querySelector('#tf-field');
+    const opSel = body.querySelector('#tf-op');
+    const rangeDiv = body.querySelector('#tf-range');
+    const singleDiv = body.querySelector('#tf-single');
+    const minEl = body.querySelector('#tf-min');
+    const maxEl = body.querySelector('#tf-max');
+    const singleValEl = body.querySelector('#tf-single-val');
+    const infoDiv = body.querySelector('#tf-info');
+
+    function pickLayer() {
+      const [id, st, dfs] = layers.find(([i]) => i === layerSel.value) || layers[0];
+      fieldSel.innerHTML = dfs.map((f) => '<option value="' + esc(f.name) + '">' + esc(f.label || f.name) + '</option>').join('');
+      const existing = timeFilters[id];
+      if (existing) {
+        fieldSel.value = existing.field;
+        opSel.value = existing.op;
+        minEl.value = existing.min != null ? existing.min : '';
+        maxEl.value = existing.max != null ? existing.max : '';
+        singleValEl.value = existing.min != null ? existing.min : '';
+      } else {
+        minEl.value = ''; maxEl.value = ''; singleValEl.value = '';
+      }
+      updateRangeUI();
+    }
+    function updateRangeUI() {
+      const isRange = opSel.value === 'range';
+      rangeDiv.style.display = isRange ? 'block' : 'none';
+      singleDiv.style.display = isRange ? 'none' : 'block';
+      singleValEl.placeholder = opSel.value === 'before' ? 'Max value' : (opSel.value === 'after' ? 'Min value' : 'Value');
+    }
+    layerSel.onchange = pickLayer;
+    opSel.onchange = updateRangeUI;
+    updateRangeUI();
+    pickLayer();
+
+    body.querySelector('#tf-apply').onclick = () => {
+      const id = layerSel.value;
+      const [id2, st, dfs] = layers.find(([i]) => i === id) || layers[0];
+      const field = fieldSel.value;
+      const op = opSel.value;
+      const minV = minEl.value !== '' ? +minEl.value : null;
+      const maxV = maxEl.value !== '' ? +maxEl.value : null;
+      const singleV = singleValEl.value !== '' ? +singleValEl.value : null;
+      if (!field) { toast('Pick a field'); return; }
+      if (op === 'range' && (minV == null || maxV == null)) { toast('Enter both values'); return; }
+      if (op !== 'range' && singleV == null) { toast('Enter a value'); return; }
+
+      timeFilters[id] = { field, op, min: op === 'range' ? minV : (op === 'before' ? singleV : null), max: op === 'range' ? maxV : (op === 'after' ? singleV : singleV) };
+      applyTemporalFilter(st);
+      infoDiv.innerHTML = '<p style="color:var(--ok)">Temporal filter applied to ' + esc(st.meta.label) + '</p>';
+      toast('Temporal filter applied');
+    };
+    body.querySelector('#tf-clear').onclick = () => {
+      const id = layerSel.value;
+      delete timeFilters[id];
+      const [, st] = layers.find(([i]) => i === id) || [];
+      if (st) { st.filter = null; applyFilter(st); }
+      infoDiv.innerHTML = '';
+      toast('Temporal filter cleared');
+    };
+  });
+}
+
+function applyTemporalFilter(st) {
+  const tf = timeFilters[st.meta.id];
+  if (!tf) { st.filter = null; applyFilter(st); return; }
+  const { field, op, min, max } = tf;
+  let count = 0;
+  for (const f of st.obj.features) {
+    const v = f.props[field];
+    let hit = false;
+    const nv = +v;
+    if (op === 'range') hit = nv >= min && nv <= max;
+    else if (op === 'before') hit = nv <= max;
+    else if (op === 'after') hit = nv >= min;
+    else if (op === 'exact') hit = nv === min;
+    f.hidden = !hit;
+    if (hit) count++;
+  }
+  st.filter = { field, op: '_temporal', min, max };
+  st.filterCount = count;
+  map.render();
+  refreshLegend();
+  renderLayerLists();
+  toast(tf.op + ' filter: ' + count + ' of ' + st.obj.features.length + ' features');
+}
+
+function toolTemporalLayers() {
+  const all = [];
+  for (const [id, st] of L) {
+    const tc = st.meta.sourceMetadata?.temporalCoverage || '';
+    const df = temporalDateFields(st);
+    if (tc || df.length) all.push([id, st, tc, df]);
+  }
+  if (!all.length) { toast('No layers with temporal coverage found'); return; }
+  openModal('Temporal Layers', (body) => {
+    body.innerHTML = '<p>Layers with time coverage or date fields. Click to add to map.</p>' +
+      '<div id="tl-list" style="max-height:320px;overflow-y:auto;border:1px solid var(--line);border-radius:6px;padding:6px"></div>';
+    const listDiv = body.querySelector('#tl-list');
+    function renderList() {
+      listDiv.innerHTML = all.map(([id, st, tc, df]) => {
+        const on = stack.includes(id);
+        const fields = df.map((f) => f.label || f.name).join(', ');
+        return '<div style="padding:8px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;cursor:pointer" data-id="' + esc(id) + '">' +
+          '<div><b>' + esc(st.meta.label) + '</b><br><small style="color:var(--muted)">' + esc(tc || 'date field: ' + fields) + '</small></div>' +
+          '<button class="btn ' + (on ? 'primary' : '') + '" data-act="' + (on ? 'off' : 'on') + '">' + (on ? 'On' : 'Add') + '</button></div>';
+      }).join('');
+      listDiv.querySelectorAll('[data-act]').forEach((btn) => {
+        btn.onclick = (e) => { e.stopPropagation(); const id = btn.closest('[data-id]').dataset.id; if (btn.dataset.act === 'on') { setLayer(id, true); } else { setLayer(id, false); } renderList(); toast((btn.dataset.act === 'on' ? 'Added' : 'Removed') + ' ' + id); };
+      });
+      listDiv.querySelectorAll('[data-id]').forEach((el) => {
+        el.onclick = (e) => { if (e.target.tagName === 'BUTTON') return; const id = el.dataset.id; const st = L.get(id); if (st) { setLayer(id, true); zoomToLayer(st.meta); closeModal(); toast('Added ' + st.meta.label); } };
+      });
+    }
+    renderList();
+  });
+}
+
+function toolTimeSlider() {
+  const layers = getTemporalLayers();
+  if (!layers.length) { toast('No layer with a date/year field is active'); return; }
+  openModal('Time Slider', (body) => {
+    body.innerHTML = '<p>Step through years to see how features change over time.</p>' +
+      '<div class="frow"><label>Layer</label><select id="ts-layer">' + layers.map(([id, st, dfs]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Field</label><select id="ts-field"></select></div>' +
+      '<div class="frow"><label>Year</label><input id="ts-year" type="range" min="2000" max="2025" value="2010"><b id="ts-year-val">2010</b></div>' +
+      '<div class="frow act"><button class="btn" id="ts-play">' + icon('timer') + ' Play</button><button class="btn" id="ts-stop">' + icon('close') + ' Stop</button></div>' +
+      '<div id="ts-info" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#ts-layer');
+    const fieldSel = body.querySelector('#ts-field');
+    const yearInput = body.querySelector('#ts-year');
+    const yearVal = body.querySelector('#ts-year-val');
+    const infoDiv = body.querySelector('#ts-info');
+    const playBtn = body.querySelector('#ts-play');
+    const stopBtn = body.querySelector('#ts-stop');
+
+    function pickLayer() {
+      const [id, st, dfs] = layers.find(([i]) => i === layerSel.value) || layers[0];
+      fieldSel.innerHTML = dfs.map((f) => '<option value="' + esc(f.name) + '">' + esc(f.label || f.name) + '</option>').join('');
+      // Compute year range from features
+      let yMin = Infinity, yMax = -Infinity;
+      if (st.obj) {
+        for (const f of st.obj.features) {
+          const v = +f.props[dfs[0].name];
+          if (isFinite(v)) { yMin = Math.min(yMin, v); yMax = Math.max(yMax, v); }
+        }
+      }
+      if (yMin === Infinity) { yMin = 2000; yMax = 2025; }
+      yearInput.min = yMin; yearInput.max = yMax; yearInput.value = yMin;
+      yearVal.textContent = yMin;
+      yearInput.oninput = () => { yearVal.textContent = yearInput.value; applyYear(); };
+    }
+    function applyYear() {
+      const id = layerSel.value;
+      const [, st, dfs] = layers.find(([i]) => i === id) || layers[0];
+      const field = fieldSel.value;
+      const year = +yearInput.value;
+      if (!field || !st.obj) return;
+      let count = 0;
+      for (const f of st.obj.features) {
+        const v = +f.props[field];
+        const hit = isFinite(v) && v === year;
+        f.hidden = !hit;
+        if (hit) count++;
+      }
+      map.render();
+      refreshLegend();
+      renderLayerLists();
+      infoDiv.innerHTML = '<p>' + count + ' feature' + (count === 1 ? '' : 's') + ' in ' + year + '</p>';
+    }
+    function play() {
+      if (timeAnimPlaying) return;
+      timeAnimPlaying = true;
+      playBtn.hidden = true; stopBtn.hidden = false;
+      const maxY = +yearInput.max;
+      timeAnimTimer = setInterval(() => {
+        let cur = +yearInput.value;
+        cur++;
+        if (cur > maxY) cur = +yearInput.min;
+        yearInput.value = cur; yearVal.textContent = cur; applyYear();
+      }, 800);
+    }
+    function stop() {
+      timeAnimPlaying = false;
+      playBtn.hidden = false; stopBtn.hidden = true;
+      if (timeAnimTimer) { clearInterval(timeAnimTimer); timeAnimTimer = null; }
+    }
+    layerSel.onchange = pickLayer;
+    playBtn.onclick = play;
+    stopBtn.onclick = stop;
+    stopBtn.hidden = true;
+    pickLayer();
+  });
+}
+
+// ------------------------------------------------ measure
 function startMeasure(mode) {
   measure = { pts: [], mode };
   $('#measurebar').hidden = false;
