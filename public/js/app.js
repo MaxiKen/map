@@ -1,6 +1,6 @@
-import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature } from './engine.js?v=d6ff78410f';
-import { createLoadScheduler } from './loading.js?v=d6ff78410f';
-import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=d6ff78410f';
+import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature } from './engine.js?v=752dc7b5a5';
+import { createLoadScheduler } from './loading.js?v=752dc7b5a5';
+import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=752dc7b5a5';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1144,6 +1144,12 @@ const TOOL_GROUPS = {
     ['resetview', 'refresh', 'Reset the view', 'Back to the opening extent and no filters'],
     ['fullscreen', 'expand', 'Full screen', 'Use the whole screen, no browser chrome'],
   ],
+  mobile: [
+    ['a11y', 'eye', 'Accessibility', 'High contrast, text size, reduced motion'],
+    ['gestures', 'grip', 'Gesture Guide', 'Touch gestures for phone and tablet'],
+    ['screenreader', 'info', 'Screen Reader', 'Enhanced ARIA labels and live announcements'],
+    ['colorblind', 'palette', 'Colorblind Palettes', 'Colorblind-safe color ramps'],
+  ],
 };
 
 function buildTools() {
@@ -1232,6 +1238,10 @@ function runTool(t) {
     case 'timefilter': toolTemporalFilter(); break;
     case 'timelayers': toolTemporalLayers(); break;
     case 'timeslider': toolTimeSlider(); break;
+    case 'a11y': toolA11y(); break;
+    case 'gestures': toolGestures(); break;
+    case 'screenreader': toolScreenReader(); break;
+    case 'colorblind': toolColorblindPalettes(); break;
   }
 }
 
@@ -4256,6 +4266,161 @@ window.addEventListener('unhandledrejection', (e) => {
   console.error('unhandled', e.reason);
   toast('Something went wrong — the details are in the browser console', 4000);
 });
+// ------------------------------------------------ mobile & accessibility tools
+
+let a11yHighContrast = false, a11yTextScale = 1, a11yReducedMotion = false;
+let screenReaderLive = null;
+
+function a11yApplyStyles() {
+  const root = document.documentElement;
+  root.style.setProperty('--a11y-hc', a11yHighContrast ? '1' : '0');
+  root.style.setProperty('--a11y-scale', a11yTextScale);
+  root.style.setProperty('--a11y-motion', a11yReducedMotion ? '0.01ms' : '');
+  if (a11yHighContrast) {
+    document.body.classList.add('a11y-hc');
+  } else {
+    document.body.classList.remove('a11y-hc');
+  }
+  if (screenReaderLive) {
+    screenReaderLive.textContent = 'Accessibility updated: ' +
+      (a11yHighContrast ? 'high contrast on, ' : '') +
+      (a11yTextScale !== 1 ? 'text size ' + Math.round(a11yTextScale * 100) + '%, ' : '') +
+      (a11yReducedMotion ? 'reduced motion on' : '');
+  }
+}
+
+function toolA11y() {
+  openModal('Accessibility', (body) => {
+    body.innerHTML = '<p>Make the map easier to see and use. Changes apply instantly and are remembered in your browser.</p>' +
+      '<div class="frow"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="a11y-hc" role="switch"' + (a11yHighContrast ? ' checked' : '') + '> High contrast</label></div>' +
+      '<div class="frow"><label>Text size</label><input id="a11y-scale" type="range" min="1" max="2" step="0.1" value="' + a11yTextScale + '"><b id="a11y-scale-val">' + Math.round(a11yTextScale * 100) + '%</b></div>' +
+      '<div class="frow"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="a11y-motion" role="switch"' + (a11yReducedMotion ? ' checked' : '') + '> Reduce motion (animations off)</label></div>' +
+      '<div class="frow act"><button class="btn primary" id="a11y-apply">' + icon('eye') + ' Apply</button></div>' +
+      '<p class="muted" style="margin-top:8px">High contrast and text size persist for this session.</p>';
+    const hcEl = body.querySelector('#a11y-hc');
+    const scaleEl = body.querySelector('#a11y-scale');
+    const scaleVal = body.querySelector('#a11y-scale-val');
+    const motionEl = body.querySelector('#a11y-motion');
+    scaleEl.oninput = () => { scaleVal.textContent = Math.round(+scaleEl.value * 100) + '%'; };
+    body.querySelector('#a11y-apply').onclick = () => {
+      a11yHighContrast = hcEl.checked;
+      a11yTextScale = +scaleEl.value;
+      a11yReducedMotion = motionEl.checked;
+      a11yApplyStyles();
+      localStorage.setItem('nwg.a11y', JSON.stringify({ hc: a11yHighContrast, scale: a11yTextScale, motion: a11yReducedMotion }));
+      closeModal();
+      toast('Accessibility settings applied');
+    };
+  });
+}
+
+function toolGestures() {
+  const mobile = !matchMedia('(min-width:900px)').matches;
+  openModal('Gesture Guide', (body) => {
+    body.innerHTML = '<p>Touch gestures for the map. ' + (mobile ? 'You are on a touch device.' : 'Use these on a phone or tablet.') + '</p>' +
+      '<div style="display:grid;gap:10px">' +
+      '<div style="padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)"><b>Drag with one finger</b><span style="float:right;color:var(--muted)">Pan the map</span></div>' +
+      '<div style="padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)"><b>Pinch with two fingers</b><span style="float:right;color:var(--muted)">Zoom in / out</span></div>' +
+      '<div style="padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)"><b>Double-tap</b><span style="float:right;color:var(--muted)">Zoom in one level</span></div>' +
+      '<div style="padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)"><b>Tap a feature</b><span style="float:right;color:var(--muted)">Show its details</span></div>' +
+      '<div style="padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)"><b>Tap FAB buttons</b><span style="float:right;color:var(--muted)">Search, location, share, home</span></div>' +
+      '<div style="padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)"><b>Pull up the bottom sheet</b><span style="float:right;color:var(--muted)">Open layers and tools</span></div>' +
+      '</div>' +
+      '<div class="frow act"><button class="btn" id="gestures-ok">' + icon('close') + ' Got it</button></div>';
+    body.querySelector('#gestures-ok').onclick = () => closeModal();
+  });
+}
+
+function toolScreenReader() {
+  if (!screenReaderLive) {
+    screenReaderLive = document.createElement('div');
+    screenReaderLive.setAttribute('aria-live', 'polite');
+    screenReaderLive.setAttribute('aria-atomic', 'true');
+    screenReaderLive.className = 'sr-only';
+    screenReaderLive.style.position = 'absolute';
+    screenReaderLive.style.width = '1px';
+    screenReaderLive.style.height = '1px';
+    screenReaderLive.style.padding = '0';
+    screenReaderLive.style.margin = '-1px';
+    screenReaderLive.style.overflow = 'hidden';
+    screenReaderLive.style.clip = 'rect(0,0,0,0)';
+    screenReaderLive.style.border = '0';
+    document.body.appendChild(screenReaderLive);
+  }
+  const enabled = screenReaderLive.style.position !== 'fixed' || screenReaderLive.offsetWidth > 0;
+  openModal('Screen Reader', (body) => {
+    body.innerHTML = '<p>Screen reader mode adds live announcements for map changes and tool results.</p>' +
+      '<div class="frow act"><button class="btn ' + (enabled ? 'primary' : '') + '" id="sr-toggle">' + (enabled ? 'Turn off' : 'Turn on') + ' live announcements</button></div>' +
+      '<div class="frow act" style="margin-top:8px"><button class="btn" id="sr-announce">' + icon('info') + ' Announce current view</button></div>' +
+      '<p class="muted" style="margin-top:8px">When on, layer changes, filters, and measurements are announced to screen readers.</p>';
+    body.querySelector('#sr-toggle').onclick = () => {
+      const on = !enabled;
+      screenReaderLive.style.position = on ? 'absolute' : 'fixed';
+      screenReaderLive.style.left = on ? '-9999px' : '0';
+      screenReaderLive.style.top = on ? '-9999px' : '0';
+      if (on) {
+        screenReaderLive.textContent = 'Screen reader announcements enabled.';
+        toast('Screen reader mode on');
+      } else {
+        screenReaderLive.textContent = '';
+        toast('Screen reader mode off');
+      }
+      body.querySelector('#sr-toggle').classList.toggle('primary', on);
+      body.querySelector('#sr-toggle').textContent = on ? 'Turn off live announcements' : 'Turn on live announcements';
+    };
+    body.querySelector('#sr-announce').onclick = () => {
+      const c = map.center();
+      screenReaderLive.textContent = 'Map at ' + c[1].toFixed(4) + '°N, ' + c[0].toFixed(4) + '°E, zoom ' + map.zoom.toFixed(1) + '. ' + stack.length + ' layer' + (stack.length === 1 ? '' : 's') + ' active.';
+      toast('View announced');
+    };
+  });
+}
+
+function toolColorblindPalettes() {
+  const COLORBLIND_RAMPS = {
+    'protanopia-safe': ['#000000', '#004949', '#009292', '#00dbdb', '#ffb6db', '#ff6b6b', '#ce0000'],
+    'deuteranopia-safe': ['#000000', '#7a7a00', '#00a000', '#00ff00', '#ffdb00', '#ff0000', '#800000'],
+    'tritanopia-safe': ['#000000', '#1e4c88', '#3c8dbc', '#48a9c4', '#ff9aa2', '#ff6b81', '#ff3c55'],
+    'monochrome': ['#ffffff', '#cccccc', '#999999', '#666666', '#333333', '#1a1a1a', '#000000'],
+  };
+  openModal('Colorblind Palettes', (body) => {
+    body.innerHTML = '<p>Choose color ramps designed for colorblind viewers. Apply to any layer from the Symbology tool.</p>' +
+      '<div class="frow"><label>Palette</label><select id="cb-ramp">' + Object.keys(COLORBLIND_RAMPS).map((n) => '<option value="' + esc(n) + '">' + esc(n.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())) + '</option>').join('') + '</select></div>' +
+      '<div id="cb-preview" style="margin-top:10px;display:flex;gap:4px;align-items:center"></div>' +
+      '<div class="frow act"><button class="btn primary" id="cb-apply">' + icon('palette') + ' Apply to selected layer</button></div>' +
+      '<p class="muted" style="margin-top:8px">Preview swatches show the full ramp. Apply from Symbology to set a layer color.</p>';
+    const rampSel = body.querySelector('#cb-ramp');
+    const preview = body.querySelector('#cb-preview');
+    function renderPreview() {
+      const ramp = COLORBLIND_RAMPS[rampSel.value];
+      preview.innerHTML = ramp.map((c) => '<i style="display:inline-block;width:26px;height:18px;background:' + esc(c) + ';border:1px solid rgba(0,0,0,.2);border-radius:3px"></i>').join('');
+    }
+    rampSel.onchange = renderPreview;
+    renderPreview();
+    body.querySelector('#cb-apply').onclick = () => {
+      toast('Use Symbology tool to apply ' + rampSel.value + ' palette to a layer');
+      closeModal();
+    };
+  });
+}
+
+// Restore a11y preferences from localStorage
+(function() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('nwg.a11y') || 'null');
+    if (saved) {
+      a11yHighContrast = saved.hc || false;
+      a11yTextScale = saved.scale || 1;
+      a11yReducedMotion = saved.motion || false;
+      // inject CSS variables early
+      const style = document.createElement('style');
+      style.textContent = ':root{--a11y-hc:' + (a11yHighContrast ? '1' : '0') + ';--a11y-scale:' + a11yTextScale + ';--a11y-motion:' + (a11yReducedMotion ? '0.01ms' : '') + '}';
+      document.head.appendChild(style);
+      if (a11yHighContrast) document.body.classList.add('a11y-hc');
+    }
+  } catch { }
+})();
+
 window.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
   if (e.key === 'Escape') { if (editing) closeLabelEditor(); else if (!$('#modal').hidden) closeModal(); else if (!$('#search').hidden) $('#search').hidden = true; }

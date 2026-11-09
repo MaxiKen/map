@@ -252,3 +252,22 @@ table.mini th,table.mini td{text-align:left;padding:5px 6px;border-bottom:1px so
   #labelpanel{left:calc(400px + (100vw - 400px) / 2);bottom:calc(var(--safeb) + 24px)}
 }
 [hidden]{display:none!important}
+
+/* ---------- Accessibility ---------- */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+.a11y-hc{filter:contrast(1.3) saturate(1.4)}
+.a11y-hc .tool,.a11y-hc .btn,.a11y-hc .chip,.a11y-hc .fab{border-width:2px}
+.a11y-hc #mapinfo{color:#000;text-shadow:0 0 4px #fff}
+.a11y-hc .tab{color:#000}
+.a11y-hc .tab.active{color:#fff}
+html{font-size:calc(15px * var(--a11y-scale,1))}
+@media (prefers-reduced-motion:reduce){
+  *{transition-duration:0.01ms !important;animation-duration:0.01ms !important}
+}
+/* larger touch targets for mobile */
+@media (max-width:899px){
+  .fab,.tab,.tool,.btn{min-height:44px}
+  #sheethead button,.ghost{width:44px;height:44px}
+  .tool{padding:14px}
+  #panel-tools .toolgrid{grid-template-columns:repeat(2,1fr);gap:8px}
+}
