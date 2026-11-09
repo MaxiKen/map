@@ -1,6 +1,6 @@
-import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature } from './engine.js?v=afdc0bda83';
-import { createLoadScheduler } from './loading.js?v=afdc0bda83';
-import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=afdc0bda83';
+import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature } from './engine.js?v=818ec348b3';
+import { createLoadScheduler } from './loading.js?v=818ec348b3';
+import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=818ec348b3';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -247,7 +247,7 @@ function buildBasemaps() {
   }
   $('#basemapnote').textContent = 'No API key needed: tiles come from key-free sources (Esri, OpenStreetMap, OpenTopoMap).';
 }
-function syncBasemapUI() { for (const b of $$('#basemaps button')) b.classList.toggle('on', b.dataset.k === map.basemap); }
+function syncBasemapUI() { for (const b of $$('#basemaps button')) b.classList.toggle('on', b.dataset.k === map.basemap); renderLayerTools(); }
 function updateAttrib() { $('#attrib').textContent = BASEMAPS[map.basemap]?.attr || ''; }
 
 // ---------------------------------------------------------------- layer loading
@@ -407,7 +407,9 @@ function applyFilter(st, rerender = true) {
     if (!fl) { f.hidden = false; n++; continue; }
     const raw = f.props[fl.field], val = String(raw ?? ''), num = +raw;
     let hit;
-    if (fl.op === 'contains') hit = val.toLowerCase().includes(String(fl.value).toLowerCase());
+    if (fl.op === 'in') hit = (fl.values || []).includes(val);
+    else if (fl.op === 'not_in') hit = !(fl.values || []).includes(val);
+    else if (fl.op === 'contains') hit = val.toLowerCase().includes(String(fl.value).toLowerCase());
     else if (fl.op === 'neq') hit = val !== String(fl.value);
     else if (fl.op === 'gt') hit = num > +fl.value;
     else if (fl.op === 'lt') hit = num < +fl.value;
@@ -453,6 +455,7 @@ const isOn = (id) => !!L.get(id)?.on;
 
 // ---------------------------------------------------------------- layer panel
 function renderLayerTools() {
+  const bmLabel = BASEMAPS[map.basemap]?.label || map.basemap;
   $('#lyrtools').innerHTML = `
     <button data-x="showall">${icon('eye')}Show all</button>
     <button data-x="hideall">${icon('eyeoff')}Hide all</button>
@@ -460,6 +463,7 @@ function renderLayerTools() {
     <button data-x="focus" class="${clip ? 'on' : ''}">${icon('crop')}${clip ? 'Focused' : 'Clip'}</button>
     <button data-x="grid" class="${gridOn ? 'on' : ''}">${icon('grid')}Grid</button>
     <button data-x="labels">${icon('tag')}Labels</button>
+    <button data-x="basemap">${icon('layers')}Basemap: ${esc(bmLabel)}</button>
     <button data-x="clearfilter">${icon('filter')}Clear filters</button>`;
 }
 function countText(m) {
@@ -1132,7 +1136,7 @@ function runTool(t) {
     case 'measure-dist': startMeasure('line'); break;
     case 'measure-area': startMeasure('area'); break;
     case 'grid': gridOn = !gridOn; map.setGrid(gridOn); updateToolState(); saveProject(); toast(gridOn ? 'Grid on' : 'Grid off'); break;
-    case 'shot': saveMapImage(); break;
+    case 'shot': exportMapImage(); break;
     case 'goto': toolGoto(); break;
     case 'symbology': toolSymbology(); break;
     case 'labels': toolLabels(); break;
@@ -1156,7 +1160,7 @@ function runTool(t) {
 }
 
 // ---------------------------------------------------------------- focus area (clip)
-const FOCUS_KINDS = { rect: 'Rectangle', poly: 'Polygon' };
+const FOCUS_KINDS = { rect: 'Rectangle', square: 'Square', circle: 'Circle', poly: 'Polygon', freehand: 'Freehand outline', multi: 'Multiple features' };
 
 function setFocus(obj, announce = true) {
   clip = obj || null;
@@ -1166,29 +1170,50 @@ function setFocus(obj, announce = true) {
   if (announce) toast(clip ? `Focused on ${fmtNum(focusAreaKm2())} km²` : 'Focus cleared — the whole map is shown');
 }
 function stopFocus() { focusLabel = ''; setFocus(null); }
+function clipRingsToLL(clip) {
+  const rings = [];
+  const src = clip.polys ? clip.polys.flatMap((p) => p) : (clip.rings || []);
+  for (const ring of src) {
+    const o = [];
+    for (let k = 0; k + 1 < ring.length; k += 2) o.push([unX(ring[k]), unY(ring[k + 1])]);
+    rings.push(o);
+  }
+  return rings;
+}
 function focusAreaKm2() {
   if (!clip) return 0;
   if (clip.type === 'rect') {
     const [w, yb, e, yt] = clip.wb;
     return ringAreaKm2([[unX(w), unY(yt)], [unX(e), unY(yt)], [unX(e), unY(yb)], [unX(w), unY(yb)]]);
   }
-  if (clip.type === 'poly') {
-    let a = 0;
-    clip.rings.forEach((r, i) => {
-      const o = [];
-      for (let k = 0; k + 1 < r.length; k += 2) o.push([unX(r[k]), unY(r[k + 1])]);
-      const v = ringAreaKm2(o);
-      a += i === 0 ? v : -v;
-    });
-    return Math.max(0, a);
+  if (clip.type === 'circle') {
+    // Approximate circle area using radius in degrees (rough, at equator)
+    const rDeg = clip.r / (256 * Math.pow(2, map.zoom)) * 360;
+    return Math.PI * rDeg * rDeg * 111.0 * 111.0 * Math.cos(clip.c[1] * Math.PI / 180);
   }
-  return 0;
+  const rings = clipRingsToLL(clip);
+  let a = 0;
+  rings.forEach((r, i) => {
+    const v = ringAreaKm2(r);
+    a += i === 0 ? v : -v;
+  });
+  return Math.max(0, a);
 }
 function focusPerimeterKm() {
-  if (clip?.type !== 'poly') return 0;
-  const r = clip.rings[0], o = [];
-  for (let i = 0; i + 1 < r.length; i += 2) o.push([unX(r[i]), unY(r[i + 1])]);
-  return ringPerimeterKm(o);
+  if (!clip) return 0;
+  if (clip.type === 'poly' || clip.type === 'freehand' || clip.type === 'multi') {
+    const rings = clipRingsToLL(clip);
+    if (rings.length) return ringPerimeterKm(rings[0]);
+  }
+  if (clip.type === 'circle') {
+    const rDeg = clip.r / (256 * Math.pow(2, map.zoom)) * 360;
+    return 2 * Math.PI * rDeg * 111.0 * Math.cos(clip.c[1] * Math.PI / 180);
+  }
+  if (clip.type === 'rect') {
+    const [w, yb, e, yt] = clip.wb;
+    return ringPerimeterKm([[unX(w), unY(yt)], [unX(e), unY(yt)], [unX(e), unY(yb)], [unX(w), unY(yb)]]);
+  }
+  return 0;
 }
 function focusFromLonLat(pts) {
   if (!pts || pts.length < 3) { toast('Tap at least three corners'); return; }
@@ -1201,6 +1226,29 @@ function focusFromRect(a, b) {
   const n = mercY(Math.max(a[1], b[1])), s_ = mercY(Math.min(a[1], b[1]));
   if (Math.abs(e - w) < 1e-7 || Math.abs(n - s_) < 1e-7) { toast('Drag a bigger box'); return; }
   setFocus({ type: 'rect', wb: [w, s_, e, n] });
+}
+function focusFromSquare(a, b) {
+  const w = mercX(Math.min(a[0], b[0])), e = mercX(Math.max(a[0], b[0]));
+  const n = mercY(Math.max(a[1], b[1])), s_ = mercY(Math.min(a[1], b[1]));
+  const dx = e - w, dy = n - s_;
+  const side = Math.min(dx, dy);
+  if (side < 1e-7) { toast('Drag a bigger box'); return; }
+  const cx = (w + e) / 2, cy = (s_ + n) / 2;
+  const hw = side / 2, hh = side / 2;
+  setFocus({ type: 'rect', wb: [cx - hw, cy - hh, cx + hw, cy + hh] });
+}
+function focusFromCircle(centre, edge) {
+  const cx = mercX(centre[0]), cy = mercY(centre[1]);
+  const ex = mercX(edge[0]), ey = mercY(edge[1]);
+  const r = Math.hypot(ex - cx, ey - cy);
+  if (r < 1e-6) { toast('Drag a bigger circle'); return; }
+  setFocus({ type: 'circle', c: [cx, cy], r });
+}
+function focusFromFreehand(pts) {
+  if (pts.length < 3) { toast('Draw a bigger outline'); return; }
+  const ring = [];
+  for (const [lo, la] of pts) ring.push(mercX(lo), mercY(la));
+  setFocus({ type: 'freehand', rings: [ring] });
 }
 function focusFromFeature(f, label) {
   if (!f) return;
@@ -1232,12 +1280,19 @@ function updateFocusUI() {
 // drawing a focus area ---------------------------------------------------
 function startDraw(kind) {
   if (measure) { measure = null; $('#measurebar').hidden = true; }
-  draw = { kind, pts: [] };
+  draw = { kind, pts: [], origin: null };
   map.cv.style.cursor = 'crosshair';
   const bar = $('#drawbar'); bar.hidden = false;
-  $('#drawtext').textContent = kind === 'rect' ? 'Drag a box on the map' : kind === 'poly' ? 'Tap the corners of the area' : 'Tap a polygon to use as the focus';
+  const labels = {
+    rect: 'Drag a rectangle on the map',
+    square: 'Drag a square on the map',
+    circle: 'Click centre, then drag radius',
+    poly: 'Tap the corners of the area',
+    freehand: 'Drag to draw a freehand outline',
+  };
+  $('#drawtext').textContent = labels[kind] || 'Draw an area';
   $('#drawdone').hidden = kind !== 'poly';
-  $('#drawclear').textContent = kind === 'rect' ? 'Cancel' : 'Cancel';
+  $('#drawclear').textContent = 'Cancel';
   if (kind === 'poly') { drawPreview(); }
   updateToolState();
 }
@@ -1262,53 +1317,69 @@ function endDraw() {
 }
 function drawPreview() {
   map.overlay = (ctx, m) => {
-    if (!draw || draw.kind !== 'poly' || !draw.pts.length) return;
+    if (!draw || !draw.pts.length) return;
     ctx.save();
-    ctx.beginPath();
-    draw.pts.forEach(([lo, la], i) => { const [x, y] = m.screenOf(lo, la); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
-    ctx.setLineDash([7, 5]); ctx.lineWidth = 2.5; ctx.strokeStyle = '#0b6b45'; ctx.stroke();
-    if (draw.pts.length > 2) { ctx.setLineDash([]); ctx.fillStyle = 'rgba(11,107,69,.14)'; ctx.fill(); }
+    ctx.setLineDash([7, 5]); ctx.lineWidth = 2.5; ctx.strokeStyle = '#0b6b45';
+    ctx.fillStyle = 'rgba(11,107,69,.14)';
+    if (draw.kind === 'poly') {
+      ctx.beginPath();
+      draw.pts.forEach(([lo, la], i) => { const [x, y] = m.screenOf(lo, la); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+      if (draw.pts.length > 2) ctx.closePath();
+      ctx.stroke();
+      if (draw.pts.length > 2) ctx.fill();
+      ctx.fillStyle = '#0b6b45';
+      for (const [lo, la] of draw.pts) { const [x, y] = m.screenOf(lo, la); ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill(); }
+    } else if (draw.kind === 'circle' && draw.pts.length >= 1) {
+      const [cx, cy] = m.screenOf(draw.pts[0][0], draw.pts[0][1]);
+      const [lx, ly] = draw.pts.length > 1 ? m.screenOf(draw.pts[1][0], draw.pts[1][1]) : [cx, cy];
+      const r = Math.hypot(lx - cx, ly - cy);
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke(); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fillStyle = '#0b6b45'; ctx.fill();
+    } else if (draw.kind === 'freehand') {
+      ctx.beginPath();
+      draw.pts.forEach(([lo, la], i) => { const [x, y] = m.screenOf(lo, la); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+      ctx.stroke();
+    }
     ctx.setLineDash([]);
-    ctx.fillStyle = '#0b6b45';
-    for (const [lo, la] of draw.pts) { const [x, y] = m.screenOf(lo, la); ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill(); }
     ctx.restore();
   };
   map.render();
 }
-// drag-to-draw a rectangle: capture phase so the map never pans while drawing
+// drag-to-draw shapes: rect, square, circle, freehand
 function bindDrawPointer() {
   const cv = map.cv;
-  let origin = null;
+  let origin = null, last = null, freehandPts = [];
   const rectAt = (e) => unproject(e);
   cv.addEventListener('pointerdown', (e) => {
-    if (draw?.kind !== 'rect') return;
+    if (!draw || (draw.kind !== 'rect' && draw.kind !== 'square' && draw.kind !== 'circle' && draw.kind !== 'freehand')) return;
     e.stopPropagation(); e.preventDefault();
-    origin = rectAt(e);
-    let last = origin;
+    origin = rectAt(e); last = origin;
+    if (draw.kind === 'freehand') freehandPts = [origin];
     cv.setPointerCapture?.(e.pointerId);
-    map.overlay = (ctx, m) => {
-      const [x0, y0] = m.screenOf(Math.min(origin[0], last[0]), Math.max(origin[1], last[1]));
-      const [x1, y1] = m.screenOf(Math.max(origin[0], last[0]), Math.min(origin[1], last[1]));
-      ctx.save();
-      ctx.fillStyle = 'rgba(11,107,69,.16)'; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
-      ctx.setLineDash([7, 5]); ctx.lineWidth = 2.5; ctx.strokeStyle = '#0b6b45'; ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
-      ctx.restore();
-    };
     map.render();
-    const move = (ev) => { last = rectAt(ev); map.render(); };
+    const move = (ev) => {
+      last = rectAt(ev);
+      if (draw.kind === 'freehand') freehandPts.push(last);
+      map.render();
+    };
     const up = (ev) => {
       cv.removeEventListener('pointermove', move);
       cv.removeEventListener('pointerup', up);
       cv.removeEventListener('pointercancel', up);
-      const b = rectAt(ev), a = origin; origin = null;
+      const b = rectAt(ev), a = origin; origin = null; last = null;
       map.overlay = null;
       endDraw();
-      focusFromRect(a, b);
+      if (draw.kind === 'rect') focusFromRect(a, b);
+      else if (draw.kind === 'square') focusFromSquare(a, b);
+      else if (draw.kind === 'circle') focusFromCircle(a, b);
+      else if (draw.kind === 'freehand') focusFromFreehand(freehandPts);
     };
     cv.addEventListener('pointermove', move);
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', up);
   }, true);
+  // circle: click centre, drag radius — handled by same pointerdown as rect-like
+  // freehand points are collected during move and passed to focusFromFreehand
 }
 function unproject(e) {
   const r = map.cv.getBoundingClientRect();
@@ -1316,18 +1387,21 @@ function unproject(e) {
 }
 
 function toolClip() {
-  const kind = clip ? (FOCUS_KINDS[clip.type] || 'area') : '';
+  const kind = clip ? (clip.type === 'multi' ? 'Multiple features' : (FOCUS_KINDS[clip.type] || 'area')) : '';
   const cur = clip
     ? `Active focus: ${kind} · <b>${fmtNum(focusAreaKm2())} km²</b>${focusPerimeterKm() ? ` · edge ${fmtNum(focusPerimeterKm())} km` : ''}${focusLabel ? ` · from ${esc(focusLabel)}` : ''}`
     : 'No focus area — the whole map is shown.';
   openModal('Clip to an area', (body) => {
     body.innerHTML = `<p class="hint">${cur}</p>
-      <p>Everything outside the shape fades back, and only features inside it are drawn and picked. Use it to study one state, one local government, one basin or one site without the national picture in the way.</p>
+      <p>Everything outside the shape is completely removed — only what lies inside is drawn, searched, identified, tabulated and exported. Use it to study one state, one LGA, one basin or one site.</p>
       <div class="aoi">
-        <button class="btn" data-act="rect">${icon('crop')} Drag a box</button>
-        <button class="btn" data-act="poly">${icon('area')} Draw a polygon</button>
-        <button class="btn" data-act="pick">${icon('query')} Use a polygon from a layer</button>
-        <button class="btn" data-act="view">${icon('expand')} Use the current view</button>
+        <button class="btn" data-act="rect">${icon('crop')} Rectangle</button>
+        <button class="btn" data-act="square">${icon('crop')} Square</button>
+        <button class="btn" data-act="circle">${icon('target')} Circle</button>
+        <button class="btn" data-act="poly">${icon('area')} Polygon</button>
+        <button class="btn" data-act="freehand">${icon('point')} Freehand outline</button>
+        <button class="btn" data-act="multi">${icon('query')} Multiple features</button>
+        <button class="btn" data-act="view">${icon('expand')} Current view</button>
       </div>
       <p class="hint" style="margin-top:10px">Esc cancels a drawing. The focus area is remembered with your view and in the share link.</p>
       ${clip ? `<div class="aoi" style="margin-top:10px">
@@ -1337,8 +1411,12 @@ function toolClip() {
     body.addEventListener('click', (e) => {
       const b = e.target.closest('[data-act]'); if (!b) return;
       const act = b.dataset.act; closeModal();
-      if (act === 'rect' || act === 'poly') startDraw(act);
-      else if (act === 'pick') startPick('focus');
+      if (act === 'rect') startDraw('rect');
+      else if (act === 'square') startDraw('square');
+      else if (act === 'circle') startDraw('circle');
+      else if (act === 'poly') startDraw('poly');
+      else if (act === 'freehand') startDraw('freehand');
+      else if (act === 'multi') toolPickMulti();
       else if (act === 'view') {
         const [x0, y0] = map.fromScreen(0, 0), [x1, y1] = map.fromScreen(map.W, map.H);
         setFocus({ type: 'rect', wb: [x0, y1, x1, y0] });
@@ -1348,6 +1426,79 @@ function toolClip() {
     });
   });
 }
+
+// pick multiple polygon features and clip to their union ---------------------
+function toolPickMulti() {
+  const polyLayers = [];
+  for (const id of stack) {
+    const st = L.get(id);
+    if (st?.obj?.features && st.meta.kind === 'polygon') polyLayers.push([id, st]);
+  }
+  openModal('Clip to multiple features', (body) => {
+    if (!polyLayers.length) {
+      body.innerHTML = '<p class="empty">No polygon layer is switched on.</p>';
+      return;
+    }
+    const picked = new Set();
+    function draw() {
+      body.innerHTML = `<p>Select two or more polygon features (tap on the map or pick from the list). The clip will be the union of everything you select — for example Kwara + Kogi + Benue.</p>
+        <div class="frow"><label>Boundary layer</label><select id="mp-layer">${polyLayers.map(([id, st]) => `<option value="${esc(id)}">${esc(st.meta.label)}</option>`).join('')}</select></div>
+        <div id="mp-search" style="margin:8px 0"><label>Search features</label><input id="mp-search-input" type="search" placeholder="Type a name…"></div>
+        <div id="mp-list" style="max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:8px"></div>
+        <div class="frow act"><button class="btn" id="mp-clear">Clear selection</button><button class="btn primary" id="mp-apply">Clip to ${picked.size} selected</button></div>
+        <div class="frow"><span id="mp-hint" class="hint">${picked.size} feature${picked.size === 1 ? '' : 's'} selected</span></div>`;
+      renderList();
+    }
+    function renderList() {
+      const lid = body.querySelector('#mp-layer').value;
+      const st = L.get(lid);
+      const q = body.querySelector('#mp-search-input').value.trim().toLowerCase();
+      const list = body.querySelector('#mp-list');
+      const feats = st.obj.features.filter((f) => {
+        const v = titleOf(st.obj, f).toLowerCase();
+        return !q || v.includes(q);
+      });
+      list.innerHTML = feats.map((f, i) => {
+        const isPicked = picked.has(i);
+        return `<div style="padding:6px 10px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;${isPicked ? 'background:rgba(11,107,69,.12)' : ''}">
+          <input type="checkbox" data-i="${i}" ${isPicked ? 'checked' : ''}>
+          <span style="flex:1">${esc(titleOf(st.obj, f))}</span>
+        </div>`;
+      }).join('');
+      list.querySelectorAll('input[type=checkbox]').forEach((cb) => {
+        cb.onchange = (e) => {
+          const i = +cb.dataset.i;
+          if (cb.checked) picked.add(i); else picked.delete(i);
+          body.querySelector('#mp-apply').textContent = `Clip to ${picked.size} selected`;
+          body.querySelector('#mp-hint').textContent = `${picked.size} feature${picked.size === 1 ? '' : 's'} selected`;
+          renderList();
+        };
+      });
+    }
+    body.querySelector('#mp-layer').onchange = () => { picked.clear(); draw(); };
+    body.querySelector('#mp-search-input').oninput = () => { renderList(); };
+    body.querySelector('#mp-clear').onclick = () => { picked.clear(); body.querySelector('#mp-apply').textContent = `Clip to ${picked.size} selected`; body.querySelector('#mp-hint').textContent = `${picked.size} feature${picked.size === 1 ? '' : 's'} selected`; renderList(); };
+    body.querySelector('#mp-apply').onclick = () => {
+      if (picked.size < 1) { toast('Pick at least one feature'); return; }
+      const lid = body.querySelector('#mp-layer').value;
+      const st = L.get(lid);
+      const rings = [];
+      let labelParts = [];
+      for (const i of picked) {
+        const f = st.obj.features[i];
+        for (const poly of f.parts) for (const ring of poly) rings.push(Array.from(ring));
+        labelParts.push(titleOf(st.obj, f));
+      }
+      closeModal();
+      focusLabel = labelParts.join(' + ');
+      setFocus({ type: 'multi', polys: rings, bb: null, label: focusLabel });
+      map.setClip({ type: 'multi', polys: rings, bb: null, label: focusLabel });
+      toast(`Clipped to ${picked.size} feature${picked.size === 1 ? '' : 's'}: ${focusLabel}`);
+    };
+    draw();
+  });
+}
+
 
 // what is inside the focus area ------------------------------------------
 function visibleLayerIds() { return stack.filter((id) => isOn(id) && L.get(id)?.obj); }
@@ -1375,8 +1526,7 @@ function toolAoi() {
           for (const f of obj.features) {
             if (f.hidden) continue;
             tot++;
-            const [wx, wy] = labelAnchor(f);
-            const inside = clip ? map.containsClip(wx, wy) : true;
+            const inside = clip ? map.clipOverlapsFeature(f) : true;
             if (m.kind === 'polygon') ar += featureMetrics(f).area || 0;
             if (inside) { n++; if (m.kind === 'polygon') arIn += featureMetrics(f).area || 0; }
           }
@@ -1392,7 +1542,8 @@ function toolAoi() {
               if (dtype === 'i2' ? v === -32768 : !isFinite(v)) continue;
               cells++;
               const wx = o.wb[0] + (i + step / 2) / w * (o.wb[2] - o.wb[0]);
-              if (clip && !map.containsClip(wx, wy)) continue;
+              const wy = o.wb[1] + (j + step / 2) / h * (o.wb[3] - o.wb[1]);
+              if (clip && !map.clipContainsPoint(wx, wy)) continue;
               inside++;
               counts.set(v, (counts.get(v) || 0) + 1);
             }
@@ -1462,8 +1613,8 @@ function runQuery(poly, onlyLayer) {
     if (id === poly.layer && !onlyLayer) continue;
     for (const f of st.obj.features) {
       if (f.hidden) continue;
+      if (clip && !map.clipOverlapsFeature(f)) continue;
       const [wx, wy] = labelAnchor(f);
-      if (clip && !map.containsClip(wx, wy)) continue;
       if (!pointInFeature(wx, wy, poly.f)) continue;
       out.push({ id, st, f });
     }
@@ -1528,6 +1679,13 @@ $('#lyrtools').addEventListener('click', (e) => {
   else if (x === 'grid') { gridOn = !gridOn; map.setGrid(gridOn); updateToolState(); saveProject(); }
   else if (x === 'labels') toolLabels(stack[stack.length - 1]);
   else if (x === 'clearfilter') { let n = 0; for (const st of L.values()) if (st.filter) { st.filter = null; applyFilter(st); n++; } renderLayerLists(); toast(n ? 'Filters cleared' : 'No filters to clear'); saveProject(); }
+  else if (x === 'basemap') {
+    const order = BASEMAP_ORDER;
+    const i = order.indexOf(map.basemap);
+    const next = order[(i + 1) % order.length];
+    map.setBasemap(next); syncBasemapUI(); updateAttrib(); pushHash(); saveProject();
+    renderLayerTools(); toast('Basemap: ' + BASEMAPS[next]?.label);
+  }
 });
 function fitVisible() {
   const b = stack.map((id) => L.get(id).meta.bounds).filter(Boolean);
@@ -1575,42 +1733,193 @@ function toolGoto() {
 }
 
 // ------------------------------------------------ tool: screenshot
-async function saveMapImage() {
+async function exportMapImage(opts = {}) {
   closeLabelEditor();
   $('#labelpanel').hidden = true;
+  const {
+    area = 'screen',      // 'screen' | 'clip' | 'drawn' | 'feature'
+    title = '', showLegend = false, showScale = false, showNorth = false, showGrid = false,
+  } = opts;
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  // Remember current state
+  const prevCenter = map.center(), prevZoom = map.zoom, prevClip = map.clip, prevBasemap = map.basemap;
+
+  // Apply export area
+  if (area === 'clip' && map.clip) {
+    const bb = map.clipBounds();
+    if (bb) map.fitBounds(bb, 60);
+  }
   map._draw();
+
   let src = null, note = '';
   try { src = map.cv.toDataURL('image/png'); }
   catch (e) {
     const prev = map.basemap; map.basemap = 'none'; map._draw();
-    try { src = map.cv.toDataURL('image/png'); note = ' (basemap tiles are protected by their provider, so the picture is without a basemap)'; } catch (e2) { src = null; }
+    try { src = map.cv.toDataURL('image/png'); note = ' (basemap tiles are protected — no basemap)'; } catch (e2) { src = null; }
     map.basemap = prev; map._draw();
   }
   if (!src) { toast('Could not create the picture on this device'); return; }
+
   const img = new Image();
   await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = src; });
-  const pad = Math.round(46 * map.dpr);
-  const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height + pad;
+
+  const d = map.dpr;
+  // Composer canvas: map image + space for cartographic elements
+  const topBarH = (title || showLegend || showNorth || showGrid) ? Math.round(90 * d) : 0;
+  const bottomBarH = Math.round(70 * d);
+  const cv = document.createElement('canvas');
+  cv.width = img.width; cv.height = img.height + topBarH + bottomBarH;
   const ctx = cv.getContext('2d');
   ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, cv.width, cv.height);
-  ctx.drawImage(img, 0, 0);
-  const d = map.dpr, [lo, la] = map.center();
-  ctx.fillStyle = '#0b3d2e'; ctx.fillRect(0, img.height, cv.width, pad);
-  ctx.fillStyle = '#ffffff'; ctx.textBaseline = 'middle'; ctx.font = `600 ${13 * d}px system-ui,sans-serif`;
-  ctx.fillText(catalog.title, 14 * d, img.height + pad * 0.36);
+  ctx.drawImage(img, 0, topBarH);
+
+  const [lo, la] = prevCenter;
+  let cy = topBarH;
+
+  // --- Title
+  if (title) {
+    ctx.fillStyle = '#16201b'; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+    ctx.font = `700 ${Math.max(16, 20 * d)}px system-ui,sans-serif`;
+    ctx.fillText(title, cv.width / 2, cy + 30 * d);
+    cy += 55 * d;
+  }
+
+  // --- Legend
+  if (showLegend) {
+    const legendW = Math.min(260 * d, cv.width * 0.4);
+    const legendX = cv.width - legendW - 14 * d;
+    const legendY = cy + 10 * d;
+    ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.strokeStyle = '#dfe4df';
+    ctx.lineWidth = 1; ctx.beginPath(); ctx.roundRect(legendX, legendY, legendW, 0, 6);
+    // legend entries from active layers
+    let legendH = 10 * d;
+    const active = [...stack].reverse().map((id) => L.get(id)).filter((st) => st.obj && st.obj.visible);
+    for (const st of active) {
+      const m = st.meta;
+      if (m.kind === 'table' || m.kind === 'image') continue;
+      legendH += 14 * d;
+      ctx.fillStyle = '#16201b'; ctx.font = `600 ${11 * d}px system-ui,sans-serif`;
+      ctx.fillText(m.label, legendX + 10 * d, cy + legendH);
+      legendH += 8 * d;
+      let swatch = st.sym?.fill || (m.style?.color || '#7a7a7a');
+      ctx.fillStyle = swatch; ctx.fillRect(legendX + 10 * d, cy + legendH - 4 * d, 12 * d, 10 * d);
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.strokeRect(legendX + 10 * d, cy + legendH - 4 * d, 12 * d, 10 * d);
+      if (m.legendClasses) {
+        for (const c of m.legendClasses.slice(0, 4)) {
+          legendH += 10 * d;
+          ctx.fillStyle = c.color || swatch; ctx.fillRect(legendX + 14 * d, cy + legendH - 4 * d, 10 * d, 8 * d);
+          ctx.fillStyle = '#16201b'; ctx.font = `10px system-ui,sans-serif`;
+          ctx.fillText(c.label, legendX + 26 * d, cy + legendH);
+        }
+      }
+      legendH += 6 * d;
+    }
+    if (legendH > 10 * d) {
+      ctx.fillStyle = 'rgba(255,255,255,0.94)'; ctx.fillRect(legendX, legendY, legendW, legendH + 10 * d);
+      ctx.strokeRect(legendX, legendY, legendW, legendH + 10 * d);
+      ctx.fillStyle = '#16201b'; ctx.font = `700 ${11 * d}px system-ui,sans-serif`;
+      ctx.fillText('Legend', legendX + 10 * d, legendY + 16 * d);
+      // redraw entries inside box
+      let lh = 26 * d;
+      for (const st of active) {
+        const m = st.meta;
+        if (m.kind === 'table' || m.kind === 'image') continue;
+        lh += 14 * d;
+        ctx.fillStyle = '#16201b'; ctx.font = `600 ${11 * d}px system-ui,sans-serif`;
+        ctx.fillText(m.label, legendX + 10 * d, legendY + lh);
+        lh += 8 * d;
+        let swatch = st.sym?.fill || (m.style?.color || '#7a7a7a');
+        ctx.fillStyle = swatch; ctx.fillRect(legendX + 10 * d, legendY + lh - 4 * d, 12 * d, 10 * d);
+        ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.strokeRect(legendX + 10 * d, legendY + lh - 4 * d, 12 * d, 10 * d);
+        if (m.legendClasses) {
+          for (const c of m.legendClasses.slice(0, 4)) {
+            lh += 10 * d;
+            ctx.fillStyle = c.color || swatch; ctx.fillRect(legendX + 14 * d, legendY + lh - 4 * d, 10 * d, 8 * d);
+            ctx.fillStyle = '#16201b'; ctx.font = `10px system-ui,sans-serif`;
+            ctx.fillText(c.label, legendX + 26 * d, legendY + lh);
+          }
+        }
+        lh += 6 * d;
+      }
+    }
+    cy += legendH + 20 * d;
+  }
+
+  // --- Scale bar
+  if (showScale) {
+    const mpp = 156543.03392 * Math.cos(la * Math.PI / 180) / Math.pow(2, prevZoom);
+    let m = mpp * 120 * d; const p = Math.pow(10, Math.floor(Math.log10(m)));
+    let f = m / p; m = (f >= 5 ? 5 : f >= 2 ? 2 : 1) * p;
+    const barW = m / mpp;
+    const bx = cv.width - barW - 14 * d, by = cy + 10 * d;
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(bx - 2 * d, by - 4 * d, barW + 4 * d, 16 * d);
+    ctx.strokeStyle = '#16201b'; ctx.strokeRect(bx - 2 * d, by - 4 * d, barW + 4 * d, 16 * d);
+    ctx.fillStyle = '#000000'; ctx.fillRect(bx, by, barW / 2, 6 * d);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(bx + barW / 2, by, barW / 2, 6 * d);
+    ctx.fillStyle = '#16201b'; ctx.textAlign = 'center'; ctx.font = `600 ${11 * d}px system-ui,sans-serif`;
+    ctx.fillText(m >= 1000 ? m / 1000 + ' km' : m + ' m', bx + barW / 2, by + 14 * d);
+    cy += 30 * d;
+  }
+
+  // --- North arrow
+  if (showNorth) {
+    const nx = 14 * d, ny = cy + 10 * d, r = 16 * d;
+    ctx.fillStyle = '#16201b';
+    ctx.beginPath(); ctx.moveTo(nx, ny - r); ctx.lineTo(nx + 4 * d, ny); ctx.lineTo(nx, ny + r * 0.6); ctx.lineTo(nx - 4 * d, ny); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.moveTo(nx, ny - r * 0.6); ctx.lineTo(nx + 4 * d, ny); ctx.lineTo(nx, ny + r); ctx.lineTo(nx - 4 * d, ny); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#16201b'; ctx.lineWidth = 1.5 * d;
+    ctx.beginPath(); ctx.arc(nx, ny, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#16201b'; ctx.textAlign = 'center'; ctx.font = `600 ${11 * d}px system-ui,sans-serif`;
+    ctx.fillText('N', nx, ny + r + 12 * d);
+    cy += 40 * d;
+  }
+
+  // --- Grid / graticule labels
+  if (showGrid) {
+    ctx.save();
+    const step = map._gridStep ? map._gridStep() : 2;
+    ctx.strokeStyle = 'rgba(20,30,40,0.3)'; ctx.lineWidth = 1 * d; ctx.setLineDash([4 * d, 4 * d]);
+    ctx.beginPath();
+    const [w, s, e, n] = [unX(map.fromScreen(0, img.height)[0]), unY(map.fromScreen(0, img.height)[1]), unX(map.fromScreen(img.width, 0)[0]), unY(map.fromScreen(img.width, 0)[1])];
+    for (let lo2 = Math.ceil(w / step) * step; lo2 <= e; lo2 += step) {
+      const [x] = map.screenOf(lo2, 0); const xx = Math.round(x) + 0.5;
+      ctx.moveTo(xx, topBarH); ctx.lineTo(xx, topBarH + img.height);
+    }
+    for (let la2 = Math.floor(s / step) * step; la2 <= n; la2 += step) {
+      const [, y] = map.screenOf(0, la2); const yy = Math.round(y) + 0.5;
+      ctx.moveTo(0, topBarH + yy); ctx.lineTo(img.width, topBarH + yy);
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  // --- Bottom info strip
+  ctx.fillStyle = '#0b3d2e'; ctx.fillRect(0, topBarH + img.height, cv.width, bottomBarH);
+  ctx.fillStyle = '#ffffff'; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  ctx.font = `600 ${13 * d}px system-ui,sans-serif`;
+  ctx.fillText(catalog.title, 14 * d, topBarH + img.height + bottomBarH * 0.36);
   ctx.font = `${10.5 * d}px system-ui,sans-serif`;
-  const sub = `${new Date().toLocaleString()} · ${fmtLL(la, lo)} · zoom ${map.zoom.toFixed(1)}`;
-  ctx.fillText(sub, 14 * d, img.height + pad * 0.72);
-  const attr = BASEMAPS[map.basemap]?.attr || '';
-  if (attr) { ctx.textAlign = 'right'; ctx.fillText(attr, cv.width - 14 * d, img.height + pad * 0.72); ctx.textAlign = 'left'; }
+  const sub = new Date().toLocaleString() + ' · ' + fmtLL(la, lo) + ' · zoom ' + prevZoom.toFixed(1);
+  ctx.fillText(sub, 14 * d, topBarH + img.height + bottomBarH * 0.72);
+  const attr = BASEMAPS[prevBasemap]?.attr || '';
+  if (attr) { ctx.textAlign = 'right'; ctx.fillText(attr, cv.width - 14 * d, topBarH + img.height + bottomBarH * 0.72); ctx.textAlign = 'left'; }
+
   cv.toBlob((blob) => {
     if (!blob) { toast('Could not create the picture'); return; }
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `map-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`;
+    const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    const a = document.createElement('a'); a.href = url; a.download = `map-export-${ts}.png`;
     a.click(); setTimeout(() => URL.revokeObjectURL(url), 4000);
-    toast('Picture saved' + note, 5000);
+    toast('Map picture exported', 5000);
   }, 'image/png');
+
+  // Restore state
+  map.setView(prevCenter[0], prevCenter[1], prevZoom);
+  map.setClip(prevClip);
+  map.setBasemap(prevBasemap);
+  map._draw();
 }
 
 // ------------------------------------------------ shared select helpers
@@ -1781,19 +2090,55 @@ function toolFilter(preferred) {
       const st = L.get(body.querySelector('select').value); if (!st) return;
       if (!st.obj) { holder.innerHTML = '<p class="empty">Loading…</p>'; loadLayer(st).then(draw); return; }
       const fields = st.meta.fields || [];
-      const cur = st.filter || { field: fields[0]?.name, op: 'contains', value: '' };
-      const values = [...new Set(st.obj.features.map((f) => f.props[cur.field]))].filter((v) => v != null && v !== '').slice(0, 300);
-      holder.innerHTML = `<p class="muted">Only matching rows are drawn, identified and labelled. Other rows stay loaded — clear the filter to bring them back.</p>
+      const cur = st.filter || { field: fields[0]?.name, op: 'eq', value: '', values: [] };
+      const fld = fields.find((f) => f.name === cur.field) || fields[0];
+      const isNum = fld && fld.type === 'number';
+      const values = [...new Set(st.obj.features.map((f) => f.props[cur.field]))].filter((v) => v != null && v !== '').slice(0, 500);
+      const isMulti = cur.op === 'in' || cur.op === 'not_in';
+      const numOps = [['eq', 'is exactly'], ['neq', 'is not'], ['gt', 'is more than'], ['gte', 'is at least'], ['lt', 'is less than'], ['lte', 'is at most']];
+      const txtOps = [['contains', 'contains'], ['eq', 'is exactly'], ['neq', 'is not']];
+      const multiOps = [['in', 'include only'], ['not_in', 'exclude']];
+      const opOptions = (isMulti ? multiOps : (isNum ? numOps : txtOps)).concat(isMulti ? [] : multiOps);
+      holder.innerHTML = `<p class="muted">Only matching rows are drawn, identified and labelled. Other layers stay in full — clear the filter to bring them back.</p>
+        <div class="frow"><label>Layer</label><span>${esc(st.meta.label)}</span></div>
         <div class="frow"><label>Field</label><select id="f-field">${fields.map((f) => `<option value="${esc(f.name)}"${cur.field === f.name ? ' selected' : ''}>${esc(f.label || f.name)}</option>`).join('')}</select></div>
-        <div class="frow"><label>Condition</label><select id="f-op">${[['contains', 'contains'], ['eq', 'is exactly'], ['neq', 'is not'], ['gt', 'is more than'], ['gte', 'is at least'], ['lt', 'is less than'], ['lte', 'is at most']].map(([k, t]) => `<option value="${k}"${cur.op === k ? ' selected' : ''}>${t}</option>`).join('')}</select></div>
-        <div class="frow"><label>Value</label><input id="f-value" type="text" value="${esc(cur.value ?? '')}" list="f-values"><datalist id="f-values">${values.map((v) => `<option value="${esc(v)}">`).join('')}</datalist></div>
-        <div class="frow"><label>Pick</label><select id="f-pick"><option value="">— choose a value —</option>${values.map((v) => `<option>${esc(v)}</option>`).join('')}</select></div>
-        <div class="frow act"><button class="btn" id="f-clear">Clear filter</button><button class="btn primary" id="f-apply">Apply</button></div>`;
+        <div class="frow"><label>Condition</label><select id="f-op">${opOptions.map(([k, t]) => `<option value="${k}"${cur.op === k ? ' selected' : ''}>${t}</option>`).join('')}</select></div>
+        <div id="f-val-single" style="display:${isMulti ? 'none' : 'flex'}" class="frow"><label>Value</label><input id="f-value" type="text" value="${esc(cur.value ?? '')}" list="f-values"><datalist id="f-values">${values.map((v) => `<option value="${esc(v)}">`).join('')}</datalist></div>
+        <div id="f-val-multi" style="display:${isMulti ? 'flex' : 'none'}" class="frow"><label>Values</label><div id="f-taglist" style="flex:1;display:flex;flex-wrap:wrap;gap:6px;align-items:center"></div><button class="btn" id="f-add" style="flex:none">Add value</button><datalist id="f-valopts">${values.map((v) => `<option value="${esc(v)}">`).join('')}</datalist></div>
+        <div class="frow act"><button class="btn" id="f-clear">Clear filter</button><button class="btn primary" id="f-apply">Apply filter</button></div>
+        <div class="frow"><span id="f-hint" class="hint">${isMulti ? 'Pick values from the list, then Apply.' : 'Choose a value or type one, then Apply.'}</span></div>`;
       const q = (s) => holder.querySelector(s);
-      q('#f-pick').onchange = (e) => { if (e.target.value) { q('#f-value').value = e.target.value; q('#f-op').value = 'eq'; } };
-      q('#f-field').onchange = () => draw();
+      const tagList = q('#f-taglist'), valInput = q('#f-value'), addBtn = q('#f-add'), opSel = q('#f-op'), fieldSel = q('#f-field');
+      const singleDiv = q('#f-val-single'), multiDiv = q('#f-val-multi');
+      let tags = (cur.values || []).slice();
+      function renderTags() {
+        tagList.innerHTML = tags.map((v, i) => `<span style="border:1px solid var(--brand);background:rgba(11,107,69,.12);color:var(--brand);border-radius:12px;padding:2px 10px;font-size:12px;display:flex;align-items:center;gap:6px">${esc(v)}<button style="background:none;border:0;color:var(--brand);font-weight:700;cursor:pointer;padding:0 4px" data-rm="${i}">&times;</button></span>`).join('');
+        tagList.querySelectorAll('[data-rm]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); tags.splice(+b.dataset.rm, 1); renderTags(); });
+      }
+      renderTags();
+      fieldSel.onchange = () => { draw(); };
+      opSel.onchange = (e) => {
+        const multi = e.target.value === 'in' || e.target.value === 'not_in';
+        singleDiv.style.display = multi ? 'none' : 'flex';
+        multiDiv.style.display = multi ? 'flex' : 'none';
+        q('#f-hint').textContent = multi ? 'Pick values from the list, then Apply.' : 'Choose a value or type one, then Apply.';
+      };
+      addBtn.onclick = () => {
+        const v = q('#f-valopts').value.trim();
+        if (!v) return;
+        if (!tags.includes(v)) tags.push(v);
+        q('#f-valopts').value = '';
+        renderTags();
+      };
       q('#f-apply').onclick = () => {
-        st.filter = { field: q('#f-field').value, op: q('#f-op').value, value: q('#f-value').value };
+        const field = fieldSel.value;
+        const op = opSel.value;
+        if (op === 'in' || op === 'not_in') {
+          if (!tags.length) { toast('Pick at least one value'); return; }
+          st.filter = { field, op, values: tags };
+        } else {
+          st.filter = { field, op, value: valInput ? valInput.value : '', values: [] };
+        }
         applyFilter(st); closeModal(); renderLayerLists(); saveProject();
         toast(`${st.filterCount} of ${st.meta.count ?? '?'} shown`);
       };
@@ -1870,8 +2215,7 @@ function toolChart(preferred) {
         const vals = [];
         for (const f of st.obj.features) {
           if (f.hidden) continue;
-          const [wx, wy] = labelAnchor(f);
-          if (clip && !map.containsClip(wx, wy)) continue;
+          if (clip && !map.clipOverlapsFeature(f)) continue;
           const v = f.props?.[field];
           if (v == null || v === '') continue;
           vals.push(v);
@@ -2006,24 +2350,48 @@ function toolImport() {
 // ------------------------------------------------ tool: export
 function toolExport() {
   openModal('Export results', (body) => {
-    body.innerHTML = `<p class="muted">Everything stays on your device — these are plain downloads.</p>
-      <div class="frow act" style="justify-content:stretch"><button class="btn primary" id="e-png">${icon('camera')} Map picture (PNG)</button></div>
-      <div class="frow act" style="justify-content:stretch"><button class="btn" id="e-csv">${icon('table')} Attribute table as CSV</button></div>
-      <div class="frow"><label>CSV layer</label><select id="e-layer"></select></div>`;
+    const hasClip = !!clip;
+    const drawnShape = draw && (draw.kind === 'rect' || draw.kind === 'square' || draw.kind === 'circle' || draw.kind === 'poly' || draw.kind === 'freehand') && draw.pts.length > 0;
+    body.innerHTML = '<p class="muted">Download a high-quality PNG map image. Cartographic elements are drawn around the map area.</p>' +
+      '<div class="frow"><label>Export area</label><select id="exp-area">' +
+      '<option value="screen">Current screen / viewport</option>' +
+      (hasClip ? '<option value="clip">Active clip (focus area)</option>' : '') +
+      (drawnShape ? '<option value="drawn">Drawn shape on the map</option>' : '') +
+      '<option value="feature">Picked polygon feature(s)</option></select></div>' +
+      '<div class="frow"><label>Title</label><input id="exp-title" type="text" placeholder="Map title"></div>' +
+      '<div class="frow act">' +
+      '<label style="flex:none;display:flex;align-items:center;gap:6px"><input type="checkbox" id="exp-legend" style="width:18px;height:18px"> Legend</label>' +
+      '<label style="flex:none;display:flex;align-items:center;gap:6px"><input type="checkbox" id="exp-scale" style="width:18px;height:18px"> Scale bar</label>' +
+      '<label style="flex:none;display:flex;align-items:center;gap:6px"><input type="checkbox" id="exp-north" style="width:18px;height:18px"> North arrow</label>' +
+      '<label style="flex:none;display:flex;align-items:center;gap:6px"><input type="checkbox" id="exp-grid" style="width:18px;height:18px"> Grid / graticule</label></div>' +
+      '<div class="frow act" style="justify-content:stretch"><button class="btn primary" id="e-png">' + icon('camera') + ' Download PNG</button></div>' +
+      '<div class="frow act" style="justify-content:stretch"><button class="btn" id="e-csv">' + icon('table') + ' Attribute table as CSV</button></div>' +
+      '<div class="frow"><label>CSV layer</label><select id="e-layer"></select></div>';
     const sel = body.querySelector('#e-layer');
-    sel.innerHTML = [...L.values()].filter((s) => s.meta.kind !== 'image').map((s) => `<option value="${esc(s.meta.id)}">${esc(s.meta.label)}</option>`).join('');
-    body.querySelector('#e-png').onclick = () => { closeModal(); saveMapImage(); };
+    sel.innerHTML = [...L.values()].filter((s) => s.meta.kind !== 'image').map((s) => '<option value="' + esc(s.meta.id) + '">' + esc(s.meta.label) + '</option>').join('');
+    body.querySelector('#e-png').onclick = () => {
+      const opts = {
+        area: body.querySelector('#exp-area').value,
+        title: body.querySelector('#exp-title').value,
+        showLegend: body.querySelector('#exp-legend').checked,
+        showScale: body.querySelector('#exp-scale').checked,
+        showNorth: body.querySelector('#exp-north').checked,
+        showGrid: body.querySelector('#exp-grid').checked,
+      };
+      closeModal(); exportMapImage(opts);
+    };
     body.querySelector('#e-csv').onclick = async () => {
       const st = L.get(sel.value); if (!st) return;
       if (!st.obj) await loadLayer(st);
       if (st.meta.kind === 'raster') { toast('Rasters have no rows to export — open the class table instead'); return; }
       const cols = (st.meta.fields || []).map((f) => f.name);
-      const q = (v) => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? '');
-      const csv = [cols.join(','), ...st.obj.features.filter((f) => !f.hidden).map((f) => cols.map((c) => q(f.props[c])).join(','))].join('\n');
+      const q = (v) => /[",\\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v ?? '');
+      const csv = [cols.join(','), ...st.obj.features.filter((f) => !f.hidden).map((f) => cols.map((c) => q(f.props[c])).join(',')).join('\n')];
       download(st.meta.id + '.csv', csv, 'text/csv');
     };
   });
 }
+
 
 // ------------------------------------------------ tool: attribute table picker
 function toolTable() {
@@ -2130,6 +2498,7 @@ function runSearch() {
     const l = st.obj; if (!l || !l.features || !st.on) continue;
     for (let i = 0; i < l.features.length && n < 60; i++) {
       const f = l.features[i]; if (f.hidden) continue;
+      if (clip && !map.clipOverlapsFeature(f)) continue;
       for (const v of Object.values(f.props)) if (typeof v === 'string' && v.toLowerCase().includes(q)) {
         out.push(`<button class="sres" data-layer="${esc(l.id)}" data-i="${i}">${icon(st.meta.kind)}<span><b>${esc(titleOf(l, f))}</b><small>${esc(st.meta.label)}</small></span></button>`); n++; break;
       }
@@ -2179,15 +2548,38 @@ async function openTable(id) {
   } catch (e) { $('#tm-body').innerHTML = '<p class="empty">Could not load this table.</p>'; return; }
   const labels = Object.fromEntries((m.fields || []).map((f) => [f.name, f.label]));
   const extra = Object.fromEntries((m.attributes || []).map((a) => [a.name, a.label]));
-  let shown = 300, q = '';
+  let shown = 300, q = '', mapFilterActive = false;
+  const textFields = (m.fields || []).filter((f) => f.type === 'text');
+  const labelField = m.labelField || (textFields[0] && textFields[0].name);
   const draw = () => {
     const filt = q ? rows.filter((r) => r.some((v) => String(v).toLowerCase().includes(q))) : rows;
-    $('#tm-body').innerHTML = `<table><thead><tr>${cols.map((c) => `<th>${esc(labels[c] || extra[c] || c.replace(/_/g, ' '))}</th>`).join('')}</tr></thead><tbody>${filt.slice(0, shown).map((r) => `<tr>${r.map((v) => `<td title="${esc(v)}">${esc(typeof v === 'number' ? fmtNum(v) : v)}</td>`).join('')}</tr>`).join('')}</tbody></table>` +
-      `<div class="muted" style="padding:8px 12px">${filt.length.toLocaleString()} rows${filt.length > shown ? ` (showing ${shown})` : ''}</div>` +
+    const mapBtn = mapFilterActive
+      ? '<button class="btn" id="tm-mapoff">' + icon('eyeoff') + ' Show all on map</button>'
+      : (filt.length && filt.length < rows.length && labelField
+        ? '<button class="btn primary" id="tm-mapon">' + icon('crop') + ' Show only ' + filt.length + ' matching row' + (filt.length === 1 ? '' : 's') + ' on map</button>'
+        : '');
+    $('#tm-body').innerHTML = '<table><thead><tr>' + cols.map((c) => '<th>' + esc(labels[c] || extra[c] || c.replace(/_/g, ' ')) + '</th>').join('') + '</tr></thead><tbody>' + filt.slice(0, shown).map((r) => '<tr>' + r.map((v) => '<td title="' + esc(v) + '">' + esc(typeof v === 'number' ? fmtNum(v) : v) + '</td>').join('') + '</tr>').join('') + '</tbody></table>' +
+      '<div class="muted" style="padding:8px 12px;display:flex;justify-content:space-between;align-items:center">' + filt.length.toLocaleString() + ' rows' + (filt.length > shown ? ' (showing ' + shown + ')' : '') + (mapBtn ? ' <span style="font-size:11px;color:var(--muted)">·</span> ' + mapBtn : '') + '</div>' +
       (filt.length > shown ? '<button class="more">Show more</button>' : '');
     const mb = $('#tm-body .more'); if (mb) mb.onclick = () => { shown += 400; draw(); };
+    const mpon = $('#tm-mapon'); if (mpon) mpon.onclick = () => {
+      const li = cols.indexOf(labelField);
+      const vals = [...new Set(filt.map((r) => li >= 0 ? r[li] : r[0]))].filter((v) => v != null && v !== '');
+      st.filter = { field: labelField, op: 'in', values: vals };
+      applyFilter(st);
+      mapFilterActive = true;
+      toast('Showing only ' + vals.length + ' matching ' + labelField + ' value' + (vals.length === 1 ? '' : 's') + ' on map');
+      draw();
+    };
+    const tmpoff = $('#tm-mapoff'); if (tmpoff) tmpoff.onclick = () => {
+      st.filter = null;
+      applyFilter(st);
+      mapFilterActive = false;
+      toast('Map filter cleared');
+      draw();
+    };
   };
-  $('#tm-filter').oninput = (e) => { q = e.target.value.trim().toLowerCase(); shown = 300; draw(); };
+  $('#tm-filter').oninput = (e) => { q = e.target.value.trim().toLowerCase(); shown = 300; mapFilterActive = false; draw(); };
   draw();
 }
 $('#tm-close').onclick = () => { $('#tablemodal').hidden = true; };

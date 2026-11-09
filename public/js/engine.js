@@ -183,7 +183,7 @@ export class GeoMap {
     if (bm.url) this._drawTiles(bm);
     if (this.grid.on) this._drawGridLines();
     const tol = this._moving ? 1.6 : 0.7;
-    if (this.clip) { ctx.save(); this._clipPath(ctx); ctx.clip('evenodd'); }
+    if (this.clip) { ctx.save(); this._clipPath(ctx); ctx.clip('nonzero'); }
     for (const l of this.layers) {
       if (!l.visible || l.opacity <= 0) continue;
       ctx.globalAlpha = 1;
@@ -200,24 +200,85 @@ export class GeoMap {
   }
   // ---- focus / clip area
   setClip(clip) {
-    if (clip && clip.type === 'poly') {
-      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-      for (const ring of clip.rings) for (let i = 0; i < ring.length; i += 2) {
-        if (ring[i] < x0) x0 = ring[i]; if (ring[i] > x1) x1 = ring[i];
-        if (ring[i + 1] < y0) y0 = ring[i + 1]; if (ring[i + 1] > y1) y1 = ring[i + 1];
-      }
-      clip._bb = [x0, y0, x1, y1];
+    const normalized = normalizeClip(clip);
+    if (normalized) {
+      this.clip = normalized;
+      this.buildClipIndex();
+    } else {
+      this.clip = null;
     }
-    this.clip = clip || null;
     this.render();
   }
+  buildClipIndex() {
+    const c = this.clip; if (!c || !c.polys) return null;
+    const cells = 64;
+    const [x0, y0, x1, y1] = c.bb;
+    const w = x1 - x0, h = y1 - y0;
+    const index = new Uint8Array(cells * cells); // 0=OUTSIDE, 1=INSIDE, 2=BOUNDARY
+    const allRings = c._allRings;
+    for (let cy = 0; cy < cells; cy++) {
+      for (let cx = 0; cx < cells; cx++) {
+        const px = x0 + (cx + 0.5) / cells * w;
+        const py = y0 + (cy + 0.5) / cells * h;
+        if (!pip2(px, py, allRings)) { index[cy * cells + cx] = 0; continue; }
+        // Sample corners to detect boundary cells
+        let cornerIn = null, boundary = false;
+        for (let dx = 0; dx <= 1 && !boundary; dx++) {
+          for (let dy = 0; dy <= 1; dy++) {
+            const ci = pip2(x0 + (cx + dx) / cells * w, y0 + (cy + dy) / cells * h, allRings);
+            if (cornerIn === null) cornerIn = ci;
+            else if (ci !== cornerIn) { boundary = true; break; }
+          }
+        }
+        index[cy * cells + cx] = boundary ? 2 : 1;
+      }
+    }
+    c.index = index; c.indexCells = cells; c.indexBB = c.bb;
+    return index;
+  }
+  clipContainsPoint(wx, wy) {
+    const c = this.clip; if (!c) return true;
+    if (c.bb && (wx < c.bb[0] || wx > c.bb[2] || wy < c.bb[1] || wy > c.bb[3])) return false;
+    return pip2(wx, wy, c._allRings);
+  }
+  // Strict interior-overlap predicate: area(feature ∩ clip) > 0.
+  // Touching border neighbours (area = 0) are excluded; straddling/enclosing/contained features (area > 0) are retained.
+  clipOverlapsFeature(f) {
+    const c = this.clip; if (!c || !c.polys) return true;
+    // Quick bbox reject
+    if (f.bb[2] < c.bb[0] || f.bb[0] > c.bb[2] || f.bb[3] < c.bb[1] || f.bb[1] > c.bb[3]) return false;
+    // Spatial index fast path
+    if (c.index) {
+      const cells = c.indexCells;
+      const [x0, y0, x1, y1] = c.indexBB;
+      const w = x1 - x0, h = y1 - y0;
+      const cx0 = Math.max(0, Math.floor((f.bb[0] - x0) / w * cells));
+      const cx1 = Math.min(cells - 1, Math.floor((f.bb[2] - x0) / w * cells));
+      const cy0 = Math.max(0, Math.floor((f.bb[1] - y0) / h * cells));
+      const cy1 = Math.min(cells - 1, Math.floor((f.bb[3] - y0) / h * cells));
+      let hasInside = false, hasBoundary = false;
+      for (let cy = cy0; cy <= cy1 && !(hasInside && hasBoundary); cy++) {
+        for (let cx = cx0; cx <= cx1; cx++) {
+          const v = c.index[cy * cells + cx];
+          if (v === 1) hasInside = true;
+          else if (v === 2) hasBoundary = true;
+        }
+      }
+      if (!hasInside && !hasBoundary) return false;  // all OUTSIDE cells
+      if (hasInside && !hasBoundary) return true;    // fully inside, no boundary cells
+    }
+    // Precise test: feature rings vs all clip rings (outer + holes, multi-polygon)
+    const featureRings = f.type === 'poly' ? f.parts : f.parts;
+    return polyOverlapsPoly(featureRings, c._allRings);
+  }
+  clipBounds() {
+    const c = this.clip; if (!c) return null;
+    return [unX(c.bb[0]), unY(c.bb[3]), unX(c.bb[2]), unY(c.bb[1])];
+  }
   _appendClip(ctx) {
-    const c = this.clip; if (!c) return false;
-    if (c.type === 'rect') {
-      const [x0, y0] = this.toScreen(c.wb[0], c.wb[1]), [x1, y1] = this.toScreen(c.wb[2], c.wb[3]);
-      ctx.rect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0));
-    } else if (c.type === 'poly') {
-      for (const ring of c.rings) {
+    const c = this.clip; if (!c || !c.polys) return false;
+    for (const poly of c.polys) {
+      for (const ring of poly) {
         for (let i = 0; i < ring.length; i += 2) {
           const [x, y] = this.toScreen(ring[i], ring[i + 1]);
           i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
@@ -228,45 +289,9 @@ export class GeoMap {
     return true;
   }
   _clipPath(ctx) { ctx.beginPath(); this._appendClip(ctx); }
-  containsClip(wx, wy) {
-    const c = this.clip; if (!c) return true;
-    if (c.type === 'rect') return wx >= Math.min(c.wb[0], c.wb[2]) && wx <= Math.max(c.wb[0], c.wb[2]) && wy >= Math.min(c.wb[1], c.wb[3]) && wy <= Math.max(c.wb[1], c.wb[3]);
-    if (c.type === 'poly') {
-      let bb = c._bb;
-      if (!bb) {
-        let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-        for (const ring of c.rings) for (let i = 0; i < ring.length; i += 2) {
-          if (ring[i] < x0) x0 = ring[i]; if (ring[i] > x1) x1 = ring[i];
-          if (ring[i + 1] < y0) y0 = ring[i + 1]; if (ring[i + 1] > y1) y1 = ring[i + 1];
-        }
-        bb = c._bb = [x0, y0, x1, y1];
-      }
-      if (wx < bb[0] || wx > bb[2] || wy < bb[1] || wy > bb[3]) return false;
-      let hits = 0;
-      for (const ring of c.rings) if (pip(wx, wy, [ring])) hits++;
-      return hits % 2 === 1;   // even-odd: rings inside rings behave like holes
-    }
-    return true;
-  }
-  clipBounds() {
-    const c = this.clip; if (!c) return null;
-    if (c.type === 'rect') return [unX(Math.min(c.wb[0], c.wb[2])), unY(Math.max(c.wb[1], c.wb[3])), unX(Math.max(c.wb[0], c.wb[2])), unY(Math.min(c.wb[1], c.wb[3]))];
-    if (c.type === 'poly') {
-      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-      for (const ring of c.rings) for (let i = 0; i < ring.length; i += 2) {
-        if (ring[i] < x0) x0 = ring[i]; if (ring[i] > x1) x1 = ring[i];
-        if (ring[i + 1] < y0) y0 = ring[i + 1]; if (ring[i + 1] > y1) y1 = ring[i + 1];
-      }
-      return [unX(x0), unY(y1), unX(x1), unY(y0)];
-    }
-    return null;
-  }
   _drawClipFocus() {
     const ctx = this.ctx; if (!this.clip) return;
     ctx.save();
-    ctx.beginPath(); ctx.rect(0, 0, this.W, this.H); this._appendClip(ctx);
-    ctx.fillStyle = this.basemap === 'dark' ? 'rgba(0,0,0,.55)' : 'rgba(250,250,248,.62)';
-    ctx.fill('evenodd');
     ctx.beginPath(); this._appendClip(ctx);
     ctx.setLineDash([7, 5]); ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(11,107,69,.95)';
     ctx.stroke(); ctx.setLineDash([]);
@@ -618,3 +643,174 @@ function distLine(x, y, a) {
   }
   return best;
 }
+
+// ------------------------------------------------------------------ clip geometry helpers (hard spatial clipping)
+
+// Signed area of a flat ring [x0,y0,x1,y1,...]. Positive = clockwise in screen/Mercator coords (y down).
+export function ringSignedArea(ring) {
+  let a = 0;
+  for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
+    a += ring[j] * ring[i + 1] - ring[i] * ring[j + 1];
+  }
+  return a / 2;
+}
+
+// Reverse point order of a flat ring.
+export function reverseRing(ring) {
+  const out = new Float64Array(ring.length);
+  const n = ring.length / 2;
+  for (let i = 0; i < n; i++) {
+    out[i * 2] = ring[(n - 1 - i) * 2];
+    out[i * 2 + 1] = ring[(n - 1 - i) * 2 + 1];
+  }
+  return out;
+}
+
+// Ensure a flat outer ring is CW (positive signed area in screen coords).
+export function ensureCW(ring) { return ringSignedArea(ring) < 0 ? reverseRing(ring) : ring; }
+// Ensure a flat hole ring is CCW (negative signed area in screen coords).
+export function ensureCCW(ring) { return ringSignedArea(ring) > 0 ? reverseRing(ring) : ring; }
+
+// Bounding box of an array of flat rings.
+export function clipBB(rings) {
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  for (const ring of rings) {
+    for (let i = 0; i < ring.length; i += 2) {
+      if (ring[i] < x0) x0 = ring[i];
+      if (ring[i] > x1) x1 = ring[i];
+      if (ring[i + 1] < y0) y0 = ring[i + 1];
+      if (ring[i + 1] > y1) y1 = ring[i + 1];
+    }
+  }
+  return [x0, y0, x1, y1];
+}
+
+// Approximate a circle as a flat CW ring (segments sides).
+export function circleToPolygon(cx, cy, r, segments = 64) {
+  const ring = [];
+  for (let i = 0; i <= segments; i++) {
+    const a = (i / segments) * TAU;
+    ring.push(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+  }
+  return ring;
+}
+
+// Point-in-(multi)polygon, even-odd rule. rings: array of flat rings.
+export function pip2(x, y, rings) {
+  let inside = false;
+  for (const r of rings) {
+    for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
+      const xi = r[i], yi = r[i + 1], xj = r[j], yj = r[j + 1];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+    }
+  }
+  return inside;
+}
+
+// Strict point-in-polygon: returns false for points on the boundary.
+export function pipStrict(x, y, rings) {
+  for (const r of rings) {
+    const n = r.length;
+    for (let i = 0; i < n; i += 2) {
+      const x1 = r[i], y1 = r[i + 1];
+      const x2 = r[(i + 2) % n], y2 = r[(i + 3) % n];
+      const cross = (x2 - x1) * (y - y1) - (y2 - y1) * (x - x1);
+      if (Math.abs(cross) < 1e-9 &&
+          x >= Math.min(x1, x2) - 1e-9 && x <= Math.max(x1, x2) + 1e-9 &&
+          y >= Math.min(y1, y2) - 1e-9 && y <= Math.max(y1, y2) + 1e-9) {
+        return false; // on boundary
+      }
+    }
+  }
+  return pip2(x, y, rings);
+}
+
+// Strict segment intersection (proper crossing, not touching at endpoints).
+export function segmentsIntersect(x1, y1, x2, y2, x3, y3, x4, y4) {
+  const d = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+  if (Math.abs(d) < 1e-12) return false;
+  const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / d;
+  const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / d;
+  return t > 1e-9 && t < 1 - 1e-9 && u > 1e-9 && u < 1 - 1e-9;
+}
+
+// Test if any feature ring overlaps any clip ring with area > 0.
+// Uses vertex-inside + edge-crossing tests, robust for convex and concave polygons.
+function ringCentroid(ring) {
+  let cx = 0, cy = 0, n = ring.length / 2;
+  for (let i = 0; i < ring.length; i += 2) { cx += ring[i]; cy += ring[i + 1]; }
+  return [cx / n, cy / n];
+}
+
+export function polyOverlapsPoly(featureRings, clipRings) {
+  // 1. Any feature vertex strictly inside clip (boundary-touching doesn't count)
+  for (const ring of featureRings) {
+    for (let i = 0; i < ring.length; i += 2) {
+      if (pipStrict(ring[i], ring[i + 1], clipRings)) return true;
+    }
+  }
+  // 2. Any clip vertex strictly inside feature
+  for (const ring of clipRings) {
+    for (let i = 0; i < ring.length; i += 2) {
+      if (pipStrict(ring[i], ring[i + 1], featureRings)) return true;
+    }
+  }
+  // 3. Any edge crossing (transverse segment intersection)
+  for (const fr of featureRings) {
+    const n = fr.length;
+    for (let i = 0; i < n; i += 2) {
+      const x1 = fr[i], y1 = fr[i + 1];
+      const x2 = fr[(i + 2) % n], y2 = fr[(i + 3) % n];
+      for (const cr of clipRings) {
+        const m = cr.length;
+        for (let j = 0; j < m; j += 2) {
+          const x3 = cr[j], y3 = cr[j + 1];
+          const x4 = cr[(j + 2) % m], y4 = cr[(j + 3) % m];
+          if (segmentsIntersect(x1, y1, x2, y2, x3, y3, x4, y4)) return true;
+        }
+      }
+    }
+  }
+  // 4. Containment: centroid of feature outer ring inside clip, or vice versa
+  const outerF = featureRings[0];
+  const outerC = clipRings[0];
+  if (outerF && outerC) {
+    const [cfx, cfy] = ringCentroid(outerF);
+    if (pip2(cfx, cfy, clipRings)) return true;
+    const [ccx, ccy] = ringCentroid(outerC);
+    if (pip2(ccx, ccy, featureRings)) return true;
+  }
+  return false;
+}
+
+// Normalize a clip object (rect/poly/circle/freehand/multi) into {type, polys, bb, label}.
+// polys: [[outerCW, ...holesCCW], ...] in Mercator world coords, for ctx.clip('nonzero').
+export function normalizeClip(obj) {
+  if (!obj) return null;
+  let polys, bb, type, label = obj.label || '';
+  if (obj.type === 'rect') {
+    const [w, s, e, n] = obj.wb;
+    // CW outer ring on screen (y down): top-right -> bottom-right -> bottom-left -> top-left (flat)
+    polys = [[[e, n, e, s, w, s, w, n]]];
+    bb = [w, s, e, n]; type = 'rect';
+  } else if (obj.type === 'circle') {
+    const ring = ensureCW(circleToPolygon(obj.c[0], obj.c[1], obj.r));
+    polys = [[ring]];
+    bb = [obj.c[0] - obj.r, obj.c[1] - obj.r, obj.c[0] + obj.r, obj.c[1] + obj.r];
+    type = 'circle';
+  } else if (obj.type === 'poly' || obj.type === 'freehand' || obj.type === 'multi') {
+    const rings = obj.rings || obj.polys?.flatMap(p => p) || [];
+    const outer = ensureCW(rings[0]);
+    const holes = rings.slice(1).map(ensureCCW);
+    polys = [[outer, ...holes]];
+    bb = clipBB(rings);
+    type = obj.type;
+  } else {
+    return null;
+  }
+  // Flatten all rings (outer + holes) for pip2 testing; keep structured polys for ctx.clip('nonzero')
+  const allRings = polys.flatMap(p => p);
+  return { type, polys, bb, label, _allRings: allRings };
+}
+
+// ------------------------------------------------------------------ end clip geometry helpers
