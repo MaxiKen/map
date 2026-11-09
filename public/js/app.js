@@ -1,6 +1,6 @@
-import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature } from './engine.js?v=07dd3e9fc1';
-import { createLoadScheduler } from './loading.js?v=07dd3e9fc1';
-import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=07dd3e9fc1';
+import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature } from './engine.js?v=6b3b6bf3bf';
+import { createLoadScheduler } from './loading.js?v=6b3b6bf3bf';
+import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=6b3b6bf3bf';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -57,6 +57,8 @@ const IC = {
   calc: '<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z"/><path d="M9 10h6M9 14h6M15 8v8"/>',
   discover: '<path d="M12 2c5.5 0 10 4.5 10 10s-4.5 10-10 10S2 17.5 2 12 6.5 2 12 2ZM7 12a5 5 0 1 0 10 0 5 5 0 0 0-10 0Z"/><path d="M12 17v-5M17 12h-5"/>',
   convert: '<path d="M4 4h16v16H4zM12 2l4 6M8 14l4-6"/><path d="M2 12h20"/><path d="M12 22V2"/>',
+  savemeas: '<path d="M12 2v20M12 8l-4 4M12 8l4 4"/><circle cx="12" cy="16" r="4"/>',
+  style: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="5" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
 };
 const icon = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
 const KIND_LABEL = { point: 'Points', line: 'Lines', polygon: 'Polygons', raster: 'Raster', image: 'Picture', table: 'Table' };
@@ -1094,6 +1096,11 @@ const TOOL_GROUPS = {
     ['locate', 'locate', 'Locate Me', 'Center map on your current location'],
     ['bookmarks', 'pin', 'View Bookmarks', 'Save and restore map view bookmarks'],
     ['rotate', 'compass', 'Rotate Map', 'Rotate the map display with north arrow'],
+    ['meas-save', 'pin', 'Save Measurement', 'Save the current line or area measurement'],
+    ['meas-list', 'chart', 'Saved Measurements', 'View and restore saved measurements'],
+    ['draw-save', 'pin', 'Save Drawing', 'Save the current focus area / drawing'],
+    ['draw-list', 'layers', 'Saved Drawings', 'View and restore saved drawings'],
+    ['draw-style', 'palette', 'Drawing Style', 'Set color and stroke for drawings'],
   ],
   search: [
     ['find', 'search', 'Feature Finder', 'Search features by attribute across layers'],
@@ -1171,6 +1178,11 @@ function runTool(t) {
     case 'locate': toolLocate(); break;
     case 'bookmarks': toolBookmarks(); break;
     case 'rotate': toolRotateMap(); break;
+    case 'meas-save': toolMeasSave(); break;
+    case 'meas-list': toolMeasList(); break;
+    case 'draw-save': toolDrawSave(); break;
+    case 'draw-list': toolDrawList(); break;
+    case 'draw-style': toolDrawStyle(); break;
     case 'shot': exportMapImage(); break;
     case 'goto': toolGoto(); break;
     case 'symbology': toolSymbology(); break;
@@ -1373,22 +1385,24 @@ function drawPreview() {
   map.overlay = (ctx, m) => {
     if (!draw || !draw.pts.length) return;
     ctx.save();
-    ctx.setLineDash([7, 5]); ctx.lineWidth = 2.5; ctx.strokeStyle = '#0b6b45';
-    ctx.fillStyle = 'rgba(11,107,69,.14)';
+    ctx.setLineDash([7, 5]);
+    ctx.lineWidth = drawStrokeWidth || 2.5;
+    ctx.strokeStyle = drawStyle || '#0b6b45';
+    ctx.fillStyle = (drawStyle || '#0b6b45') + '22';
     if (draw.kind === 'poly') {
       ctx.beginPath();
       draw.pts.forEach(([lo, la], i) => { const [x, y] = m.screenOf(lo, la); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
       if (draw.pts.length > 2) ctx.closePath();
       ctx.stroke();
       if (draw.pts.length > 2) ctx.fill();
-      ctx.fillStyle = '#0b6b45';
+      ctx.fillStyle = drawStyle || '#0b6b45';
       for (const [lo, la] of draw.pts) { const [x, y] = m.screenOf(lo, la); ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill(); }
     } else if (draw.kind === 'circle' && draw.pts.length >= 1) {
       const [cx, cy] = m.screenOf(draw.pts[0][0], draw.pts[0][1]);
       const [lx, ly] = draw.pts.length > 1 ? m.screenOf(draw.pts[1][0], draw.pts[1][1]) : [cx, cy];
       const r = Math.hypot(lx - cx, ly - cy);
       ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke(); ctx.fill();
-      ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fillStyle = '#0b6b45'; ctx.fill();
+      ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fillStyle = drawStyle || '#0b6b45'; ctx.fill();
     } else if (draw.kind === 'freehand') {
       ctx.beginPath();
       draw.pts.forEach(([lo, la], i) => { const [x, y] = m.screenOf(lo, la); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
@@ -3391,6 +3405,134 @@ function toolRotateMap() {
 
 
 // ------------------------------------------------ measure
+// ------------------------------------------------ measurement & drawing enhancements
+
+// Saved measurements (localStorage only)
+function measKey() { return 'nwg.measurements'; }
+function getMeas() { try { return JSON.parse(localStorage.getItem(measKey()) || '[]'); } catch { return []; } }
+function setMeas(arr) { localStorage.setItem(measKey(), JSON.stringify(arr)); }
+
+function toolMeasSave() {
+  if (!measure || !measure.pts.length) { toast('No active measurement to save'); return; }
+  const p = measure.pts;
+  let label, value;
+  if (measure.mode === 'area') {
+    const a = ringAreaKm2(p), per = ringPerimeterKm(p);
+    label = 'Area measurement'; value = a.toFixed(2) + ' km² · ' + per.toFixed(1) + ' km edge';
+  } else {
+    let d = 0; for (let i = 1; i < p.length; i++) d += haversineKm(p[i - 1], p[i]);
+    label = 'Distance measurement'; value = d.toFixed(d < 10 ? 2 : 1) + ' km';
+  }
+  const arr = getMeas();
+  arr.unshift({ label, value, mode: measure.mode, pts: p, ts: Date.now() });
+  if (arr.length > 50) arr.length = 50;
+  setMeas(arr);
+  toast('Measurement saved (' + arr.length + ' total)');
+}
+
+function toolMeasList() {
+  const arr = getMeas();
+  openModal('Saved Measurements', (body) => {
+    body.innerHTML = '<p>Saved measurements can be restored to the map. Visual only — no data is exported.</p>' +
+      '<div id="meas-list" style="max-height:300px;overflow-y:auto;border:1px solid var(--line);border-radius:6px;padding:6px"></div>' +
+      '<div class="frow act" style="margin-top:8px"><button class="btn" id="meas-clear-all">' + icon('trash') + ' Clear All</button></div>';
+    function render() {
+      const listDiv = body.querySelector('#meas-list');
+      if (!arr.length) { listDiv.innerHTML = '<p class="empty">No saved measurements.</p>'; return; }
+      listDiv.innerHTML = arr.map((m, i) =>
+        '<div style="padding:8px;border-bottom:1px solid var(--line);cursor:pointer" data-i="' + i + '">' +
+        '<b>' + esc(m.label) + '</b><br><small style="color:var(--muted)">' + esc(m.value) + ' · ' + new Date(m.ts).toLocaleDateString() + '</small></div>').join('');
+      listDiv.querySelectorAll('[data-i]').forEach((el) => {
+        el.onclick = () => { const m = arr[+el.dataset.i]; restoreMeasurement(m); closeModal(); };
+      });
+    }
+    render();
+    body.querySelector('#meas-clear-all').onclick = () => { arr.length = 0; setMeas(arr); render(); toast('All measurements cleared'); };
+  });
+}
+
+function restoreMeasurement(m) {
+  measure = { pts: m.pts.map((pt) => [pt[0], pt[1]]), mode: m.mode };
+  $('#measurebar').hidden = false;
+  updateMeasure();
+  map.render();
+  toast('Measurement restored: ' + m.value);
+}
+
+// Saved drawings / focus areas (localStorage only)
+function drawKey() { return 'nwg.drawings'; }
+function getDraws() { try { return JSON.parse(localStorage.getItem(drawKey()) || '[]'); } catch { return []; } }
+function setDraws(arr) { localStorage.setItem(drawKey(), JSON.stringify(arr)); }
+
+function toolDrawSave() {
+  if (!clip) { toast('No active focus area to save'); return; }
+  const arr = getDraws();
+  arr.unshift({ type: clip.type, wb: clip.wb, c: clip.c, r: clip.r, rings: clip.rings, label: focusLabel || 'Drawing', ts: Date.now() });
+  if (arr.length > 50) arr.length = 50;
+  setDraws(arr);
+  toast('Drawing saved (' + arr.length + ' total)');
+}
+
+function toolDrawList() {
+  const arr = getDraws();
+  openModal('Saved Drawings', (body) => {
+    body.innerHTML = '<p>Saved focus areas can be restored to the map. Visual only — no data is exported.</p>' +
+      '<div id="draw-list" style="max-height:300px;overflow-y:auto;border:1px solid var(--line);border-radius:6px;padding:6px"></div>' +
+      '<div class="frow act" style="margin-top:8px"><button class="btn" id="draw-clear-all">' + icon('trash') + ' Clear All</button></div>';
+    function render() {
+      const listDiv = body.querySelector('#draw-list');
+      if (!arr.length) { listDiv.innerHTML = '<p class="empty">No saved drawings.</p>'; return; }
+      listDiv.innerHTML = arr.map((d, i) =>
+        '<div style="padding:8px;border-bottom:1px solid var(--line);cursor:pointer" data-i="' + i + '">' +
+        '<b>' + esc(d.label || 'Drawing') + '</b><br><small style="color:var(--muted)">' + d.type + ' · ' + new Date(d.ts).toLocaleDateString() + '</small></div>').join('');
+      listDiv.querySelectorAll('[data-i]').forEach((el) => {
+        el.onclick = () => { const d = arr[+el.dataset.i]; restoreDrawing(d); closeModal(); };
+      });
+    }
+    render();
+    body.querySelector('#draw-clear-all').onclick = () => { arr.length = 0; setDraws(arr); render(); toast('All drawings cleared'); };
+  });
+}
+
+function restoreDrawing(d) {
+  let fc;
+  if (d.type === 'rect' && d.wb) fc = { type: 'rect', wb: d.wb };
+  else if (d.type === 'circle' && d.c && d.r) fc = { type: 'circle', c: d.c, r: d.r };
+  else if (d.type === 'freehand' && d.rings) fc = { type: 'freehand', rings: d.rings };
+  else if (d.type === 'poly' && d.rings) fc = { type: 'poly', rings: d.rings };
+  else { toast('Cannot restore this drawing'); return; }
+  focusLabel = d.label || '';
+  setFocus(fc);
+  toast('Drawing restored: ' + (d.label || 'Drawing'));
+}
+
+// Drawing style
+let drawStyle = '#0b6b45', drawStrokeWidth = 2.5;
+function toolDrawStyle() {
+  const curColor = drawStyle;
+  const curWidth = drawStrokeWidth;
+  openModal('Drawing Style', (body) => {
+    body.innerHTML = '<p>Set the color and stroke width used for new drawings and focus-area outlines.</p>' +
+      '<div class="frow"><label>Color</label><input id="ds-color" type="color" value="' + curColor + '"></div>' +
+      '<div class="frow"><label>Stroke width (px)</label><input id="ds-width" type="number" min="1" max="10" step="0.5" value="' + curWidth + '"></div>' +
+      '<div class="frow act"><button class="btn primary" id="ds-apply">' + icon('palette') + ' Apply</button></div>' +
+      '<div class="frow" style="margin-top:8px"><div id="ds-preview" style="display:inline-block;width:40px;height:20px;border:2px solid ' + curColor + ';background:' + curColor + '22"></div></div>';
+    const colorEl = body.querySelector('#ds-color');
+    const widthEl = body.querySelector('#ds-width');
+    const preview = body.querySelector('#ds-preview');
+    function upd() { preview.style.borderColor = colorEl.value; preview.style.background = colorEl.value + '22'; }
+    colorEl.oninput = upd;
+    widthEl.oninput = upd;
+    body.querySelector('#ds-apply').onclick = () => {
+      drawStyle = colorEl.value;
+      drawStrokeWidth = +widthEl.value || 2.5;
+      toast('Drawing style updated');
+      closeModal();
+    };
+  });
+}
+
+
 function startMeasure(mode) {
   measure = { pts: [], mode };
   $('#measurebar').hidden = false;
@@ -3401,18 +3543,32 @@ function startMeasure(mode) {
 function updateMeasure() {
   if (!measure) return;
   const p = measure.pts;
-  let txt;
+  let txt, extra = '';
   if (measure.mode === 'area') {
     if (p.length < 3) txt = `Tap ${3 - p.length} more corner(s)`;
     else {
       const a = ringAreaKm2(p), per = ringPerimeterKm(p);
+      // centroid
+      let cx = 0, cy = 0;
+      for (const [lo, la] of p) { cx += lo; cy += la; }
+      cx /= p.length; cy /= p.length;
+      extra = ' · centroid ' + fmtLL(cy, cx);
       txt = `${fmtNum(a)} km² · edge ${per.toFixed(1)} km`;
     }
   } else {
     let d = 0; for (let i = 1; i < p.length; i++) d += haversineKm(p[i - 1], p[i]);
-    txt = p.length < 2 ? 'Tap the map to add points' : `${d.toFixed(d < 10 ? 2 : 1)} km`;
+    if (p.length < 2) txt = 'Tap the map to add points';
+    else {
+      txt = `${d.toFixed(d < 10 ? 2 : 1)} km`;
+      // bearing from first to last point
+      const [la1, lo1] = p[0], [la2, lo2] = p[p.length - 1];
+      const y = Math.sin((lo2 - lo1) * Math.PI / 180) * Math.cos(la2 * Math.PI / 180);
+      const x = Math.cos(la1 * Math.PI / 180) * Math.sin(la2 * Math.PI / 180) - Math.sin(la1 * Math.PI / 180) * Math.cos(la2 * Math.PI / 180) * Math.cos((lo2 - lo1) * Math.PI / 180);
+      const brg = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+      extra = ' · bearing ' + brg.toFixed(0) + '°';
+    }
   }
-  $('#measuretext').textContent = txt;
+  $('#measuretext').textContent = txt + extra;
   map.render();
 }
 $('#measureclear').onclick = () => { if (measure) { measure.pts = []; updateMeasure(); } };
