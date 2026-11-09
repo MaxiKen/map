@@ -39,7 +39,7 @@ test('browser loads a gzip vector in its worker and renders a single-style legen
   await expect(page.locator('#e-geo')).toHaveCount(0);
   await expect(page.locator('#modal-body')).not.toContainText('GeoJSON');
   await expect(page.locator('#e-png')).toBeVisible();
-  await expect(page.locator('#e-csv')).toBeVisible();
+  await expect(page.locator('#e-csv')).toHaveCount(0);
   await page.locator('#modal-close').click();
 
   await page.locator('.tab[data-tab="legend"]').click();
