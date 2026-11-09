@@ -55,6 +55,8 @@ const IC = {
   expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   hist: '<path d="M4 20V8M9 20V4M14 20v-6M19 20v-9M2 20h20"/>',
   calc: '<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z"/><path d="M9 10h6M9 14h6M15 8v8"/>',
+  discover: '<path d="M12 2c5.5 0 10 4.5 10 10s-4.5 10-10 10S2 17.5 2 12 6.5 2 12 2ZM7 12a5 5 0 1 0 10 0 5 5 0 0 0-10 0Z"/><path d="M12 17v-5M17 12h-5"/>',
+  convert: '<path d="M4 4h16v16H4zM12 2l4 6M8 14l4-6"/><path d="M2 12h20"/><path d="M12 22V2"/>',
 };
 const icon = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
 const KIND_LABEL = { point: 'Points', line: 'Lines', polygon: 'Polygons', raster: 'Raster', image: 'Picture', table: 'Table' };
@@ -1090,6 +1092,12 @@ const TOOL_GROUPS = {
     ['bearing', 'compass', 'Distance & bearing', 'Between two coordinates'],
     ['grid', 'grid', 'Grid lines', 'Latitude / longitude graticule'],
   ],
+  search: [
+    ['find', 'search', 'Feature Finder', 'Search features by attribute across layers'],
+    ['coords', 'target', 'Coordinate Inspector', 'Click map to read coordinates (DD / DMS)'],
+    ['convert', 'calc', 'Coordinate Converter', 'Convert DD, DMS and UTM coordinates'],
+    ['layerfind', 'layers', 'Layer Discovery', 'Search and browse the layer catalog'],
+  ],
   data: [
     ['stats', 'chart', 'Layer statistics', 'Totals, averages and a chart'],
     ['chart', 'hist', 'Compare fields', 'Histogram of any numeric column'],
@@ -1171,6 +1179,10 @@ function runTool(t) {
     case 'fieldcalc': toolFieldCalc(); break;
     case 'selectattr': toolSelectAttr(); break;
     case 'colmanage': toolColManage(); break;
+    case 'find': toolFeatureFinder(); break;
+    case 'coords': toolCoordInspector(); break;
+    case 'convert': toolCoordConverter(); break;
+    case 'layerfind': toolLayerDiscovery(); break;
     case 'bearing': toolBearing(); break;
     case 'savelabels': openSheet('tools'); renderAnnotations(); toast('Labels are listed under “Labels you placed”'); break;
     case 'reset': resetWork(); break;
@@ -2946,6 +2958,162 @@ function toolPrintLayout() {
 }
 
 
+
+// ------------------------------------------------ search & discovery tools
+
+// ---- Feature Finder: search attributes across all active vector layers ----
+function toolFeatureFinder() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.fields) vecLayers.push(st); }
+  if (!vecLayers.length) { toast('No vector layer with attributes loaded'); return; }
+  openModal('Feature Finder', (body) => {
+    body.innerHTML = '<p>Search feature attributes across all active layers. Results are highlighted on the map — no data is exported.</p>' +
+      '<div class="frow"><label>Search text</label><input id="ff-q" type="search" placeholder="Type a name, ID, code…"></div>' +
+      '<div class="frow"><label>Limit</label><select id="ff-limit"><option value="20">20 results</option><option value="50">50 results</option><option value="100">100 results</option></select></div>' +
+      '<div class="frow act"><button class="btn primary" id="ff-run">' + icon('search') + ' Search</button></div>' +
+      '<div id="ff-results" style="margin-top:10px;max-height:300px;overflow-y:auto"></div>';
+    const qSel = body.querySelector('#ff-q');
+    const limitSel = body.querySelector('#ff-limit');
+    const resDiv = body.querySelector('#ff-results');
+    let lastMatches = [];
+    function renderResults() {
+      resDiv.innerHTML = lastMatches.map((m) =>
+        '<div style="padding:6px 8px;border-bottom:1px solid var(--line);cursor:pointer" data-idx="' + m.idx + '">' +
+        '<b>' + esc(m.label) + '</b><br><small style="color:var(--muted)">' + esc(m.layer) + ' · ' + esc(m.field) + ' = ' + esc(String(m.value)) + '</small></div>').join('') ||
+        '<p class="empty">Enter a search term.</p>';
+      resDiv.querySelectorAll('[data-idx]').forEach((el) => {
+        el.onclick = () => { const m = lastMatches[+el.dataset.idx]; closeModal(); map.selection = { feature: m.feature, layer: m.layer }; map.zoomToFeature(m.feature, 70); showResults([{ layer: m.layer, feature: m.feature }]); openSheet('info', true); toast('Found: ' + m.label); };
+      });
+    }
+    body.querySelector('#ff-run').onclick = () => {
+      const q = qSel.value.trim().toLowerCase();
+      const limit = +limitSel.value;
+      if (!q || q.length < 2) { toast('Enter at least 2 characters'); return; }
+      lastMatches = [];
+      let n = 0;
+      for (const st of vecLayers) {
+        if (!st.obj) continue;
+        for (const f of st.obj.features) {
+          if (n >= limit) break;
+          for (const field of st.meta.fields) {
+            const v = f.props[field.name];
+            if (v != null && String(v).toLowerCase().includes(q)) {
+              lastMatches.push({ idx: lastMatches.length, label: titleOf(st.obj, f), layer: st.meta.label, field: field.label || field.name, value: v, feature: f, layerObj: st.obj });
+              n++; break;
+            }
+          }
+        }
+        if (n >= limit) break;
+      }
+      renderResults();
+      toast(n + ' feature' + (n === 1 ? '' : 's') + ' matched');
+    };
+    qSel.oninput = () => { renderResults(); };
+  });
+}
+
+// ---- Coordinate Inspector: click map to read coordinates ----
+function toolCoordInspector() {
+  openModal('Coordinate Inspector', (body) => {
+    body.innerHTML = '<p>Click anywhere on the map to read coordinates. Decimal degrees (DD) and degrees-minutes-seconds (DMS).</p>' +
+      '<div class="frow"><label>Latitude (DD)</label><input id="ci-lat" type="text" readonly></div>' +
+      '<div class="frow"><label>Longitude (DD)</label><input id="ci-lon" type="text" readonly></div>' +
+      '<div class="frow"><label>Latitude (DMS)</label><input id="ci-dmslat" type="text" readonly></div>' +
+      '<div class="frow"><label>Longitude (DMS)</label><input id="ci-dmslon" type="text" readonly></div>' +
+      '<div class="frow"><label>UTM zone</label><input id="ci-utm" type="text" readonly></div>' +
+      '<div class="frow act"><button class="btn" id="ci-clear">' + icon('trash') + ' Clear</button><button class="btn primary" id="ci-done">' + icon('close') + ' Stop inspecting</button></div>' +
+      '<p class="muted" style="margin-top:8px">Click on the map to pick a location.</p>';
+    const latEl = body.querySelector('#ci-lat'), lonEl = body.querySelector('#ci-lon');
+    const dmsLatEl = body.querySelector('#ci-dmslat'), dmsLonEl = body.querySelector('#ci-dmslon');
+    const utmEl = body.querySelector('#ci-utm');
+    function toDMS(v, isLat) {
+      const abs = Math.abs(v), deg = Math.floor(abs), min = Math.floor((abs - deg) * 60), sec = ((abs - deg) * 60 - min) * 60;
+      const dir = v < 0 ? (isLat ? 'S' : 'W') : (isLat ? 'N' : 'E');
+      return deg + '°' + String(min).padStart(2, '0') + '\'' + sec.toFixed(1) + '"' + dir;
+    }
+    function utmZone(lon) { return Math.floor((lon + 180) / 6) + 1; }
+    function setCoord(la, lo) {
+      latEl.value = la.toFixed(5); lonEl.value = lo.toFixed(5);
+      dmsLatEl.value = toDMS(la, true); dmsLonEl.value = toDMS(lo, false);
+      utmEl.value = 'Zone ' + utmZone(lo) + (lo < 0 ? ' (west)' : '');
+    }
+    const handler = (e) => {
+      const r = map.cv.getBoundingClientRect();
+      const [lo, la] = map.lonlatAt(e.clientX - r.left, e.clientY - r.top);
+      setCoord(la, lo);
+    };
+    map.cv.addEventListener('pointerclick', handler);
+    body.querySelector('#ci-clear').onclick = () => { latEl.value = ''; lonEl.value = ''; dmsLatEl.value = ''; dmsLonEl.value = ''; utmEl.value = ''; };
+    body.querySelector('#ci-done').onclick = () => { map.cv.removeEventListener('pointerclick', handler); closeModal(); };
+  });
+}
+
+// ---- Coordinate Converter: DD <-> DMS <-> UTM ----
+function toolCoordConverter() {
+  openModal('Coordinate Converter', (body) => {
+    body.innerHTML = '<p>Convert between decimal degrees, degrees-minutes-seconds, and UTM zone.</p>' +
+      '<div class="frow"><label>Latitude (DD)</label><input id="cc-lat" type="number" step="0.000001" placeholder="9.0765"></div>' +
+      '<div class="frow"><label>Longitude (DD)</label><input id="cc-lon" type="number" step="0.000001" placeholder="7.3986"></div>' +
+      '<div class="frow act"><button class="btn primary" id="cc-to-dd">' + icon('target') + ' To DD</button><button class="btn" id="cc-to-dms">' + icon('calc') + ' To DMS</button></div>' +
+      '<div id="cc-out" style="margin-top:10px;padding:8px;background:var(--surface);border-radius:6px"></div>' +
+      '<div class="frow act" style="margin-top:10px"><button class="btn" id="cc-goto">' + icon('target') + ' Go to on map</button></div>';
+    const latEl = body.querySelector('#cc-lat'), lonEl = body.querySelector('#cc-lon');
+    const out = body.querySelector('#cc-out');
+    function toDMS(v, isLat) {
+      const abs = Math.abs(v), deg = Math.floor(abs), min = Math.floor((abs - deg) * 60), sec = ((abs - deg) * 60 - min) * 60;
+      const dir = v < 0 ? (isLat ? 'S' : 'W') : (isLat ? 'N' : 'E');
+      return deg + '°' + String(min).padStart(2, '0') + '\'' + sec.toFixed(1) + '" ' + dir;
+    }
+    function utmZone(lon) { return Math.floor((lon + 180) / 6) + 1; }
+    function update() {
+      const la = +latEl.value, lo = +lonEl.value;
+      if (!isFinite(la) || !isFinite(lo) || Math.abs(la) > 85 || Math.abs(lo) > 180) { out.innerHTML = '<p class="empty">Enter valid coordinates.</p>'; return; }
+      out.innerHTML = '<b>Decimal Degrees:</b> ' + la.toFixed(5) + ', ' + lo.toFixed(5) + '<br>' +
+        '<b>DMS:</b> ' + toDMS(la, true) + ', ' + toDMS(lo, false) + '<br>' +
+        '<b>UTM:</b> Zone ' + utmZone(lo) + (lo < 0 ? ' (Southern/Western hemisphere)' : '');
+    }
+    latEl.oninput = update; lonEl.oninput = update;
+    body.querySelector('#cc-to-dd').onclick = update;
+    body.querySelector('#cc-to-dms').onclick = update;
+    body.querySelector('#cc-goto').onclick = () => {
+      const la = +latEl.value, lo = +lonEl.value;
+      if (!isFinite(la) || !isFinite(lo)) { toast('Enter valid coordinates'); return; }
+      map.setView(lo, la, map.zoom); closeModal(); toast(fmtLL(la, lo));
+    };
+  });
+}
+
+// ---- Layer Discovery: search layer catalog ----
+function toolLayerDiscovery() {
+  openModal('Layer Discovery', (body) => {
+    body.innerHTML = '<p>Search and browse the layer catalog. Click a layer to add it to the map.</p>' +
+      '<div class="frow"><label>Search</label><input id="ld-q" type="search" placeholder="Search layer names, types, sources…"></div>' +
+      '<div id="ld-list" style="max-height:320px;overflow-y:auto;border:1px solid var(--line);border-radius:6px"></div>' +
+      '<p class="muted" style="margin-top:6px">Layers are added to the map but not exported.</p>';
+    const qSel = body.querySelector('#ld-q');
+    const listDiv = body.querySelector('#ld-list');
+    function render() {
+      const q = qSel.value.trim().toLowerCase();
+      const matched = catalog.layers.filter((m) =>
+        !q || m.label.toLowerCase().includes(q) || m.id.toLowerCase().includes(q) || m.kind.toLowerCase().includes(q) || (m.source || '').toLowerCase().includes(q)
+      );
+      listDiv.innerHTML = matched.map((m) => {
+        const on = stack.includes(m.id);
+        return '<div style="padding:6px 8px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;cursor:pointer" data-id="' + esc(m.id) + '">' +
+          '<div><b>' + esc(m.label) + '</b><br><small style="color:var(--muted)">' + esc(KIND_LABEL[m.kind] || m.kind) + ' · ' + esc(m.id) + '</small></div>' +
+          '<button class="btn ' + (on ? 'primary' : '') + '" data-act="' + (on ? 'off' : 'on') + '">' + (on ? 'On' : 'Add') + '</button></div>';
+      }).join('') || '<p class="empty">No matching layers.</p>';
+      listDiv.querySelectorAll('[data-act]').forEach((btn) => {
+        btn.onclick = (e) => { e.stopPropagation(); const id = btn.closest('[data-id]').dataset.id; if (btn.dataset.act === 'on') { setLayer(id, true); } else { setLayer(id, false); } render(); saveProject(); toast((btn.dataset.act === 'on' ? 'Added' : 'Removed') + ' ' + id); };
+      });
+      listDiv.querySelectorAll('[data-id]').forEach((el) => {
+        el.onclick = (e) => { if (e.target.tagName === 'BUTTON') return; const id = el.dataset.id; const st = L.get(id); if (st) { setLayer(id, true); zoomToLayer(st.meta); closeModal(); toast('Added ' + st.meta.label); } };
+      });
+    }
+    qSel.oninput = render;
+    render();
+  });
+}
 
 // ------------------------------------------------ view: reset, full screen, back
 function resetView() {
