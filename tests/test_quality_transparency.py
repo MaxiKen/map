@@ -56,8 +56,8 @@ class QualityTransparencyTests(unittest.TestCase):
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(forbidden, app + quality)
         self.assertIn("['export', 'down', 'Export results'", app)
-        self.assertIn('id="e-csv"', app)
         self.assertIn('id="e-png"', app)
+        self.assertNotIn('id="e-csv"', app)
         self.assertIn('Import GeoJSON', app)
         self.assertIn('Download full JSON register', quality)
 

@@ -2364,11 +2364,7 @@ function toolExport() {
       '<label style="flex:none;display:flex;align-items:center;gap:6px"><input type="checkbox" id="exp-scale" style="width:18px;height:18px"> Scale bar</label>' +
       '<label style="flex:none;display:flex;align-items:center;gap:6px"><input type="checkbox" id="exp-north" style="width:18px;height:18px"> North arrow</label>' +
       '<label style="flex:none;display:flex;align-items:center;gap:6px"><input type="checkbox" id="exp-grid" style="width:18px;height:18px"> Grid / graticule</label></div>' +
-      '<div class="frow act" style="justify-content:stretch"><button class="btn primary" id="e-png">' + icon('camera') + ' Download PNG</button></div>' +
-      '<div class="frow act" style="justify-content:stretch"><button class="btn" id="e-csv">' + icon('table') + ' Attribute table as CSV</button></div>' +
-      '<div class="frow"><label>CSV layer</label><select id="e-layer"></select></div>';
-    const sel = body.querySelector('#e-layer');
-    sel.innerHTML = [...L.values()].filter((s) => s.meta.kind !== 'image').map((s) => '<option value="' + esc(s.meta.id) + '">' + esc(s.meta.label) + '</option>').join('');
+      '<div class="frow act" style="justify-content:stretch"><button class="btn primary" id="e-png">' + icon('camera') + ' Download PNG</button></div>';
     body.querySelector('#e-png').onclick = () => {
       const opts = {
         area: body.querySelector('#exp-area').value,
@@ -2379,15 +2375,6 @@ function toolExport() {
         showGrid: body.querySelector('#exp-grid').checked,
       };
       closeModal(); exportMapImage(opts);
-    };
-    body.querySelector('#e-csv').onclick = async () => {
-      const st = L.get(sel.value); if (!st) return;
-      if (!st.obj) await loadLayer(st);
-      if (st.meta.kind === 'raster') { toast('Rasters have no rows to export — open the class table instead'); return; }
-      const cols = (st.meta.fields || []).map((f) => f.name);
-      const q = (v) => /[",\\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v ?? '');
-      const csv = [cols.join(','), ...st.obj.features.filter((f) => !f.hidden).map((f) => cols.map((c) => q(f.props[c])).join(',')).join('\n')];
-      download(st.meta.id + '.csv', csv, 'text/csv');
     };
   });
 }

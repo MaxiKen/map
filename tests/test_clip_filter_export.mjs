@@ -111,7 +111,7 @@ assert.ok(appSource.includes('"not_in"') || appSource.includes("'not_in'"), 'app
 assert.ok(appSource.includes('tm-mapon'), 'app.js has table-to-map sync button');
 assert.ok(appSource.includes('exportMapImage'), 'app.js has exportMapImage function');
 assert.ok(appSource.includes('id="e-png"'), 'app.js preserves #e-png');
-assert.ok(appSource.includes('id="e-csv"'), 'app.js preserves #e-csv');
+assert.ok(!appSource.includes('id="e-csv"'), 'app.js removes #e-csv');
 assert.ok(appSource.includes('#modal-title'), 'app.js preserves modal title');
 
 const engineSource = readFileSync('app/js/engine.js', 'utf8');
