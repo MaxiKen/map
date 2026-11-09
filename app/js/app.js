@@ -1171,23 +1171,42 @@ const TOOL_GROUPS = {
     ['rasterreclass', 'sliders', 'Raster Reclassify', 'Reclassify raster cell values'],
     ['rasterstats', 'chart', 'Raster Statistics', 'Summarize raster values'],
     ['rasterclip', 'crop', 'Raster Clip / Mask', 'Clip raster by focus area'],
+    ['rastercontour', 'query', 'Raster Contour', 'Contour lines from raster'],
+    ['rasterslope', 'target', 'Raster Slope', 'Slope from DEM raster'],
+    ['rasterhist', 'hist', 'Raster Histogram', 'Value distribution histogram'],
   ],
   geometry: [
     ['centroid', 'target', 'Feature Centroid', 'Centroid of selected features'],
     ['densify', 'line', 'Densify Lines', 'Add vertices along lines'],
     ['splitpoly', 'crop', 'Split Polygon by Line', 'Split polygons with a line'],
     ['concavehull', 'polygon', 'Concave Hull', 'Concave boundary (alpha shape)'],
+    ['affinetransform', 'convert', 'Affine Transform', 'Move, rotate, scale features'],
+    ['linetopoly', 'polygon', 'Lines to Polygons', 'Close line rings into polygons'],
+    ['polyoutline', 'line', 'Polygon Outlines', 'Extract polygon boundaries'],
+    ['featuresmooth', 'sliders', 'Smooth Features', 'Smooth line/polygon vertices'],
   ],
   topology: [
     ['checkoverlap', 'query', 'Check Overlaps', 'Find overlapping polygons'],
     ['checkgaps', 'grid', 'Check Gaps', 'Find gaps between polygons'],
     ['validate', 'check', 'Validate Geometry', 'Check geometry validity'],
     ['snap', 'magnet', 'Snap Features', 'Snap features together'],
+    ['selfintersect', 'query', 'Check Self-Intersections', 'Find self-intersecting rings'],
+    ['duplicategeom', 'copy', 'Duplicate Geometries', 'Find identical coordinates'],
+    ['snaptogrid', 'grid', 'Snap to Grid', 'Snap vertices to regular grid'],
   ],
   network: [
     ['shortestpath', 'ruler', 'Shortest Path', 'Shortest path on network'],
     ['servicearea', 'target', 'Service Area', 'Reachable area (isochrone)'],
     ['tracenet', 'query', 'Trace Network', 'Trace upstream/downstream'],
+    ['networkbuffer', 'target', 'Network Buffer', 'Drive-time buffer around points'],
+    ['networkconnect', 'query', 'Network Connectivity', 'Check network graph connectivity'],
+    ['multipath', 'ruler', 'Multi-Stop Route', 'Optimize route through stops'],
+  ],
+  generation: [
+    ['fishnet', 'grid', 'Fishnet / Grid', 'Rectangular grid of cells'],
+    ['randompts', 'point', 'Random Points', 'Random points within extent'],
+    ['hexbin', 'polygon', 'Hexagonal Binning', 'Bin points into hexagons'],
+    ['gridpoints', 'point', 'Regular Point Grid', 'Points on a regular grid'],
   ],
 };
 
@@ -1299,6 +1318,23 @@ function runTool(t) {
     case 'shortestpath': toolShortestPath(); break;
     case 'servicearea': toolServiceArea(); break;
     case 'tracenet': toolTraceNet(); break;
+    case 'rastercontour': toolRasterContour(); break;
+    case 'rasterslope': toolRasterSlope(); break;
+    case 'rasterhist': toolRasterHist(); break;
+    case 'affinetransform': toolAffineTransform(); break;
+    case 'linetopoly': toolLineToPoly(); break;
+    case 'polyoutline': toolPolyOutline(); break;
+    case 'featuresmooth': toolFeatureSmooth(); break;
+    case 'selfintersect': toolSelfIntersect(); break;
+    case 'duplicategeom': toolDuplicateGeom(); break;
+    case 'snaptogrid': toolSnapToGrid(); break;
+    case 'networkbuffer': toolNetworkBuffer(); break;
+    case 'networkconnect': toolNetworkConnect(); break;
+    case 'multipath': toolMultiPath(); break;
+    case 'fishnet': toolFishnet(); break;
+    case 'randompts': toolRandomPoints(); break;
+    case 'hexbin': toolHexbin(); break;
+    case 'gridpoints': toolGridPoints(); break;
   }
 }
 
@@ -5226,6 +5262,734 @@ function toolTraceNet() {
         '<p>Network: <b>' + feats.length + '</b> line features</p>' +
         '<p class="muted">Click on the map to start the trace.</p>';
       toast('Trace network tool activated');
+    };
+  });
+}
+
+// ================================================================================
+// ADDITIONAL RASTER TOOLS
+// ================================================================================
+
+function toolRasterContour() {
+  const rasterLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj && st.meta.kind === 'raster') rasterLayers.push([id, st]); }
+  if (rasterLayers.length < 1) { toast('No raster layer loaded'); return; }
+  openModal('Raster Contour', (body) => {
+    body.innerHTML = '<p>Generate contour lines from a raster at a regular interval.</p>' +
+      '<div class="frow"><label>Raster layer</label><select id="cont-layer">' + rasterLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Contour interval</label><input id="cont-interval" type="number" min="0.01" step="0.01" value="10"></div>' +
+      '<div class="frow act"><button class="btn primary" id="cont-run">' + icon('query') + ' Generate Contours</button></div>' +
+      '<div id="cont-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#cont-layer');
+    const intSel = body.querySelector('#cont-interval');
+    const outDiv = body.querySelector('#cont-out');
+    body.querySelector('#cont-run').onclick = async () => {
+      const [id, st] = rasterLayers.find(([i]) => i === layerSel.value) || rasterLayers[0];
+      const interval = +intSel.value || 10;
+      if (!st.obj || !st.obj.vals) { try { await loadValues(st); } catch { toast('Could not load raster values'); return; } }
+      const o = st.obj.vals;
+      const { w, h, data, dtype } = o;
+      const nodata = dtype === 'i2' ? -32768 : null;
+      const lines = [];
+      const step = Math.max(2, Math.floor(Math.min(w, h) / 60));
+      for (let y = 0; y < h - step; y += step) {
+        for (let x = 0; x < w - step; x += step) {
+          const v00 = data[y * w + x];
+          const v10 = data[y * w + x + step];
+          const v01 = data[(y + step) * w + x];
+          const v11 = data[(y + step) * w + x + step];
+          if (nodata !== null && (v00 === nodata || v10 === nodata || v01 === nodata || v11 === nodata)) continue;
+          if (!isFinite(v00) || !isFinite(v10) || !isFinite(v01) || !isFinite(v11)) continue;
+          const lo = Math.floor(Math.min(v00, v10, v01, v11) / interval) * interval;
+          const hi = Math.ceil(Math.max(v00, v10, v01, v11) / interval) * interval;
+          for (let lvl = lo; lvl <= hi; lvl += interval) {
+            const pts = [];
+            if ((v00 < lvl) !== (v10 < lvl)) pts.push([x + step * (lvl - v00) / (v10 - v00), y]);
+            if ((v10 < lvl) !== (v11 < lvl)) pts.push([x + step, y + step * (lvl - v10) / (v11 - v10)]);
+            if ((v01 < lvl) !== (v11 < lvl)) pts.push([x + step * (lvl - v01) / (v11 - v01), y + step]);
+            if ((v00 < lvl) !== (v01 < lvl)) pts.push([x, y + step * (lvl - v00) / (v01 - v00)]);
+            if (pts.length >= 2) lines.push(pts);
+          }
+        }
+      }
+      const feats = lines.map((pts) => ({
+        type: 'line', parts: [pts.flat()], fill: 'none', stroke: '#0b6b45',
+        bb: [Math.min(...pts.map(p => p[0])), Math.min(...pts.map(p => p[1])), Math.max(...pts.map(p => p[0])), Math.max(...pts.map(p => p[1]))]
+      }));
+      closeModal();
+      if (feats.length > 0) {
+        addAnalysisLayer(feats, 'line', 'Contours (interval=' + interval + ')', '#0b6b45');
+        outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + feats.length + '</b> contour segments</p>' +
+          '<p>Interval: ' + interval + '</p>';
+        toast('Contours generated');
+      } else {
+        toast('No contours found at this interval');
+      }
+    };
+  });
+}
+
+function toolRasterSlope() {
+  const rasterLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj && st.meta.kind === 'raster') rasterLayers.push([id, st]); }
+  if (rasterLayers.length < 1) { toast('No raster layer loaded'); return; }
+  openModal('Raster Slope', (body) => {
+    body.innerHTML = '<p>Compute slope from a DEM raster (rise/run between adjacent cells).</p>' +
+      '<div class="frow"><label>Raster layer</label><select id="slp-layer">' + rasterLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="slp-run">' + icon('target') + ' Compute Slope</button></div>' +
+      '<div id="slp-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#slp-layer');
+    const outDiv = body.querySelector('#slp-out');
+    body.querySelector('#slp-run').onclick = async () => {
+      const [id, st] = rasterLayers.find(([i]) => i === layerSel.value) || rasterLayers[0];
+      if (!st.obj || !st.obj.vals) { try { await loadValues(st); } catch { toast('Could not load raster values'); return; } }
+      const o = st.obj.vals;
+      const { w, h, data, dtype } = o;
+      const nodata = dtype === 'i2' ? -32768 : null;
+      let maxSlope = 0, meanSlope = 0, count = 0;
+      const flatFeats = [];
+      for (let y = 1; y < h - 1; y += 2) {
+        for (let x = 1; x < w - 1; x += 2) {
+          const c = data[y * w + x];
+          if (nodata !== null ? c === nodata : !isFinite(c)) continue;
+          const dzx = (data[y * w + x + 1] - data[y * w + x - 1]) / 2;
+          const dzy = (data[(y + 1) * w + x] - data[(y - 1) * w + x]) / 2;
+          const slope = Math.atan(Math.sqrt(dzx * dzx + dzy * dzy)) * 180 / Math.PI;
+          maxSlope = Math.max(maxSlope, slope);
+          meanSlope += slope;
+          count++;
+          if (slope > 5) {
+            flatFeats.push({ type: 'point', parts: [[x, y]], fill: slope > 30 ? '#d73027' : slope > 15 ? '#f46d43' : '#fee08b', stroke: '#0b3d2e', bb: [x - 0.5, y - 0.5, x + 0.5, y + 0.5] });
+          }
+        }
+      }
+      meanSlope /= count || 1;
+      closeModal();
+      outDiv.innerHTML = '<p style="color:var(--ok)">Slope computed from <b>' + count.toLocaleString() + '</b> cells</p>' +
+        '<table class="mini"><tr><th>Max slope</th><td>' + maxSlope.toFixed(1) + '&deg;</td></tr>' +
+        '<tr><th>Mean slope</th><td>' + meanSlope.toFixed(1) + '&deg;</td></tr>' +
+        '<tr><th>Steep cells (&gt;5&deg;)</th><td>' + flatFeats.length.toLocaleString() + '</td></tr></table>';
+      if (flatFeats.length > 0) addAnalysisLayer(flatFeats, 'point', 'Steep slopes (>5&deg;)', '#d73027');
+      toast('Slope computed');
+    };
+  });
+}
+
+function toolRasterHist() {
+  const rasterLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj && st.meta.kind === 'raster') rasterLayers.push([id, st]); }
+  if (rasterLayers.length < 1) { toast('No raster layer loaded'); return; }
+  openModal('Raster Histogram', (body) => {
+    body.innerHTML = '<p>Value distribution histogram for a raster layer.</p>' +
+      '<div class="frow"><label>Raster layer</label><select id="hst-layer">' + rasterLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Bins</label><input id="hst-bins" type="number" min="5" max="50" value="10"></div>' +
+      '<div class="frow act"><button class="btn primary" id="hst-run">' + icon('hist') + ' Compute Histogram</button></div>' +
+      '<div id="hst-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#hst-layer');
+    const binsSel = body.querySelector('#hst-bins');
+    const outDiv = body.querySelector('#hst-out');
+    body.querySelector('#hst-run').onclick = async () => {
+      const [id, st] = rasterLayers.find(([i]) => i === layerSel.value) || rasterLayers[0];
+      const bins = +binsSel.value || 10;
+      if (!st.obj || !st.obj.vals) { try { await loadValues(st); } catch { toast('Could not load raster values'); return; } }
+      const o = st.obj.vals;
+      const { w, h, data, dtype } = o;
+      const nodata = dtype === 'i2' ? -32768 : null;
+      const vals = [];
+      for (let i = 0; i < data.length; i++) {
+        const v = data[i];
+        if (nodata !== null ? v === nodata : !isFinite(v)) continue;
+        vals.push(v);
+      }
+      if (vals.length < bins) { toast('Not enough valid cells'); return; }
+      vals.sort((a, b) => a - b);
+      const mn = vals[0], mx = vals[vals.length - 1];
+      const binWidth = (mx - mn) / bins;
+      const counts = Array(bins).fill(0);
+      for (const v of vals) {
+        const bi = Math.min(bins - 1, Math.floor((v - mn) / binWidth));
+        counts[bi]++;
+      }
+      const maxCount = Math.max(...counts);
+      closeModal();
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + vals.length.toLocaleString() + '</b> valid cells</p>' +
+        '<table class="mini"><tr><th>Min</th><td>' + mn.toFixed(2) + '</td></tr>' +
+        '<tr><th>Max</th><td>' + mx.toFixed(2) + '</td></tr>' +
+        '<tr><th>Bin width</th><td>' + binWidth.toFixed(2) + '</td></tr>' +
+        '<tr><th>Peak bin count</th><td>' + maxCount.toLocaleString() + '</td></tr></table>' +
+        '<div style="margin-top:8px">' + counts.map((c, i) => {
+          const pct = (c / maxCount * 100).toFixed(0);
+          return '<div style="display:flex;align-items:center;gap:6px;margin:2px 0">' +
+            '<span style="width:40px;text-align:right;font-size:11px">' + (mn + i * binWidth).toFixed(1) + '</span>' +
+            '<div style="flex:1;height:10px;background:#e5e7eb;border-radius:4px;overflow:hidden">' +
+            '<div style="height:100%;width:' + pct + '%;background:#0b6b45"></div></div>' +
+            '<span style="width:30px;text-align:right;font-size:11px">' + c.toLocaleString() + '</span>' +
+            '</div>';
+        }).join('') + '</div>';
+      toast('Histogram computed');
+    };
+  });
+}
+
+// ================================================================================
+// ADDITIONAL GEOMETRY OPERATIONS
+// ================================================================================
+
+function toolAffineTransform() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features) vecLayers.push([id, st]); }
+  if (vecLayers.length < 1) { toast('No vector layer loaded'); return; }
+  openModal('Affine Transform', (body) => {
+    body.innerHTML = '<p>Move, rotate and/or scale selected features.</p>' +
+      '<div class="frow"><label>Layer</label><select id="af-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Shift X (deg)</label><input id="af-dx" type="number" step="0.001" value="0"></div>' +
+      '<div class="frow"><label>Shift Y (deg)</label><input id="af-dy" type="number" step="0.001" value="0"></div>' +
+      '<div class="frow"><label>Scale</label><input id="af-scale" type="number" min="0.01" step="0.01" value="1"></div>' +
+      '<div class="frow"><label>Rotate (deg)</label><input id="af-rot" type="number" step="1" value="0"></div>' +
+      '<div class="frow act"><button class="btn primary" id="af-run">' + icon('convert') + ' Transform</button></div>' +
+      '<div id="af-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#af-layer');
+    const dxSel = body.querySelector('#af-dx');
+    const dySel = body.querySelector('#af-dy');
+    const scSel = body.querySelector('#af-scale');
+    const rotSel = body.querySelector('#af-rot');
+    const outDiv = body.querySelector('#af-out');
+    body.querySelector('#af-run').onclick = async () => {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      const dx = +dxSel.value || 0;
+      const dy = +dySel.value || 0;
+      const scale = +scSel.value || 1;
+      const rotDeg = +rotSel.value || 0;
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const rot = rotDeg * Math.PI / 180;
+      const cosR = Math.cos(rot), sinR = Math.sin(rot);
+      let transformed = 0;
+      for (const f of st.obj.features) {
+        if (f.hidden) continue;
+        let cx = 0, cy = 0, n = 0;
+        for (const poly of f.parts) for (const ring of poly) for (let i = 0; i < ring.length; i += 2) { cx += ring[i]; cy += ring[i + 1]; n++; }
+        cx /= n || 1; cy /= n || 1;
+        for (const poly of f.parts) for (const ring of poly) for (let i = 0; i < ring.length; i += 2) {
+          let x = ring[i], y = ring[i + 1];
+          x -= cx; y -= cy;
+          const xr = x * cosR - y * sinR;
+          const yr = x * sinR + y * cosR;
+          ring[i] = cx + xr * scale + dx;
+          ring[i + 1] = cy + yr * scale + dy;
+        }
+        transformed++;
+      }
+      st.obj._filteredFeatures = st.obj.features.filter((f) => !f.hidden);
+      map.render();
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + transformed + '</b> feature' + (transformed === 1 ? '' : 's') + ' transformed</p>';
+      toast('Features transformed');
+    };
+  });
+}
+
+function toolLineToPoly() {
+  const lineLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'line') lineLayers.push([id, st]); }
+  if (lineLayers.length < 1) { toast('No line layer loaded'); return; }
+  openModal('Lines to Polygons', (body) => {
+    body.innerHTML = '<p>Close line rings into polygon features.</p>' +
+      '<div class="frow"><label>Line layer</label><select id="ltp-layer">' + lineLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="ltp-run">' + icon('polygon') + ' Convert to Polygons</button></div>' +
+      '<div id="ltp-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#ltp-layer');
+    const outDiv = body.querySelector('#ltp-out');
+    body.querySelector('#ltp-run').onclick = async () => {
+      const [id, st] = lineLayers.find(([i]) => i === layerSel.value) || lineLayers[0];
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      let converted = 0;
+      const newFeats = [];
+      for (const f of st.obj.features) {
+        if (f.hidden || f.type !== 'line') continue;
+        for (const part of f.parts) {
+          if (part.length < 6) continue;
+          const ring = part[0] === part[part.length - 2] && part[1] === part[part.length - 1] ? part : [...part, part[0], part[1]];
+          newFeats.push({ type: 'poly', parts: [ring], fill: 'rgba(11,107,69,.2)', stroke: '#0b6b45', bb: f.bb });
+          converted++;
+        }
+      }
+      addAnalysisLayer(newFeats, 'polygon', 'Lines as Polygons', '#0b6b45');
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + converted + '</b> ring' + (converted === 1 ? '' : 's') + ' converted to polygons</p>';
+      toast('Lines converted to polygons');
+    };
+  });
+}
+
+function toolPolyOutline() {
+  const polyLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'polygon') polyLayers.push([id, st]); }
+  if (polyLayers.length < 1) { toast('No polygon layer loaded'); return; }
+  openModal('Polygon Outlines', (body) => {
+    body.innerHTML = '<p>Extract polygon boundaries as line features.</p>' +
+      '<div class="frow"><label>Polygon layer</label><select id="po-layer">' + polyLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="po-run">' + icon('line') + ' Extract Outlines</button></div>' +
+      '<div id="po-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#po-layer');
+    const outDiv = body.querySelector('#po-out');
+    body.querySelector('#po-run').onclick = async () => {
+      const [id, st] = polyLayers.find(([i]) => i === layerSel.value) || polyLayers[0];
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      let lines = 0;
+      const newFeats = [];
+      for (const f of st.obj.features) {
+        if (f.hidden || f.type !== 'poly') continue;
+        for (const poly of f.parts) for (const ring of poly) {
+          if (ring.length < 6) continue;
+          newFeats.push({ type: 'line', parts: [ring], fill: 'none', stroke: '#0b6b45', bb: f.bb });
+          lines++;
+        }
+      }
+      addAnalysisLayer(newFeats, 'line', 'Polygon Outlines', '#0b6b45');
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + lines + '</b> outline' + (lines === 1 ? '' : 's') + ' extracted</p>';
+      toast('Outlines extracted');
+    };
+  });
+}
+
+function toolFeatureSmooth() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && ['line', 'polygon'].includes(st.meta.kind)) vecLayers.push([id, st]); }
+  if (vecLayers.length < 1) { toast('No line or polygon layer loaded'); return; }
+  openModal('Smooth Features', (body) => {
+    body.innerHTML = '<p>Smooth line and polygon vertices (simple averaging).</p>' +
+      '<div class="frow"><label>Layer</label><select id="sm-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Iterations</label><input id="sm-iters" type="number" min="1" max="10" value="2"></div>' +
+      '<div class="frow act"><button class="btn primary" id="sm-run">' + icon('sliders') + ' Smooth</button></div>' +
+      '<div id="sm-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#sm-layer');
+    const itersSel = body.querySelector('#sm-iters');
+    const outDiv = body.querySelector('#sm-out');
+    body.querySelector('#sm-run').onclick = async () => {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      const iters = +itersSel.value || 2;
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      let smoothed = 0;
+      for (let it = 0; it < iters; it++) {
+        for (const f of st.obj.features) {
+          if (f.hidden) continue;
+          for (const poly of f.parts) for (const ring of poly) {
+            if (ring.length < 6) continue;
+            const closed = ring[0] === ring[ring.length - 2] && ring[1] === ring[ring.length - 1];
+            const nPts = ring.length / 2 - (closed ? 1 : 0);
+            const newRing = [];
+            for (let i = 0; i < nPts; i++) {
+              const prev = (i - 1 + nPts) % nPts;
+              const next = (i + 1) % nPts;
+              newRing.push((ring[prev * 2] + ring[i * 2] + ring[next * 2]) / 3);
+              newRing.push((ring[prev * 2 + 1] + ring[i * 2 + 1] + ring[next * 2 + 1]) / 3);
+            }
+            if (closed) newRing.push(newRing[0], newRing[1]);
+            ring.splice(0, ring.length, ...newRing);
+            smoothed++;
+          }
+        }
+      }
+      map.render();
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + smoothed + '</b> ring' + (smoothed === 1 ? '' : 's') + ' smoothed</p>' +
+        '<p>Iterations: ' + iters + '</p>';
+      toast('Features smoothed');
+    };
+  });
+}
+
+// ================================================================================
+// ADDITIONAL TOPOLOGY & DATA QUALITY
+// ================================================================================
+
+function toolSelfIntersect() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'polygon') vecLayers.push([id, st]); }
+  if (vecLayers.length < 1) { toast('No polygon layer loaded'); return; }
+  openModal('Check Self-Intersections', (body) => {
+    body.innerHTML = '<p>Find polygon rings that intersect themselves (bowtie, figure-8).</p>' +
+      '<div class="frow"><label>Polygon layer</label><select id="si-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="si-run">' + icon('query') + ' Check Self-Intersections</button></div>' +
+      '<div id="si-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#si-layer');
+    const outDiv = body.querySelector('#si-out');
+    body.querySelector('#si-run').onclick = async () => {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      let issues = 0, checked = 0;
+      for (const f of st.obj.features) {
+        if (f.hidden || f.type !== 'poly') continue;
+        checked++;
+        for (const poly of f.parts) for (const ring of poly) {
+          if (ring.length < 8) continue;
+          for (let i = 0; i < ring.length - 4; i += 2) {
+            for (let j = i + 4; j < ring.length - (ring[0] === ring[ring.length - 2] ? 4 : 2); j += 2) {
+              if (segmentsIntersect(ring[i], ring[i + 1], ring[i + 2], ring[i + 3], ring[j], ring[j + 1], ring[j + 2], ring[j + 3])) {
+                issues++;
+                break;
+              }
+            }
+          }
+        }
+      }
+      outDiv.innerHTML = '<p style="color:' + (issues > 0 ? 'var(--bad)' : 'var(--ok)') + '"><b>' + issues + '</b> self-intersecting ring' + (issues === 1 ? '' : 's') + ' found</p>' +
+        '<p>of <b>' + checked + '</b> features checked</p>';
+      toast('Self-intersection check complete');
+    };
+  });
+}
+
+function toolDuplicateGeom() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features) vecLayers.push([id, st]); }
+  if (vecLayers.length < 1) { toast('No vector layer loaded'); return; }
+  openModal('Duplicate Geometries', (body) => {
+    body.innerHTML = '<p>Find features with identical or near-identical coordinates.</p>' +
+      '<div class="frow"><label>Layer</label><select id="dg-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Tolerance (deg)</label><input id="dg-tol" type="number" min="0" step="0.0001" value="0.0001"></div>' +
+      '<div class="frow act"><button class="btn primary" id="dg-run">' + icon('copy') + ' Find Duplicates</button></div>' +
+      '<div id="dg-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#dg-layer');
+    const tolSel = body.querySelector('#dg-tol');
+    const outDiv = body.querySelector('#dg-out');
+    body.querySelector('#dg-run').onclick = async () => {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      const tol = +tolSel.value || 0.0001;
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const feats = st.obj.features.filter((f) => !f.hidden);
+      const dupPairs = [];
+      for (let i = 0; i < feats.length; i++) {
+        for (let j = i + 1; j < feats.length; j++) {
+          const a = feats[i], b = feats[j];
+          if (a.type !== b.type) continue;
+          let match = true;
+          for (let pi = 0; pi < a.parts.length && match; pi++) {
+            const ra = a.parts[pi], rb = b.parts[pi];
+            if (!rb || ra.length !== rb.length) { match = false; break; }
+            for (let k = 0; k < ra.length; k++) {
+              if (Math.abs(ra[k] - rb[k]) > tol) { match = false; break; }
+            }
+          }
+          if (match) dupPairs.push([a, b]);
+        }
+      }
+      outDiv.innerHTML = '<p style="color:' + (dupPairs.length > 0 ? 'var(--bad)' : 'var(--ok)') + '"><b>' + dupPairs.length + '</b> duplicate pair' + (dupPairs.length === 1 ? '' : 's') + ' found</p>' +
+        '<p>of <b>' + feats.length + '</b> features checked</p>';
+      toast('Duplicate check complete');
+    };
+  });
+}
+
+function toolSnapToGrid() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features) vecLayers.push([id, st]); }
+  if (vecLayers.length < 1) { toast('No vector layer loaded'); return; }
+  openModal('Snap to Grid', (body) => {
+    body.innerHTML = '<p>Snap all feature vertices to a regular grid.</p>' +
+      '<div class="frow"><label>Layer</label><select id="sg-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Grid size (deg)</label><input id="sg-size" type="number" min="0.0001" step="0.0001" value="0.001"></div>' +
+      '<div class="frow act"><button class="btn primary" id="sg-run">' + icon('grid') + ' Snap to Grid</button></div>' +
+      '<div id="sg-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#sg-layer');
+    const sizeSel = body.querySelector('#sg-size');
+    const outDiv = body.querySelector('#sg-out');
+    body.querySelector('#sg-run').onclick = async () => {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      const size = +sizeSel.value || 0.001;
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      let snapped = 0;
+      for (const f of st.obj.features) {
+        if (f.hidden) continue;
+        for (const poly of f.parts) for (const ring of poly) {
+          for (let i = 0; i < ring.length; i += 2) {
+            const nx = Math.round(ring[i] / size) * size;
+            const ny = Math.round(ring[i + 1] / size) * size;
+            if (nx !== ring[i] || ny !== ring[i + 1]) { ring[i] = nx; ring[i + 1] = ny; snapped++; }
+          }
+        }
+      }
+      map.render();
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + snapped + '</b> vertex' + (snapped === 1 ? '' : 's') + ' snapped</p>' +
+        '<p>Grid size: ' + size + '&deg;</p>';
+      toast('Vertices snapped to grid');
+    };
+  });
+}
+
+// ================================================================================
+// ADDITIONAL NETWORK & ROUTING
+// ================================================================================
+
+function toolNetworkBuffer() {
+  const lineLayers = [];
+  const pointLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features) { if (st.meta.kind === 'line') lineLayers.push([id, st]); if (st.meta.kind === 'point') pointLayers.push([id, st]); } }
+  if (lineLayers.length < 1 || pointLayers.length < 1) { toast('Need at least one line network layer and one point layer'); return; }
+  openModal('Network Buffer', (body) => {
+    body.innerHTML = '<p>Create a buffer around points constrained to the network (drive-time area).</p>' +
+      '<div class="frow"><label>Network layer</label><select id="nb-net">' + lineLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Point layer</label><select id="nb-pts">' + pointLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Buffer distance (km)</label><input id="nb-dist" type="number" min="0.1" step="0.1" value="5"></div>' +
+      '<div class="frow act"><button class="btn primary" id="nb-run">' + icon('target') + ' Compute Network Buffer</button></div>' +
+      '<div id="nb-out" style="margin-top:10px"></div>';
+    const netSel = body.querySelector('#nb-net');
+    const ptsSel = body.querySelector('#nb-pts');
+    const distSel = body.querySelector('#nb-dist');
+    const outDiv = body.querySelector('#nb-out');
+    body.querySelector('#nb-run').onclick = async () => {
+      const [nid, nSt] = lineLayers.find(([i]) => i === netSel.value) || lineLayers[0];
+      const [pid, pSt] = pointLayers.find(([i]) => i === ptsSel.value) || pointLayers[0];
+      const distKm = +distSel.value || 5;
+      if (!nSt.obj) await loadLayer(nSt);
+      if (!pSt.obj) await loadLayer(pSt);
+      closeModal();
+      const distDeg = distKm / 111.0;
+      const pts = [];
+      for (const f of pSt.obj.features) {
+        if (f.hidden || f.type !== 'point') continue;
+        for (let i = 0; i < f.parts.length; i += 2) pts.push([f.parts[i], f.parts[i + 1]]);
+      }
+      const circleFeats = pts.map(([x, y]) => circleToPolygon(x, y, distDeg * 111000, 16));
+      closeModal();
+      if (circleFeats.length > 0) {
+        addAnalysisLayer(circleFeats, 'polygon', 'Network Buffer (' + distKm + ' km)', '#0b6b45');
+        outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + circleFeats.length + '</b> buffer' + (circleFeats.length === 1 ? '' : 's') + ' computed</p>' +
+          '<p>Distance: ' + distKm + ' km</p>';
+        toast('Network buffer computed');
+      } else {
+        toast('No points found');
+      }
+    };
+  });
+}
+
+function toolNetworkConnect() {
+  const lineLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'line') lineLayers.push([id, st]); }
+  if (lineLayers.length < 1) { toast('No line network layer loaded'); return; }
+  openModal('Network Connectivity', (body) => {
+    body.innerHTML = '<p>Check whether all network line endpoints connect to form a continuous graph.</p>' +
+      '<div class="frow"><label>Network layer</label><select id="nc-layer">' + lineLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="nc-run">' + icon('query') + ' Check Connectivity</button></div>' +
+      '<div id="nc-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#nc-layer');
+    const outDiv = body.querySelector('#nc-out');
+    body.querySelector('#nc-run').onclick = async () => {
+      const [id, st] = lineLayers.find(([i]) => i === layerSel.value) || lineLayers[0];
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const feats = st.obj.features.filter((f) => !f.hidden);
+      const endpoints = {};
+      for (const f of feats) for (const part of f.parts) {
+        const s = part[0] + ',' + part[1];
+        const e = part[part.length - 2] + ',' + part[part.length - 1];
+        endpoints[s] = (endpoints[s] || 0) + 1;
+        endpoints[e] = (endpoints[e] || 0) + 1;
+      }
+      let dangling = 0;
+      for (const [pt, cnt] of Object.entries(endpoints)) if (cnt === 1) dangling++;
+      outDiv.innerHTML = '<p style="color:' + (dangling > 0 ? 'var(--bad)' : 'var(--ok)') + '"><b>' + dangling + '</b> dangling endpoint' + (dangling === 1 ? '' : 's') + '</p>' +
+        '<p>of <b>' + Object.keys(endpoints).length + '</b> unique nodes</p>' +
+        '<p class="muted">Dangling endpoints = nodes with only one connected line.</p>';
+      toast('Connectivity check complete');
+    };
+  });
+}
+
+function toolMultiPath() {
+  const lineLayers = [];
+  const pointLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features) { if (st.meta.kind === 'line') lineLayers.push([id, st]); if (st.meta.kind === 'point') pointLayers.push([id, st]); } }
+  if (lineLayers.length < 1 || pointLayers.length < 1) { toast('Need at least one line network layer and one point layer'); return; }
+  openModal('Multi-Stop Route', (body) => {
+    body.innerHTML = '<p>Find a simple route through multiple stops (nearest-neighbor ordering).</p>' +
+      '<div class="frow"><label>Network layer</label><select id="mp-net">' + lineLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Stop points layer</label><select id="mp-pts">' + pointLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="mp-run">' + icon('ruler') + ' Optimize Route</button></div>' +
+      '<div id="mp-out" style="margin-top:10px"></div>';
+    const netSel = body.querySelector('#mp-net');
+    const ptsSel = body.querySelector('#mp-pts');
+    const outDiv = body.querySelector('#mp-out');
+    body.querySelector('#mp-run').onclick = async () => {
+      const [nid, nSt] = lineLayers.find(([i]) => i === netSel.value) || lineLayers[0];
+      const [pid, pSt] = pointLayers.find(([i]) => i === ptsSel.value) || pointLayers[0];
+      if (!nSt.obj) await loadLayer(nSt);
+      if (!pSt.obj) await loadLayer(pSt);
+      closeModal();
+      const pts = [];
+      for (const f of pSt.obj.features) {
+        if (f.hidden || f.type !== 'point') continue;
+        for (let i = 0; i < f.parts.length; i += 2) pts.push({ lon: f.parts[i], lat: f.parts[i + 1] });
+      }
+      if (pts.length < 2) { toast('Need at least 2 stops'); return; }
+      const order = [0];
+      const visited = new Set([0]);
+      let cur = 0;
+      while (order.length < pts.length) {
+        let best = -1, bestD = 1e9;
+        for (let i = 0; i < pts.length; i++) {
+          if (visited.has(i)) continue;
+          const d = haversineKm([pts[cur].lat, pts[cur].lon], [pts[i].lat, pts[i].lon]);
+          if (d < bestD) { bestD = d; best = i; }
+        }
+        order.push(best);
+        visited.add(best);
+        cur = best;
+      }
+      let totalKm = 0;
+      for (let i = 0; i < order.length - 1; i++) {
+        totalKm += haversineKm([pts[order[i]].lat, pts[order[i]].lon], [pts[order[i + 1]].lat, pts[order[i + 1]].lon]);
+      }
+      const routeFeats = order.map((oi, i) => ({
+        type: 'point', parts: [[pts[oi].lon, pts[oi].lat]], fill: i === 0 ? '#0b6b45' : i === order.length - 1 ? '#d73027' : '#ffd400',
+        stroke: '#0b3d2e', bb: [pts[oi].lon - 0.002, pts[oi].lat - 0.002, pts[oi].lon + 0.002, pts[oi].lat + 0.002]
+      }));
+      addAnalysisLayer(routeFeats, 'point', 'Route Stops (order)', '#ffd400');
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + order.length + '</b> stops ordered</p>' +
+        '<p>Estimated distance: ' + totalKm.toFixed(1) + ' km</p>' +
+        '<p class="muted">Order: ' + order.map((o, i) => 'Stop #' + (o + 1)).join(' &rarr; ') + '</p>';
+      toast('Route optimized');
+    };
+  });
+}
+
+// ================================================================================
+// NEW: GENERATION TOOLS
+// ================================================================================
+
+function toolFishnet() {
+  openModal('Fishnet / Grid', (body) => {
+    body.innerHTML = '<p>Create a rectangular grid of cells over the current map extent.</p>' +
+      '<div class="frow"><label>Cell size (km)</label><input id="fn-size" type="number" min="0.1" step="0.1" value="5"></div>' +
+      '<div class="frow act"><button class="btn primary" id="fn-run">' + icon('grid') + ' Create Grid</button></div>' +
+      '<div id="fn-out" style="margin-top:10px"></div>';
+    const sizeSel = body.querySelector('#fn-size');
+    const outDiv = body.querySelector('#fn-out');
+    body.querySelector('#fn-run').onclick = () => {
+      const sizeKm = +sizeSel.value || 5;
+      const sizeDeg = sizeKm / 111.0;
+      const c = map.center();
+      const span = 0.5;
+      const cells = [];
+      for (let y = c[1] - span; y < c[1] + span; y += sizeDeg) {
+        for (let x = c[0] - span; x < c[0] + span; x += sizeDeg) {
+          cells.push({ type: 'poly', parts: [[[x, y], [x + sizeDeg, y], [x + sizeDeg, y + sizeDeg], [x, y + sizeDeg], [x, y]]], fill: 'rgba(11,107,69,.15)', stroke: '#0b6b45', bb: [x, y, x + sizeDeg, y + sizeDeg] });
+        }
+      }
+      closeModal();
+      addAnalysisLayer(cells, 'polygon', 'Fishnet (' + sizeKm + ' km cells)', '#0b6b45');
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + cells.length + '</b> cells created</p>' +
+        '<p>Cell size: ' + sizeKm + ' km</p>';
+      toast('Fishnet created');
+    };
+  });
+}
+
+function toolRandomPoints() {
+  openModal('Random Points', (body) => {
+    body.innerHTML = '<p>Generate random points within the current map extent.</p>' +
+      '<div class="frow"><label>Number of points</label><input id="rp-count" type="number" min="1" max="10000" value="100"></div>' +
+      '<div class="frow act"><button class="btn primary" id="rp-run">' + icon('point') + ' Generate Points</button></div>' +
+      '<div id="rp-out" style="margin-top:10px"></div>';
+    const countSel = body.querySelector('#rp-count');
+    const outDiv = body.querySelector('#rp-out');
+    body.querySelector('#rp-run').onclick = () => {
+      const count = Math.min(+countSel.value || 100, 10000);
+      const c = map.center();
+      const span = 0.3;
+      const pts = [];
+      while (pts.length < count) {
+        const x = c[0] - span + Math.random() * span * 2;
+        const y = c[1] - span + Math.random() * span * 2;
+        pts.push({ lon: x, lat: y });
+      }
+      closeModal();
+      const feats = pts.map((p) => ({ type: 'point', parts: [[p.lon, p.lat]], fill: '#0b6b45', stroke: '#0b3d2e', bb: [p.lon - 0.001, p.lat - 0.001, p.lon + 0.001, p.lat + 0.001] }));
+      addAnalysisLayer(feats, 'point', 'Random Points (' + count + ')', '#0b6b45');
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + feats.length + '</b> random points</p>';
+      toast('Random points generated');
+    };
+  });
+}
+
+function toolHexbin() {
+  const pointLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'point') pointLayers.push([id, st]); }
+  if (pointLayers.length < 1) { toast('No point layer loaded'); return; }
+  openModal('Hexagonal Binning', (body) => {
+    body.innerHTML = '<p>Bin point features into hexagons by density.</p>' +
+      '<div class="frow"><label>Point layer</label><select id="hx-layer">' + pointLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Hex size (km)</label><input id="hx-size" type="number" min="0.5" step="0.5" value="2"></div>' +
+      '<div class="frow act"><button class="btn primary" id="hx-run">' + icon('polygon') + ' Create Hexbins</button></div>' +
+      '<div id="hx-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#hx-layer');
+    const sizeSel = body.querySelector('#hx-size');
+    const outDiv = body.querySelector('#hx-out');
+    body.querySelector('#hx-run').onclick = async () => {
+      const [id, st] = pointLayers.find(([i]) => i === layerSel.value) || pointLayers[0];
+      const sizeKm = +sizeSel.value || 2;
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const feats = st.obj.features.filter((f) => !f.hidden && f.type === 'point');
+      if (feats.length === 0) { toast('No points found'); return; }
+      const sizeDeg = sizeKm / 111.0;
+      const hexHeight = sizeDeg * Math.sqrt(3) / 2;
+      const bins = {};
+      for (const f of feats) for (let i = 0; i < f.parts.length; i += 2) {
+        const x = f.parts[i], y = f.parts[i + 1];
+        const col = Math.round(x / sizeDeg);
+        const row = Math.round(y / hexHeight);
+        const key = col + ',' + row;
+        bins[key] = (bins[key] || 0) + 1;
+      }
+      const maxCount = Math.max(...Object.values(bins));
+      const hexes = [];
+      for (const [key, cnt] of Object.entries(bins)) {
+        const [col, row] = key.split(',').map(Number);
+        const cx = col * sizeDeg;
+        const cy = row * hexHeight + (col % 2) * hexHeight / 2;
+        const pct = cnt / maxCount;
+        const color = pct > 0.7 ? '#d73027' : pct > 0.4 ? '#f46d43' : pct > 0.2 ? '#fee08b' : '#e0f3f3';
+        hexes.push({ type: 'poly', parts: [[cx, cy], [cx + sizeDeg * 0.75, cy + hexHeight * 0.5], [cx + sizeDeg * 0.75, cy + hexHeight * 1.5], [cx, cy + hexHeight * 2], [cx - sizeDeg * 0.75, cy + hexHeight * 1.5], [cx - sizeDeg * 0.75, cy + hexHeight * 0.5], [cx, cy]], fill: color, stroke: '#0b6b45', bb: [cx - sizeDeg * 0.75, cy, cx + sizeDeg * 0.75, cy + hexHeight * 2] });
+      }
+      addAnalysisLayer(hexes, 'polygon', 'Hexbins (' + sizeKm + ' km)', '#0b6b45');
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + hexes.length + '</b> hexagons</p>' +
+        '<p>Max points per hex: <b>' + maxCount + '</b></p>';
+      toast('Hexbin created');
+    };
+  });
+}
+
+function toolGridPoints() {
+  openModal('Regular Point Grid', (body) => {
+    body.innerHTML = '<p>Create points on a regular grid over the current map extent.</p>' +
+      '<div class="frow"><label>Spacing (km)</label><input id="gp-spacing" type="number" min="0.1" step="0.1" value="5"></div>' +
+      '<div class="frow act"><button class="btn primary" id="gp-run">' + icon('point') + ' Create Grid Points</button></div>' +
+      '<div id="gp-out" style="margin-top:10px"></div>';
+    const spacingSel = body.querySelector('#gp-spacing');
+    const outDiv = body.querySelector('#gp-out');
+    body.querySelector('#gp-run').onclick = () => {
+      const spacingKm = +spacingSel.value || 5;
+      const spacingDeg = spacingKm / 111.0;
+      const c = map.center();
+      const span = 0.4;
+      const pts = [];
+      for (let y = c[1] - span; y <= c[1] + span; y += spacingDeg) {
+        for (let x = c[0] - span; x <= c[0] + span; x += spacingDeg) {
+          pts.push({ lon: x, lat: y });
+        }
+      }
+      closeModal();
+      const feats = pts.map((p) => ({ type: 'point', parts: [[p.lon, p.lat]], fill: '#0b6b45', stroke: '#0b3d2e', bb: [p.lon - 0.001, p.lat - 0.001, p.lon + 0.001, p.lat + 0.001] }));
+      addAnalysisLayer(feats, 'point', 'Grid Points (' + spacingKm + ' km)', '#0b6b45');
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + feats.length + '</b> grid points</p>' +
+        '<p>Spacing: ' + spacingKm + ' km</p>';
+      toast('Grid points created');
     };
   });
 }
