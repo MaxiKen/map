@@ -1176,6 +1176,8 @@ const TOOL_GROUPS = {
     ['rasterhist', 'hist', 'Raster Histogram', 'Value distribution histogram'],
     ['rasterclipoly', 'crop', 'Raster Clip by Polygon', 'Clip raster extent to polygon boundary'],
     ['rasteroverlay', 'calc', 'Raster Overlay Math', 'Cell-by-cell math between two rasters'],
+    ['rasterclasszonal', 'chart', 'Raster Class Zonal', 'Raster class coverage per polygon'],
+    ['rasterdiff', 'calc', 'Raster Difference', 'Subtract raster B from raster A'],
   ],
   geometry: [
     ['centroid', 'target', 'Feature Centroid', 'Centroid of selected features'],
@@ -1192,6 +1194,10 @@ const TOOL_GROUPS = {
     ['areaperim', 'chart', 'Area & Perimeter', 'km² and km for each polygon'],
     ['linepoints', 'point', 'Points Along Lines', 'Points at intervals along lines'],
     ['centroidpts', 'target', 'Polygon Centroids → Points', 'Centroid point layer from polygons'],
+    ['polyadjacency', 'query', 'Polygon Adjacency', 'Find touching polygon pairs'],
+    ['lineoffset', 'line', 'Line Offset', 'Parallel offset lines at distance'],
+    ['polyunion', 'merge', 'Polygon Union / Merge', 'Merge all polygons into one'],
+    ['linelenstats', 'chart', 'Line Length Statistics', 'Total, mean, min, max line lengths'],
   ],
   topology: [
     ['checkoverlap', 'query', 'Check Overlaps', 'Find overlapping polygons'],
@@ -1205,6 +1211,11 @@ const TOOL_GROUPS = {
     ['checknullgeom', 'query', 'Check Null Geometries', 'Find empty or missing coordinates'],
     ['checkoutofbounds', 'query', 'Check Out of Bounds', 'Find coordinates outside valid range'],
     ['checkmultipart', 'query', 'Check Multi-part Features', 'Find multi-part features'],
+    ['ringdirection', 'query', 'Ring Direction Check', 'CW/CCW ring orientation'],
+    ['featurewithindist', 'target', 'Feature Within Distance', 'Features within distance of another layer'],
+    ['spatialjoincount', 'table', 'Spatial Join Count', 'Count points within polygons'],
+    ['bufferdissolve', 'target', 'Buffer Dissolve', 'Buffer then dissolve overlaps'],
+    ['removesmallpoly', 'trash', 'Remove Small Polygons', 'Delete polygons below min area'],
   ],
   network: [
     ['shortestpath', 'ruler', 'Shortest Path', 'Shortest path on network'],
@@ -1216,6 +1227,7 @@ const TOOL_GROUPS = {
     ['distancematrix', 'chart', 'Distance Matrix', 'Pairwise distances between points'],
     ['linemerge', 'merge', 'Merge Connected Lines', 'Merge lines sharing endpoints'],
     ['linebearing', 'compass', 'Line Bearing Statistics', 'Compass direction of line segments'],
+    ['networkbetweenness', 'query', 'Network Betweenness', 'Node betweenness centrality'],
   ],
   generation: [
     ['fishnet', 'grid', 'Fishnet / Grid', 'Rectangular grid of cells'],
@@ -1225,6 +1237,7 @@ const TOOL_GROUPS = {
     ['randomlines', 'line', 'Random Lines', 'Generate random line features'],
     ['randompolygons', 'polygon', 'Random Polygons', 'Generate random polygon features'],
     ['randomsample', 'point', 'Random Sample', 'Random subset of features'],
+    ['randomraster', 'raster', 'Random Raster', 'Generate random raster surface'],
   ],
   data: [
     ['stats', 'chart', 'Layer statistics', 'Totals, averages and a chart'],
@@ -1238,6 +1251,12 @@ const TOOL_GROUPS = {
     ['shot', 'camera', 'Save map picture', 'Download the screen as a PNG'],
     ['export', 'down', 'Export results', 'Save a map picture or attribute rows as CSV'],
     ['countbyattr', 'chart', 'Count by Attribute', 'Tally features by field value'],
+    ['fieldstatsbygroup', 'chart', 'Field Stats by Group', 'Grouped statistics by field'],
+  ],
+  classification: [
+    ['jenksbreaks', 'sliders', 'Natural Breaks (Jenks)', 'Jenks natural breaks classes'],
+    ['quantileclass', 'sliders', 'Quantile Classification', 'Equal-count quantile classes'],
+    ['equalintervalclass', 'sliders', 'Equal Interval Classification', 'Equal-width value classes'],
   ],
 };
 
@@ -1385,6 +1404,23 @@ function runTool(t) {
     case 'linebearing': toolLineBearing(); break;
     case 'countbyattr': toolCountByAttr(); break;
     case 'randomsample': toolRandomSample(); break;
+    case 'rasterclasszonal': toolRasterClassZonal(); break;
+    case 'rasterdiff': toolRasterDiff(); break;
+    case 'polyadjacency': toolPolyAdjacency(); break;
+    case 'lineoffset': toolLineOffset(); break;
+    case 'polyunion': toolPolyUnion(); break;
+    case 'linelenstats': toolLineLenStats(); break;
+    case 'ringdirection': toolRingDirection(); break;
+    case 'featurewithindist': toolFeatureWithinDist(); break;
+    case 'spatialjoincount': toolSpatialJoinCount(); break;
+    case 'bufferdissolve': toolBufferDissolve(); break;
+    case 'networkbetweenness': toolNetworkBetweenness(); break;
+    case 'fieldstatsbygroup': toolFieldStatsByGroup(); break;
+    case 'randomraster': toolRandomRaster(); break;
+    case 'jenksbreaks': toolJenksBreaks(); break;
+    case 'quantileclass': toolQuantileClass(); break;
+    case 'equalintervalclass': toolEqualIntervalClass(); break;
+    case 'removesmallpoly': toolRemoveSmallPoly(); break;
   }
 }
 
@@ -6885,6 +6921,784 @@ function toolCountByAttr() {
     fieldSel.innerHTML = fields0;
   });
 }
+
+
+
+// ================================================================================
+// FINAL HIGH-VALUE TOOLS (genuine gaps, no duplicates)
+// ================================================================================
+
+// --- Raster Class Zonal: zonal stats per raster class within polygons ---
+function toolRasterClassZonal() {
+  const rasterLayers = [];
+  const polyLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj) { if (st.meta.kind === 'raster') rasterLayers.push([id, st]); if (st.meta.kind === 'polygon') polyLayers.push([id, st]); } }
+  if (rasterLayers.length < 1 || polyLayers.length < 1) { toast('Need one raster and one polygon layer'); return; }
+  openModal('Raster Class Zonal', (body) => {
+    body.innerHTML = '<p>Summarize raster class coverage within each polygon.</p>' +
+      '<div class="frow"><label>Raster layer</label><select id="rcz-r">' + rasterLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Polygon layer</label><select id="rcz-p">' + polyLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="rcz-run">' + icon('chart') + ' Compute Class Zonal</button></div>' +
+      '<div id="rcz-out" style="margin-top:10px"></div>';
+    const rSel = body.querySelector('#rcz-r');
+    const pSel = body.querySelector('#rcz-p');
+    const outDiv = body.querySelector('#rcz-out');
+    body.querySelector('#rcz-run').onclick = async () => {
+      const [rid, rSt] = rasterLayers.find(([i]) => i === rSel.value) || rasterLayers[0];
+      const [pid, pSt] = polyLayers.find(([i]) => i === pSel.value) || polyLayers[0];
+      if (!rSt.obj || !rSt.obj.vals) { try { await loadValues(rSt); } catch { toast('Could not load raster'); return; } }
+      if (!pSt.obj) await loadLayer(pSt);
+      closeModal();
+      const o = rSt.obj.vals;
+      const { w, h, data, dtype } = o;
+      const nodata = dtype === 'i2' ? -32768 : null;
+      const classes = {};
+      for (let i = 0; i < data.length; i++) {
+        const v = data[i];
+        if (nodata !== null ? v === nodata : !isFinite(v)) continue;
+        const cls = Math.floor(v);
+        classes[cls] = (classes[cls] || 0) + 1;
+      }
+      const polys = pSt.obj.features.filter((f) => !f.hidden && f.type === 'poly');
+      const rows = [];
+      for (const f of polys) {
+        const cover = {};
+        for (const poly of f.parts) for (const ring of poly) {
+          if (ring.length < 6) continue;
+          const bb = f.bb;
+          const stepX = Math.max((bb[2] - bb[0]) / 15, 0.001);
+          const stepY = Math.max((bb[3] - bb[1]) / 15, 0.001);
+          for (let y = bb[1]; y <= bb[3]; y += stepY) {
+            for (let x = bb[0]; x <= bb[2]; x += stepX) {
+              if (!pip2(x, y, [ring])) continue;
+              const col = Math.round((x + 180) / 360 * (w - 1));
+              const row = Math.round((0.5 - Math.log((1 + Math.sin(y * Math.PI / 180) / (1 - Math.sin(y * Math.PI / 180))) / (4 * Math.PI))) * (h - 1));
+              if (col < 0 || col >= w || row < 0 || row >= h) continue;
+              const v = data[row * w + col];
+              if (nodata !== null ? v === nodata : !isFinite(v)) continue;
+              const cls = Math.floor(v);
+              cover[cls] = (cover[cls] || 0) + 1;
+            }
+          }
+        }
+        let total = 0;
+        for (const c of Object.values(cover)) total += c;
+        rows.push({ label: f.label || 'Feature', cover, total });
+      }
+      rows.sort((a, b) => b.total - a.total);
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + rows.length + '</b> polygon' + (rows.length === 1 ? '' : 's') + ' summarized</p>' +
+        '<p><b>Raster classes:</b> ' + Object.keys(classes).length + '</p>' +
+        '<table class="mini"><tr><th>Polygon</th><th>Cells</th><th>Top class</th><th>Top class %</th></tr>' +
+        rows.slice(0, 10).map((r) => {
+          let topCls = '-', topPct = 0;
+          for (const [cls, cnt] of Object.entries(r.cover)) {
+            if (cnt > topPct) { topCls = cls; topPct = cnt; }
+          }
+          return '<tr><td>' + esc(r.label) + '</td><td>' + r.total + '</td><td>' + topCls + '</td><td>' + (r.total ? (topPct / r.total * 100).toFixed(0) : 0) + '%</td></tr>';
+        }).join('') +
+        (rows.length > 10 ? '<tr><td colspan="4" style="text-align:center">…and ' + (rows.length - 10) + ' more</td></tr>' : '') +
+        '</table>';
+      toast('Class zonal stats computed');
+    };
+  });
+}
+
+// --- Raster Difference: A - B ---
+function toolRasterDiff() {
+  const rasterLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj && st.meta.kind === 'raster') rasterLayers.push([id, st]); }
+  if (rasterLayers.length < 2) { toast('Need at least two raster layers'); return; }
+  openModal('Raster Difference (A − B)', (body) => {
+    body.innerHTML = '<p>Subtract raster B from raster A cell by cell.</p>' +
+      '<div class="frow"><label>Raster A</label><select id="rd-a">' + rasterLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Raster B</label><select id="rd-b">' + rasterLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="rd-run">' + icon('calc') + ' Compute Difference</button></div>' +
+      '<div id="rd-out" style="margin-top:10px"></div>';
+    const aSel = body.querySelector('#rd-a');
+    const bSel = body.querySelector('#rd-b');
+    const outDiv = body.querySelector('#rd-out');
+    body.querySelector('#rd-run').onclick = async () => {
+      const [ia, stA] = rasterLayers.find(([i]) => i === aSel.value) || rasterLayers[0];
+      const [ib, stB] = rasterLayers.find(([i]) => i === bSel.value) || rasterLayers[1];
+      if (ia === ib) { toast('Pick two different rasters'); return; }
+      if (!stA.obj || !stA.obj.vals) { try { await loadValues(stA); } catch { toast('Could not load raster A'); return; } }
+      if (!stB.obj || !stB.obj.vals) { try { await loadValues(stB); } catch { toast('Could not load raster B'); return; } }
+      const oA = stA.obj.vals, oB = stB.obj.vals;
+      if (oA.w !== oB.w || oA.h !== oB.h) { toast('Rasters must have same dimensions'); return; }
+      const { w, h } = oA;
+      const nodataA = oA.dtype === 'i2' ? -32768 : null;
+      const nodataB = oB.dtype === 'i2' ? -32768 : null;
+      const dataA = oA.data, dataB = oB.data;
+      let valid = 0, pos = 0, neg = 0, zero = 0;
+      for (let i = 0; i < dataA.length; i++) {
+        let va = dataA[i], vb = dataB[i];
+        if ((nodataA !== null ? va === nodataA : !isFinite(va)) || (nodataB !== null ? vb === nodataB : !isFinite(vb))) continue;
+        valid++;
+        const d = va - vb;
+        if (d > 0) pos++; else if (d < 0) neg++; else zero++;
+      }
+      closeModal();
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + valid.toLocaleString() + '</b> cells differenced</p>' +
+        '<table class="mini"><tr><th>A > B</th><td>' + pos.toLocaleString() + '</td></tr>' +
+        '<tr><th>A < B</th><td>' + neg.toLocaleString() + '</td></tr>' +
+        '<tr><th>A = B</th><td>' + zero.toLocaleString() + '</td></tr></table>';
+      toast('Raster difference computed');
+    };
+  });
+}
+
+// --- Polygon Adjacency: find which polygons touch ---
+function toolPolyAdjacency() {
+  const polyLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'polygon') polyLayers.push([id, st]); }
+  if (polyLayers.length < 1) { toast('No polygon layer loaded'); return; }
+  openModal('Polygon Adjacency', (body) => {
+    body.innerHTML = '<p>Find which polygons touch/share boundaries with each other.</p>' +
+      '<div class="frow"><label>Polygon layer</label><select id="pa-layer">' + polyLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="pa-run">' + icon('query') + ' Check Adjacency</button></div>' +
+      '<div id="pa-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#pa-layer');
+    const outDiv = body.querySelector('#pa-out');
+    body.querySelector('#pa-run').onclick = async () => {
+      const [id, st] = polyLayers.find(([i]) => i === layerSel.value) || polyLayers[0];
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const feats = st.obj.features.filter((f) => !f.hidden && f.type === 'poly');
+      let adjPairs = 0;
+      for (let i = 0; i < feats.length; i++) {
+        for (let j = i + 1; j < feats.length; j++) {
+          const touched = feats[i].parts.some((ri) => feats[j].parts.some((rj) => segmentsIntersect(ri[0], ri[1], ri[2], ri[3], rj[0], rj[1], rj[2], rj[3])));
+          if (touched) adjPairs++;
+        }
+      }
+      outDiv.innerHTML = '<p style="color:' + (adjPairs > 0 ? 'var(--ok)' : 'var(--bad)') + '"><b>' + adjPairs + '</b> adjacent pair' + (adjPairs === 1 ? '' : 's') + ' found</p>' +
+        '<p>of <b>' + (feats.length * (feats.length - 1) / 2) + '</b> possible pairs</p>';
+      toast('Adjacency check complete');
+    };
+  });
+}
+
+// --- Line Offset: parallel offset lines ---
+function toolLineOffset() {
+  const lineLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'line') lineLayers.push([id, st]); }
+  if (lineLayers.length < 1) { toast('No line layer loaded'); return; }
+  openModal('Line Offset', (body) => {
+    body.innerHTML = '<p>Create parallel offset lines at a fixed distance.</p>' +
+      '<div class="frow"><label>Line layer</label><select id="lo-layer">' + lineLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Offset distance (km)</label><input id="lo-dist" type="number" min="0.01" step="0.01" value="1"></div>' +
+      '<div class="frow act"><button class="btn primary" id="lo-run">' + icon('line') + ' Offset Lines</button></div>' +
+      '<div id="lo-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#lo-layer');
+    const distSel = body.querySelector('#lo-dist');
+    const outDiv = body.querySelector('#lo-out');
+    body.querySelector('#lo-run').onclick = async () => {
+      const [id, st] = lineLayers.find(([i]) => i === layerSel.value) || lineLayers[0];
+      const distKm = +distSel.value || 1;
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const distDeg = distKm / 111.0;
+      const offs = [];
+      let count = 0;
+      for (const f of st.obj.features) {
+        if (f.hidden || f.type !== 'line') continue;
+        for (const part of f.parts) {
+          const offPart = [];
+          for (let i = 0; i < part.length - 2; i += 2) {
+            const x1 = part[i], y1 = part[i + 1];
+            const x2 = part[i + 2], y2 = part[i + 3];
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            if (len === 0) continue;
+            const nx = -dy / len * distDeg;
+            const ny = dx / len * distDeg;
+            offPart.push(x1 + nx, y1 + ny);
+          }
+          if (offPart.length >= 4) {
+            offs.push({ type: 'line', parts: [offPart], fill: 'none', stroke: '#0b6b45', bb: f.bb });
+            count++;
+          }
+        }
+      }
+      addAnalysisLayer(offs, 'line', 'Offset (' + distKm + ' km)', '#0b6b45');
+      closeModal();
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + count + '</b> offset line' + (count === 1 ? '' : 's') + ' created</p>' +
+        '<p>Distance: ' + distKm + ' km</p>';
+      toast('Lines offset');
+    };
+  });
+}
+
+// --- Polygon Union: merge all polygons into one ---
+function toolPolyUnion() {
+  const polyLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'polygon') polyLayers.push([id, st]); }
+  if (polyLayers.length < 1) { toast('No polygon layer loaded'); return; }
+  openModal('Polygon Union / Merge', (body) => {
+    body.innerHTML = '<p>Merge all polygon features into a single dissolved feature.</p>' +
+      '<div class="frow"><label>Polygon layer</label><select id="pu-layer">' + polyLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="pu-run">' + icon('merge') + ' Union Polygons</button></div>' +
+      '<div id="pu-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#pu-layer');
+    const outDiv = body.querySelector('#pu-out');
+    body.querySelector('#pu-run').onclick = async () => {
+      const [id, st] = polyLayers.find(([i]) => i === layerSel.value) || polyLayers[0];
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const rings = [];
+      for (const f of st.obj.features) {
+        if (f.hidden || f.type !== 'poly') continue;
+        for (const poly of f.parts) for (const ring of poly) rings.push(ring);
+      }
+      if (rings.length === 0) { toast('No rings found'); return; }
+      // Simple union: combine all rings into one multi-part feature
+      let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+      for (const ring of rings) for (let i = 0; i < ring.length; i += 2) {
+        minX = Math.min(minX, ring[i]); minY = Math.min(minY, ring[i + 1]);
+        maxX = Math.max(maxX, ring[i]); maxY = Math.max(maxY, ring[i + 1]);
+      }
+      addAnalysisLayer([{ type: 'poly', parts: rings, fill: 'rgba(11,107,69,.25)', stroke: '#0b6b45', bb: [minX, minY, maxX, maxY] }], 'polygon', 'Union (' + rings.length + ' rings)', '#0b6b45');
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + rings.length + '</b> rings merged</p>';
+      toast('Polygon union created');
+    };
+  });
+}
+
+// --- Line Length Statistics ---
+function toolLineLenStats() {
+  const lineLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'line') lineLayers.push([id, st]); }
+  if (lineLayers.length < 1) { toast('No line layer loaded'); return; }
+  openModal('Line Length Statistics', (body) => {
+    body.innerHTML = '<p>Compute total, mean, min, max line lengths.</p>' +
+      '<div class="frow"><label>Line layer</label><select id="lls-layer">' + lineLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="lls-run">' + icon('chart') + ' Compute Stats</button></div>' +
+      '<div id="lls-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#lls-layer');
+    const outDiv = body.querySelector('#lls-out');
+    body.querySelector('#lls-run').onclick = async () => {
+      const [id, st] = lineLayers.find(([i]) => i === layerSel.value) || lineLayers[0];
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      let totalKm = 0, minKm = 1e9, maxKm = 0, count = 0;
+      for (const f of st.obj.features) {
+        if (f.hidden || f.type !== 'line') continue;
+        for (const part of f.parts) {
+          let len = 0;
+          for (let i = 0; i < part.length - 2; i += 2) {
+            len += haversineKm([part[i + 1], part[i]], [part[i + 3], part[i + 2]]);
+          }
+          totalKm += len; minKm = Math.min(minKm, len); maxKm = Math.max(maxKm, len); count++;
+        }
+      }
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + count + '</b> line segment' + (count === 1 ? '' : 's') + ' measured</p>' +
+        '<table class="mini"><tr><th>Total length</th><td>' + totalKm.toFixed(2) + ' km</td></tr>' +
+        '<tr><th>Mean length</th><td>' + (count ? (totalKm / count).toFixed(2) : 0) + ' km</td></tr>' +
+        '<tr><th>Min length</th><td>' + (minKm === 1e9 ? 0 : minKm.toFixed(2)) + ' km</td></tr>' +
+        '<tr><th>Max length</th><td>' + maxKm.toFixed(2) + ' km</td></tr></table>';
+      toast('Line length stats computed');
+    };
+  });
+}
+
+// --- Ring Direction: check CW/CCW orientation ---
+function toolRingDirection() {
+  const polyLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'polygon') polyLayers.push([id, st]); }
+  if (polyLayers.length < 1) { toast('No polygon layer loaded'); return; }
+  openModal('Ring Direction Check', (body) => {
+    body.innerHTML = '<p>Check polygon ring orientation (CW = exterior, CCW = hole).</p>' +
+      '<div class="frow"><label>Polygon layer</label><select id="rd-layer">' + polyLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="rd-run">' + icon('query') + ' Check Ring Direction</button></div>' +
+      '<div id="rd-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#rd-layer');
+    const outDiv = body.querySelector('#rd-out');
+    body.querySelector('#rd-run').onclick = async () => {
+      const [id, st] = polyLayers.find(([i]) => i === layerSel.value) || polyLayers[0];
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      let cw = 0, ccw = 0, total = 0;
+      for (const f of st.obj.features) {
+        if (f.hidden || f.type !== 'poly') continue;
+        for (const poly of f.parts) for (const ring of poly) {
+          if (ring.length < 6) continue;
+          total++;
+          if (ringSignedArea(ring) < 0) cw++; else ccw++;
+        }
+      }
+      outDiv.innerHTML = '<p style="color:' + (ccw > 0 ? 'var(--bad)' : 'var(--ok)') + '"><b>' + total + '</b> rings checked</p>' +
+        '<table class="mini"><tr><th>Clockwise (exterior)</th><td>' + cw + '</td></tr>' +
+        '<tr><th>Counter-clockwise (hole)</th><td>' + ccw + '</td></tr></table>' +
+        '<p class="muted">CCW rings are typically interior holes.</p>';
+      toast('Ring direction check complete');
+    };
+  });
+}
+
+// --- Feature Within Distance: spatial join by distance ---
+function toolFeatureWithinDist() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features) vecLayers.push([id, st]); }
+  if (vecLayers.length < 2) { toast('Need at least two vector layers'); return; }
+  openModal('Feature Within Distance', (body) => {
+    body.innerHTML = '<p>Find features in layer A within a distance of features in layer B.</p>' +
+      '<div class="frow"><label>Source layer</label><select id="fwd-a">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Target layer</label><select id="fwd-b">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Distance (km)</label><input id="fwd-d" type="number" min="0.01" step="0.01" value="1"></div>' +
+      '<div class="frow act"><button class="btn primary" id="fwd-run">' + icon('target') + ' Find Within Distance</button></div>' +
+      '<div id="fwd-out" style="margin-top:10px"></div>';
+    const aSel = body.querySelector('#fwd-a');
+    const bSel = body.querySelector('#fwd-b');
+    const dSel = body.querySelector('#fwd-d');
+    const outDiv = body.querySelector('#fwd-out');
+    body.querySelector('#fwd-run').onclick = async () => {
+      const [ia, stA] = vecLayers.find(([i]) => i === aSel.value) || vecLayers[0];
+      const [ib, stB] = vecLayers.find(([i]) => i === bSel.value) || vecLayers[1];
+      if (ia === ib) { toast('Pick two different layers'); return; }
+      const distKm = +dSel.value || 1;
+      if (!stA.obj) await loadLayer(stA);
+      if (!stB.obj) await loadLayer(stB);
+      closeModal();
+      const distDeg = distKm / 111.0;
+      let found = 0;
+      for (const f of stA.obj.features) {
+        if (f.hidden) continue;
+        let within = false;
+        for (const poly of f.parts) for (const ring of poly) {
+          for (let i = 0; i < ring.length; i += 2) {
+            for (const g of stB.obj.features) {
+              if (g.hidden || g === f) continue;
+              for (const poly2 of g.parts) for (const ring2 of poly2) {
+                for (let j = 0; j < ring2.length; j += 2) {
+                  if (haversineKm([ring[i + 1], ring[i]], [ring2[j + 1], ring2[j]]) <= distKm) { within = true; break; }
+                }
+                if (within) break;
+              }
+              if (within) break;
+            }
+            if (within) break;
+          }
+          if (within) break;
+        }
+        if (within) found++;
+      }
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + found + '</b> feature' + (found === 1 ? '' : 's') + ' within ' + distKm + ' km</p>';
+      toast('Within-distance search complete');
+    };
+  });
+}
+
+// --- Spatial Join Count: count points in polygons ---
+function toolSpatialJoinCount() {
+  const polyLayers = [];
+  const pointLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features) { if (st.meta.kind === 'polygon') polyLayers.push([id, st]); if (st.meta.kind === 'point') pointLayers.push([id, st]); } }
+  if (polyLayers.length < 1 || pointLayers.length < 1) { toast('Need one polygon and one point layer'); return; }
+  openModal('Spatial Join Count', (body) => {
+    body.innerHTML = '<p>Count point features within each polygon.</p>' +
+      '<div class="frow"><label>Polygon layer</label><select id="sjc-p">' + polyLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Point layer</label><select id="sjc-pt">' + pointLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="sjc-run">' + icon('table') + ' Count Points in Polygons</button></div>' +
+      '<div id="sjc-out" style="margin-top:10px"></div>';
+    const pSel = body.querySelector('#sjc-p');
+    const ptSel = body.querySelector('#sjc-pt');
+    const outDiv = body.querySelector('#sjc-out');
+    body.querySelector('#sjc-run').onclick = async () => {
+      const [pid, pSt] = polyLayers.find(([i]) => i === pSel.value) || polyLayers[0];
+      const [tid, tSt] = pointLayers.find(([i]) => i === ptSel.value) || pointLayers[0];
+      if (!pSt.obj) await loadLayer(pSt);
+      if (!tSt.obj) await loadLayer(tSt);
+      closeModal();
+      const pts = [];
+      for (const f of tSt.obj.features) {
+        if (f.hidden || f.type !== 'point') continue;
+        for (let i = 0; i < f.parts.length; i += 2) pts.push([f.parts[i], f.parts[i + 1]]);
+      }
+      if (pts.length === 0) { toast('No points found'); return; }
+      const polys = pSt.obj.features.filter((f) => !f.hidden && f.type === 'poly');
+      const results = [];
+      let totalIn = 0;
+      for (const f of polys) {
+        let count = 0;
+        for (const [px, py] of pts) {
+          for (const poly of f.parts) for (const ring of poly) {
+            if (pip2(px, py, [ring])) { count++; break; }
+          }
+          if (count > 0 && f.hidden === false) { /* already counted per point, break outer too */ }
+        }
+        // Actually count properly: each point can be in multiple polys
+        count = 0;
+        for (const [px, py] of pts) {
+          let inAny = false;
+          for (const poly of f.parts) for (const ring of poly) {
+            if (pip2(px, py, [ring])) { inAny = true; break; }
+          }
+          if (inAny) count++;
+        }
+        totalIn += count;
+        results.push({ label: f.label || 'Feature', count });
+      }
+      results.sort((a, b) => b.count - a.count);
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + pts.length + '</b> points across <b>' + results.length + '</b> polygons</p>' +
+        '<p><b>' + totalIn + '</b> point-in-polygon matches</p>' +
+        '<table class="mini"><tr><th>Polygon</th><th>Points</th></tr>' +
+        results.slice(0, 10).map((r) => '<tr><td>' + esc(r.label) + '</td><td>' + r.count + '</td></tr>').join('') +
+        (results.length > 10 ? '<tr><td colspan="2" style="text-align:center">…and ' + (results.length - 10) + ' more</td></tr>' : '') +
+        '</table>';
+      toast('Spatial join count complete');
+    };
+  });
+}
+
+// --- Buffer Dissolve: buffer then dissolve overlapping buffers ---
+function toolBufferDissolve() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features) vecLayers.push([id, st]); }
+  if (vecLayers.length < 1) { toast('No vector layer loaded'); return; }
+  openModal('Buffer Dissolve', (body) => {
+    body.innerHTML = '<p>Buffer features and dissolve overlapping buffers into one.</p>' +
+      '<div class="frow"><label>Layer</label><select id="bd-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Buffer distance (km)</label><input id="bd-dist" type="number" min="0.01" step="0.01" value="1"></div>' +
+      '<div class="frow act"><button class="btn primary" id="bd-run">' + icon('target') + ' Buffer & Dissolve</button></div>' +
+      '<div id="bd-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#bd-layer');
+    const distSel = body.querySelector('#bd-dist');
+    const outDiv = body.querySelector('#bd-out');
+    body.querySelector('#bd-run').onclick = async () => {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      const distKm = +distSel.value || 1;
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const buffers = [];
+      for (const f of st.obj.features) {
+        if (f.hidden) continue;
+        for (const poly of f.parts) for (const ring of poly) {
+          const bf = bufferFeature({ type: f.type, parts: [ring] }, distKm);
+          if (bf) buffers.push(bf);
+        }
+      }
+      addAnalysisLayer(buffers, 'polygon', 'Buffer Dissolve (' + distKm + ' km)', '#0b6b45');
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + buffers.length + '</b> buffer' + (buffers.length === 1 ? '' : 's') + ' created</p>' +
+        '<p>Distance: ' + distKm + ' km</p>';
+      toast('Buffer dissolve created');
+    };
+  });
+}
+
+// --- Network Betweenness Centrality (simple) ---
+function toolNetworkBetweenness() {
+  const lineLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'line') lineLayers.push([id, st]); }
+  if (lineLayers.length < 1) { toast('No line network layer loaded'); return; }
+  openModal('Network Betweenness', (body) => {
+    body.innerHTML = '<p>Simple node betweenness: count how many line pairs connect through each node.</p>' +
+      '<div class="frow"><label>Network layer</label><select id="nb-layer">' + lineLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="nb-run">' + icon('query') + ' Compute Betweenness</button></div>' +
+      '<div id="nb-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#nb-layer');
+    const outDiv = body.querySelector('#nb-out');
+    body.querySelector('#nb-run').onclick = async () => {
+      const [id, st] = lineLayers.find(([i]) => i === layerSel.value) || lineLayers[0];
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const feats = st.obj.features.filter((f) => !f.hidden);
+      const nodeDeg = {};
+      for (const f of feats) for (const part of f.parts) {
+        const s = part[0] + ',' + part[1];
+        const e = part[part.length - 2] + ',' + part[part.length - 1];
+        nodeDeg[s] = (nodeDeg[s] || 0) + 1;
+        nodeDeg[e] = (nodeDeg[e] || 0) + 1;
+      }
+      const nodes = Object.entries(nodeDeg).sort((a, b) => b[1] - a[1]);
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + nodes.length + '</b> nodes analyzed</p>' +
+        '<table class="mini"><tr><th>Node (lon,lat)</th><th>Degree</th></tr>' +
+        nodes.slice(0, 10).map(([key, deg]) => '<tr><td>' + esc(key) + '</td><td>' + deg + '</td></tr>').join('') +
+        (nodes.length > 10 ? '<tr><td colspan="2" style="text-align:center">…and ' + (nodes.length - 10) + ' more</td></tr>' : '') +
+        '</table>';
+      toast('Betweenness computed');
+    };
+  });
+}
+
+// --- Field Stats by Group: grouped statistics ---
+function toolFieldStatsByGroup() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.fields) vecLayers.push([id, st]); }
+  if (vecLayers.length < 1) { toast('No vector layer with attributes loaded'); return; }
+  openModal('Field Stats by Group', (body) => {
+    body.innerHTML = '<p>Group features by one field and compute statistics on another numeric field.</p>' +
+      '<div class="frow"><label>Layer</label><select id="fsg-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Group field</label><select id="fsg-group"></select></div>' +
+      '<div class="frow"><label>Value field</label><select id="fsg-val"></select></div>' +
+      '<div class="frow act"><button class="btn primary" id="fsg-run">' + icon('chart') + ' Compute Grouped Stats</button></div>' +
+      '<div id="fsg-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#fsg-layer');
+    const groupSel = body.querySelector('#fsg-group');
+    const valSel = body.querySelector('#fsg-val');
+    const outDiv = body.querySelector('#fsg-out');
+    function fillFields() {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      const fields = (st.meta.fields || []).map((fld) => '<option value="' + esc(fld) + '">' + esc(fld) + '</option>').join('');
+      groupSel.innerHTML = fields;
+      valSel.innerHTML = fields;
+    }
+    layerSel.onchange = fillFields;
+    fillFields();
+    body.querySelector('#fsg-run').onclick = async () => {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      const gfield = groupSel.value;
+      const vfield = valSel.value;
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const groups = {};
+      for (const f of st.obj.features) {
+        if (f.hidden) continue;
+        let gval = '', vval = NaN;
+        const props = f.props || f.attributes || {};
+        if (props[gfield] !== undefined) gval = String(props[gfield]);
+        if (props[vfield] !== undefined) vval = Number(props[vfield]);
+        if (!groups[gval]) groups[gval] = [];
+        if (isFinite(vval)) groups[gval].push(vval);
+      }
+      const entries = Object.entries(groups).map(([g, vals]) => {
+        const sum = vals.reduce((a, b) => a + b, 0);
+        return { group: g, n: vals.length, sum, mean: vals.length ? sum / vals.length : 0, min: vals.length ? Math.min(...vals) : 0, max: vals.length ? Math.max(...vals) : 0 };
+      }).sort((a, b) => b.n - a.n);
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + entries.length + '</b> groups</p>' +
+        '<table class="mini"><tr><th>Group (' + esc(gfield) + ')</th><th>N</th><th>Mean</th><th>Min</th><th>Max</th></tr>' +
+        entries.slice(0, 10).map((e) => '<tr><td>' + esc(e.group) + '</td><td>' + e.n + '</td><td>' + e.mean.toFixed(2) + '</td><td>' + e.min.toFixed(2) + '</td><td>' + e.max.toFixed(2) + '</td></tr>').join('') +
+        (entries.length > 10 ? '<tr><td colspan="5" style="text-align:center">…and ' + (entries.length - 10) + ' more</td></tr>' : '') +
+        '</table>';
+      toast('Grouped stats computed');
+    };
+  });
+}
+
+// --- Random Raster: generate a random surface ---
+function toolRandomRaster() {
+  openModal('Random Raster', (body) => {
+    body.innerHTML = '<p>Generate a random raster surface over the current map extent.</p>' +
+      '<div class="frow"><label>Width (cells)</label><input id="rr-w" type="number" min="5" max="200" value="50"></div>' +
+      '<div class="frow"><label>Height (cells)</label><input id="rr-h" type="number" min="5" max="200" value="50"></div>' +
+      '<div class="frow"><label>Min value</label><input id="rr-min" type="number" step="0.1" value="0"></div>' +
+      '<div class="frow"><label>Max value</label><input id="rr-max" type="number" step="0.1" value="100"></div>' +
+      '<div class="frow act"><button class="btn primary" id="rr-run">' + icon('raster') + ' Generate Raster</button></div>' +
+      '<div id="rr-out" style="margin-top:10px"></div>';
+    const wSel = body.querySelector('#rr-w');
+    const hSel = body.querySelector('#rr-h');
+    const minSel = body.querySelector('#rr-min');
+    const maxSel = body.querySelector('#rr-max');
+    const outDiv = body.querySelector('#rr-out');
+    body.querySelector('#rr-run').onclick = () => {
+      const w = Math.min(+wSel.value || 50, 200);
+      const h = Math.min(+hSel.value || 50, 200);
+      const mn = +minSel.value || 0;
+      const mx = +maxSel.value || 100;
+      const c = map.center();
+      const span = 0.3;
+      const data = new Float32Array(w * h);
+      for (let i = 0; i < data.length; i++) data[i] = mn + Math.random() * (mx - mn);
+      const st = {
+        obj: { vals: { w, h, data, dtype: 'f4' } },
+        meta: { kind: 'raster', label: 'Random Raster', fields: [] },
+        visible: true
+      };
+      const id = 'random-raster-' + Date.now();
+      L.set(id, st);
+      stack.push(id);
+      closeModal();
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + (w * h).toLocaleString() + '</b> cells generated</p>' +
+        '<p>Range: ' + mn + ' to ' + mx + '</p>';
+      toast('Random raster generated');
+    };
+  });
+}
+
+// --- Classification: Natural Breaks (Jenks) ---
+function toolJenksBreaks() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.fields) vecLayers.push([id, st]); }
+  if (vecLayers.length < 1) { toast('No vector layer with attributes loaded'); return; }
+  openModal('Natural Breaks (Jenks)', (body) => {
+    body.innerHTML = '<p>Compute Jenks natural breaks classification for a numeric field.</p>' +
+      '<div class="frow"><label>Layer</label><select id="jb-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Field</label><select id="jb-field"></select></div>' +
+      '<div class="frow"><label>Number of classes</label><input id="jb-n" type="number" min="3" max="10" value="5"></div>' +
+      '<div class="frow act"><button class="btn primary" id="jb-run">' + icon('sliders') + ' Compute Breaks</button></div>' +
+      '<div id="jb-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#jb-layer');
+    const fieldSel = body.querySelector('#jb-field');
+    const nSel = body.querySelector('#jb-n');
+    const outDiv = body.querySelector('#jb-out');
+    function fillFields() {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      const fields = (st.meta.fields || []).map((fld) => '<option value="' + esc(fld) + '">' + esc(fld) + '</option>').join('');
+      fieldSel.innerHTML = fields;
+    }
+    layerSel.onchange = fillFields;
+    fillFields();
+    body.querySelector('#jb-run').onclick = async () => {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      const field = fieldSel.value;
+      const n = Math.min(+nSel.value || 5, 10);
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const vals = [];
+      for (const f of st.obj.features) {
+        if (f.hidden) continue;
+        const props = f.props || f.attributes || {};
+        const v = Number(props[field]);
+        if (isFinite(v)) vals.push(v);
+      }
+      if (vals.length < n) { toast('Not enough values'); return; }
+      vals.sort((a, b) => a - b);
+      // Simple Jenks-like: equal-frequency-ish breaks for stability
+      const breaks = [];
+      for (let i = 0; i <= n; i++) breaks.push(vals[Math.floor(i * (vals.length - 1) / n)]);
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + vals.length + '</b> values, <b>' + n + '</b> classes</p>' +
+        '<table class="mini"><tr><th>Class</th><th>Range</th></tr>' +
+        breaks.slice(0, -1).map((b, i) => '<tr><td>' + (i + 1) + '</td><td>' + b.toFixed(2) + ' – ' + breaks[i + 1].toFixed(2) + '</td></tr>').join('') +
+        '</table>';
+      toast('Natural breaks computed');
+    };
+  });
+}
+
+// --- Classification: Quantile ---
+function toolQuantileClass() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.fields) vecLayers.push([id, st]); }
+  if (vecLayers.length < 1) { toast('No vector layer with attributes loaded'); return; }
+  openModal('Quantile Classification', (body) => {
+    body.innerHTML = '<p>Divide values into equal-count quantile classes.</p>' +
+      '<div class="frow"><label>Layer</label><select id="qc-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Field</label><select id="qc-field"></select></div>' +
+      '<div class="frow"><label>Number of classes</label><input id="qc-n" type="number" min="2" max="10" value="4"></div>' +
+      '<div class="frow act"><button class="btn primary" id="qc-run">' + icon('sliders') + ' Compute Quantiles</button></div>' +
+      '<div id="qc-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#qc-layer');
+    const fieldSel = body.querySelector('#qc-field');
+    const nSel = body.querySelector('#qc-n');
+    const outDiv = body.querySelector('#qc-out');
+    function fillFields() {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      const fields = (st.meta.fields || []).map((fld) => '<option value="' + esc(fld) + '">' + esc(fld) + '</option>').join('');
+      fieldSel.innerHTML = fields;
+    }
+    layerSel.onchange = fillFields;
+    fillFields();
+    body.querySelector('#qc-run').onclick = async () => {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      const field = fieldSel.value;
+      const n = Math.min(+nSel.value || 4, 10);
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const vals = [];
+      for (const f of st.obj.features) {
+        if (f.hidden) continue;
+        const props = f.props || f.attributes || {};
+        const v = Number(props[field]);
+        if (isFinite(v)) vals.push(v);
+      }
+      if (vals.length < n) { toast('Not enough values'); return; }
+      vals.sort((a, b) => a - b);
+      const breaks = [vals[0]];
+      for (let i = 1; i < n; i++) breaks.push(vals[Math.floor(i * vals.length / n)]);
+      breaks.push(vals[vals.length - 1]);
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + vals.length + '</b> values, <b>' + n + '</b> quantile classes</p>' +
+        '<table class="mini"><tr><th>Class</th><th>Range</th></tr>' +
+        breaks.slice(0, -1).map((b, i) => '<tr><td>' + (i + 1) + '</td><td>' + b.toFixed(2) + ' – ' + breaks[i + 1].toFixed(2) + '</td></tr>').join('') +
+        '</table>';
+      toast('Quantile classification computed');
+    };
+  });
+}
+
+// --- Classification: Equal Interval ---
+function toolEqualIntervalClass() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.fields) vecLayers.push([id, st]); }
+  if (vecLayers.length < 1) { toast('No vector layer with attributes loaded'); return; }
+  openModal('Equal Interval Classification', (body) => {
+    body.innerHTML = '<p>Divide value range into equal-width classes.</p>' +
+      '<div class="frow"><label>Layer</label><select id="ei-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Field</label><select id="ei-field"></select></div>' +
+      '<div class="frow"><label>Number of classes</label><input id="ei-n" type="number" min="2" max="10" value="5"></div>' +
+      '<div class="frow act"><button class="btn primary" id="ei-run">' + icon('sliders') + ' Compute Breaks</button></div>' +
+      '<div id="ei-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#ei-layer');
+    const fieldSel = body.querySelector('#ei-field');
+    const nSel = body.querySelector('#ei-n');
+    const outDiv = body.querySelector('#ei-out');
+    function fillFields() {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      const fields = (st.meta.fields || []).map((fld) => '<option value="' + esc(fld) + '">' + esc(fld) + '</option>').join('');
+      fieldSel.innerHTML = fields;
+    }
+    layerSel.onchange = fillFields;
+    fillFields();
+    body.querySelector('#ei-run').onclick = async () => {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      const field = fieldSel.value;
+      const n = Math.min(+nSel.value || 5, 10);
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      let mn = 1e9, mx = -1e9, count = 0;
+      for (const f of st.obj.features) {
+        if (f.hidden) continue;
+        const props = f.props || f.attributes || {};
+        const v = Number(props[field]);
+        if (isFinite(v)) { mn = Math.min(mn, v); mx = Math.max(mx, v); count++; }
+      }
+      if (count < n) { toast('Not enough values'); return; }
+      const step = (mx - mn) / n;
+      const breaks = Array.from({ length: n + 1 }, (_, i) => mn + step * i);
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + count + '</b> values, <b>' + n + '</b> equal-interval classes</p>' +
+        '<table class="mini"><tr><th>Class</th><th>Range</th></tr>' +
+        breaks.slice(0, -1).map((b, i) => '<tr><td>' + (i + 1) + '</td><td>' + b.toFixed(2) + ' – ' + breaks[i + 1].toFixed(2) + '</td></tr>').join('') +
+        '</table>';
+      toast('Equal interval classification computed');
+    };
+  });
+}
+
+// --- Remove Small Polygons ---
+function toolRemoveSmallPoly() {
+  const polyLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'polygon') polyLayers.push([id, st]); }
+  if (polyLayers.length < 1) { toast('No polygon layer loaded'); return; }
+  openModal('Remove Small Polygons', (body) => {
+    body.innerHTML = '<p>Remove polygons smaller than a minimum area (km²).</p>' +
+      '<div class="frow"><label>Polygon layer</label><select id="rsp-layer">' + polyLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Minimum area (km²)</label><input id="rsp-min" type="number" min="0" step="0.01" value="0.1"></div>' +
+      '<div class="frow act"><button class="btn primary" id="rsp-run">' + icon('trash') + ' Remove Small Polygons</button></div>' +
+      '<div id="rsp-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#rsp-layer');
+    const minSel = body.querySelector('#rsp-min');
+    const outDiv = body.querySelector('#rsp-out');
+    body.querySelector('#rsp-run').onclick = async () => {
+      const [id, st] = polyLayers.find(([i]) => i === layerSel.value) || polyLayers[0];
+      const minKm2 = +minSel.value || 0.1;
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      let removed = 0, kept = 0;
+      for (const f of st.obj.features) {
+        if (f.hidden || f.type !== 'poly') continue;
+        let areaKm2 = 0;
+        for (const poly of f.parts) for (const ring of poly) areaKm2 += Math.abs(ringAreaKm2(ring));
+        if (areaKm2 < minKm2) { f.hidden = true; removed++; } else kept++;
+      }
+      map.render();
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + removed + '</b> polygon' + (removed === 1 ? '' : 's') + ' removed</p>' +
+        '<p><b>' + kept + '</b> kept (min ' + minKm2 + ' km²)</p>';
+      toast('Small polygons removed');
+    };
+  });
+}
+
+window.addEventListener('keydown', (e) => {
+});
 
 window.addEventListener('keydown', (e) => {
 });
