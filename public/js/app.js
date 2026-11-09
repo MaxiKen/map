@@ -1,6 +1,6 @@
-import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature } from './engine.js?v=9f5fcff703';
-import { createLoadScheduler } from './loading.js?v=9f5fcff703';
-import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=9f5fcff703';
+import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature } from './engine.js?v=a6bfa2f0c9';
+import { createLoadScheduler } from './loading.js?v=a6bfa2f0c9';
+import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=a6bfa2f0c9';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1105,6 +1105,12 @@ const TOOL_GROUPS = {
     ['import', 'upload', 'Import GeoJSON', 'Bring your own file onto the map'],
     ['reset', 'refresh', 'Reset the work', 'Forget styles, filters, labels and focus'],
   ],
+  cartography: [
+    ['ramp', 'palette', 'Color Ramps', 'Choose perceptual color ramps for layers'],
+    ['custombasemap', 'layers', 'Custom Basemap', 'Add your own XYZ tile basemap URL'],
+    ['mappreset', 'pin', 'Map Presets', 'Save and restore map view states'],
+    ['printlayout', 'camera', 'Print Layouts', 'A4 / Letter page templates for export'],
+  ],
   project: [
     ['resetview', 'refresh', 'Reset the view', 'Back to the opening extent and no filters'],
     ['fullscreen', 'expand', 'Full screen', 'Use the whole screen, no browser chrome'],
@@ -1173,6 +1179,10 @@ function runTool(t) {
     case 'hull': toolHull(); break;
     case 'simplify': toolSimplify(); break;
     case 'zonal': toolZonal(); break;
+    case 'ramp': toolRamp(); break;
+    case 'custombasemap': toolCustomBasemap(); break;
+    case 'mappreset': toolMapPreset(); break;
+    case 'printlayout': toolPrintLayout(); break;
     case 'resetview': resetView(); break;
     case 'fullscreen': toggleFullscreen(); break;
   }
@@ -1759,6 +1769,13 @@ async function exportMapImage(opts = {}) {
     area = 'screen',      // 'screen' | 'clip' | 'drawn' | 'feature'
     title = '', showLegend = false, showScale = false, showNorth = false, showGrid = false,
   } = opts;
+
+  // Print layout settings (from Cartography & design > Print Layouts)
+  const printLayout = (() => {
+    try { return JSON.parse(localStorage.getItem('nwg.print_layout') || 'null'); } catch { return null; }
+  })();
+  const isPrint = !!printLayout;
+
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
   // Remember current state
@@ -1784,17 +1801,57 @@ async function exportMapImage(opts = {}) {
   await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = src; });
 
   const d = map.dpr;
+
+  // Print layout: compute canvas size from page template (A4/Letter/A3)
+  let printW = img.width, printH = img.height;
+  let marginPx = 0;
+  if (isPrint && printLayout) {
+    const mmToPx = (mm) => mm * (img.width / 210) * d; // approx: A4 width 210mm mapped to image width
+    // Standard page sizes at 96 DPI ~ 3.78 px/mm
+    const sizes = {
+      a4: { w: 210, h: 297 }, a3: { w: 297, h: 420 }, letter: { w: 215.9, h: 279.4 },
+    };
+    const ps = sizes[printLayout.size] || sizes.a4;
+    const landscape = printLayout.orient === 'landscape';
+    const pw = landscape ? ps.h : ps.w;
+    const ph = landscape ? ps.w : ps.h;
+    marginPx = Math.round((printLayout.margin || 15) * (pw / 210) * d);
+    // Target DPI ~150 for print
+    const dpiScale = 150 / 96;
+    printW = Math.round(pw * 3.78 * dpiScale * d);
+    printH = Math.round(ph * 3.78 * dpiScale * d);
+  }
+
   // Composer canvas: map image + space for cartographic elements
   const topBarH = (title || showLegend || showNorth || showGrid) ? Math.round(90 * d) : 0;
   const bottomBarH = Math.round(70 * d);
+  const cvW = isPrint ? printW : img.width;
+  const cvH = isPrint ? printH : img.height + topBarH + bottomBarH;
   const cv = document.createElement('canvas');
-  cv.width = img.width; cv.height = img.height + topBarH + bottomBarH;
+  cv.width = cvW; cv.height = cvH;
   const ctx = cv.getContext('2d');
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, cv.width, cv.height);
-  ctx.drawImage(img, 0, topBarH);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, cvW, cvH);
+
+  if (isPrint && printLayout) {
+    // Draw page frame
+    ctx.strokeStyle = '#dfe4df'; ctx.lineWidth = 2 * d;
+    ctx.strokeRect(marginPx, marginPx, cvW - marginPx * 2, cvH - marginPx * 2);
+    // Title block
+    ctx.fillStyle = '#0b3d2e'; ctx.fillRect(marginPx, cvH - marginPx * 0.6, cvW - marginPx * 2, marginPx * 0.6);
+    ctx.fillStyle = '#ffffff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.font = `700 ${Math.max(10, 11 * d)}px system-ui,sans-serif`;
+    ctx.fillText('Nigeria WebGIS · Print Layout · ' + printLayout.size.toUpperCase() + ' ' + printLayout.orient, marginPx + 8 * d, cvH - marginPx * 0.3);
+  }
+
+  // Draw map image centered within printable area
+  const mapX = isPrint ? marginPx : 0;
+  const mapY = isPrint ? marginPx : topBarH;
+  const mapW = isPrint ? cvW - marginPx * 2 : img.width;
+  const mapH = isPrint ? cvH - marginPx * 2 - (isPrint ? marginPx * 0.6 : 0) : img.height;
+  ctx.drawImage(img, mapX, mapY + (isPrint ? 0 : topBarH), mapW, mapH);
 
   const [lo, la] = prevCenter;
-  let cy = topBarH;
+  let cy = isPrint ? marginPx + 30 * d : topBarH;
 
   // --- Title
   if (title) {
@@ -2663,6 +2720,224 @@ function toolZonal() {
     };
   });
 }
+
+
+
+// ------------------------------------------------ cartography & design tools
+
+// Perceptual color ramps (ColorBrewer-style, no backend)
+const COLOR_RAMPS = {
+  viridis: ['#440154', '#482878', '#3e4a89', '#31688e', '#26828e', '#1f9e89', '#35b779', '#6ece58', '#b5de2b', '#fde725'],
+  plasma: ['#0d0887', '#41049d', '#6a00a8', '#8f0da4', '#b12a90', '#cc4778', '#e16462', '#f2844b', '#fca636', '#fcce25'],
+  cividis: ['#00224e', '#3b528b', '#2c728e', '#218f8b', '#20a386', '#35b779', '#5ec962', '#8ed645', '#c2df23', '#fde725'],
+  inferno: ['#000004', '#1b0c42', '#4a0c6b', '#7d1f67', '#ad4365', '#d96e54', '#f2844b', '#fca636', '#fcce25', '#f0f921'],
+  magma: ['#000004', '#181747', '#3f0f70', '#681a82', '#8c2980', '#ac3978', '#ca5a6f', '#e16462', '#f2844b', '#fca636'],
+  blues: ['#f7fbff', '#deebf7', '#c6dbef', '#9ecae1', '#6baed6', '#4292c6', '#2171b5', '#08519c', '#08306b', '#08306b'],
+  greens: ['#f7fcf5', '#e5f5e0', '#c7e9c0', '#a1d99b', '#74c476', '#41ab5d', '#238b45', '#006d2c', '#00441b', '#00441b'],
+  oranges: ['#fff5eb', '#fee6ce', '#fdd0a2', '#fdae6b', '#fd8d3c', '#f16913', '#d94801', '#a63603', '#7f2704', '#7f2704'],
+  reds: ['#fff5f0', '#fee0d2', '#fcbb91', '#fc9272', '#fb6a4a', '#ef3b2c', '#cb181d', '#a50f15', '#67000d', '#67000d'],
+  purples: ['#fcfbfd', '#efedf5', '#dadaeb', '#bcbddc', '#9e9ac8', '#807dba', '#6a51a3', '#54278f', '#3f007d', '#3f007d'],
+  greys: ['#ffffff', '#f0f0f0', '#d9d9d9', '#bdbdbd', '#969696', '#737373', '#525252', '#252525', '#000000', '#000000'],
+  earth: ['#f6e8c3', '#dfc27d', '#bf812d', '#8c564b', '#636363', '#3a3a3a', '#1a1a1a', '#0a0a0a', '#050505', '#000000'],
+};
+
+function rampNames() { return Object.keys(COLOR_RAMPS); }
+
+// ---- Color Ramps tool ----
+function toolRamp() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && ['polygon','line','point'].includes(st.meta.kind)) vecLayers.push([id, st]); }
+  openModal('Color Ramps', (body) => {
+    body.innerHTML = '<p>Apply a perceptual color ramp to a layer. Works with reclassified layers or single-color layers.</p>' +
+      '<div class="frow"><label>Layer</label><select id="rp-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Color ramp</label><select id="rp-ramp">' + rampNames().map((n) => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Mode</label><select id="rp-mode">' +
+        '<option value="single">Single color from ramp</option>' +
+        '<option value="reclass">Reclassify numeric field</option>' +
+      '</select></div>' +
+      '<div id="rp-reclass" style="margin-top:8px"><label>Field</label><select id="rp-field"></select>' +
+      '<label>Classes</label><input id="rp-n" type="number" min="2" max="12" value="5"></div>' +
+      '<div class="frow act"><button class="btn primary" id="rp-run">' + icon('palette') + ' Apply Ramp</button></div>' +
+      '<div id="rp-preview" style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap"></div>';
+    const layerSel = body.querySelector('#rp-layer');
+    const rampSel = body.querySelector('#rp-ramp');
+    const modeSel = body.querySelector('#rp-mode');
+    const reclassDiv = body.querySelector('#rp-reclass');
+    const fieldSel = body.querySelector('#rp-field');
+    const nSel = body.querySelector('#rp-n');
+    const preview = body.querySelector('#rp-preview');
+    function updatePreview() {
+      const ramp = COLOR_RAMPS[rampSel.value] || COLOR_RAMPS.viridis;
+      preview.innerHTML = ramp.map((c) => '<i style="display:inline-block;width:24px;height:16px;background:' + esc(c) + ';border:1px solid rgba(0,0,0,.2)"></i>').join('');
+    }
+    rampSel.onchange = updatePreview;
+    modeSel.onchange = () => { reclassDiv.style.display = modeSel.value === 'reclass' ? 'block' : 'none'; };
+    layerSel.onchange = () => {
+      const st = L.get(layerSel.value);
+      fieldSel.innerHTML = (st?.meta.fields || []).filter((f) => f.type === 'number').map((f) => '<option value="' + esc(f.name) + '">' + esc(f.label || f.name) + '</option>').join('');
+    };
+    layerSel.onchange();
+    updatePreview();
+    body.querySelector('#rp-run').onclick = async () => {
+      const st = L.get(layerSel.value);
+      const ramp = COLOR_RAMPS[rampSel.value];
+      const mode = modeSel.value;
+      if (!st.obj) await loadLayer(st);
+      if (!st.sym) st.sym = defaultSym(st.meta);
+      closeModal();
+      if (mode === 'single') {
+        st.sym.fillMode = 'single';
+        st.sym.fill = ramp[Math.floor(ramp.length / 2)];
+        st.sym.stroke = ramp[Math.floor(ramp.length / 2)];
+        applyLayerState(st);
+        toast('Applied ' + rampSel.value + ' color to ' + st.meta.label);
+      } else {
+        const field = fieldSel.value;
+        const n = +nSel.value || 5;
+        if (!field) { toast('Pick a numeric field'); return; }
+        st.reclass = { field, method: 'quantile', n, ramp: rampSel.value };
+        applyReclass(st);
+        toast('Reclassified ' + st.meta.label + ' by ' + field + ' using ' + rampSel.value);
+      }
+      renderLayerLists(); refreshLegend(); saveProject();
+    };
+  });
+}
+
+// ---- Custom Basemap tool ----
+function toolCustomBasemap() {
+  const existing = JSON.parse(localStorage.getItem('nwg.custom_basemaps') || '{}');
+  openModal('Custom Basemap', (body) => {
+    body.innerHTML = '<p>Add your own XYZ tile basemap. No backend — stored only in your browser.</p>' +
+      '<div class="frow"><label>Name</label><input id="cb-name" type="text" placeholder="e.g. My Agency Basemap"></div>' +
+      '<div class="frow"><label>Tile URL</label><input id="cb-url" type="text" placeholder="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"></div>' +
+      '<div class="frow"><label>Max zoom</label><input id="cb-maxz" type="number" min="1" max="22" value="18"></div>' +
+      '<div class="frow"><label>Subdomains</label><input id="cb-sub" type="text" value="abc" placeholder="abc"></div>' +
+      '<div class="frow act"><button class="btn primary" id="cb-add">' + icon('layers') + ' Add Basemap</button></div>' +
+      '<div class="frow" style="margin-top:10px"><h4>Saved basemaps</h4><div id="cb-list"></div></div>';
+    function renderList() {
+      const keys = Object.keys(existing);
+      body.querySelector('#cb-list').innerHTML = keys.length
+        ? keys.map((k) => '<div style="padding:4px 8px;border-bottom:1px solid var(--line)"><b>' + esc(k) + '</b> <span class="muted">' + esc(existing[k].url) + '</span> <button class="chip" data-del="' + esc(k) + '">Remove</button></div>').join('')
+        : '<p class="empty">No custom basemaps saved.</p>';
+      body.querySelectorAll('[data-del]').forEach((b) => {
+        b.onclick = () => { delete existing[b.dataset.del]; localStorage.setItem('nwg.custom_basemaps', JSON.stringify(existing)); renderList(); };
+      });
+    }
+    renderList();
+    body.querySelector('#cb-add').onclick = () => {
+      const name = body.querySelector('#cb-name').value.trim();
+      const url = body.querySelector('#cb-url').value.trim();
+      const maxz = +body.querySelector('#cb-maxz').value || 18;
+      const sub = body.querySelector('#cb-sub').value.trim() || 'abc';
+      if (!name || !url) { toast('Name and URL required'); return; }
+      if (!url.includes('{z}') || !url.includes('{x}') || !url.includes('{y}')) { toast('URL must contain {z}, {x}, {y}'); return; }
+      existing[name] = { url, max: maxz, sub };
+      localStorage.setItem('nwg.custom_basemaps', JSON.stringify(existing));
+      // Register in BASEMAPS
+      BASEMAPS[name] = { label: name, url, sub, max: maxz, bg: '#f3f4f2', attr: 'Custom basemap: ' + esc(name) };
+      BASEMAP_ORDER.push(name);
+      buildBasemaps(); syncBasemapUI(); renderLayerTools();
+      map.setBasemap(name);
+      renderList();
+      toast('Custom basemap "' + name + '" added');
+    };
+  });
+}
+
+// ---- Map Presets tool ----
+function toolMapPreset() {
+  const presets = JSON.parse(localStorage.getItem('nwg.map_presets') || '{}');
+  openModal('Map Presets', (body) => {
+    body.innerHTML = '<p>Save the current map state (layers, filters, clip, basemap, view) under a name, and restore it later. Local storage only.</p>' +
+      '<div class="frow"><label>Preset name</label><input id="mp-name" type="text" placeholder="e.g. Mineral view"></div>' +
+      '<div class="frow act"><button class="btn primary" id="mp-save">' + icon('pin') + ' Save Current View</button></div>' +
+      '<div class="frow" style="margin-top:10px"><h4>Saved presets</h4><div id="mp-list"></div></div>';
+    function renderList() {
+      const keys = Object.keys(presets);
+      body.querySelector('#mp-list').innerHTML = keys.length
+        ? keys.map((k) => '<div style="padding:4px 8px;border-bottom:1px solid var(--line);display:flex;gap:6px;align-items:center"><b>' + esc(k) + '</b><span class="muted" style="flex:1">' + esc(presets[k].note || '') + '</span><button class="btn" data-restore="' + esc(k) + '">Restore</button><button class="chip" data-del="' + esc(k) + '">Remove</button></div>').join('')
+        : '<p class="empty">No map presets saved.</p>';
+      body.querySelectorAll('[data-restore]').forEach((b) => {
+        b.onclick = () => { applyMapPreset(b.dataset.restore); closeModal(); };
+      });
+      body.querySelectorAll('[data-del]').forEach((b) => {
+        b.onclick = () => { delete presets[b.dataset.del]; localStorage.setItem('nwg.map_presets', JSON.stringify(presets)); renderList(); };
+      });
+    }
+    renderList();
+    body.querySelector('#mp-save').onclick = () => {
+      const name = body.querySelector('#mp-name').value.trim();
+      if (!name) { toast('Enter a preset name'); return; }
+      const stackRec = stack.map((id) => { const st = L.get(id); return { id, on: st.on, opacity: st.opacity }; });
+      const filters = {}; for (const [id, st] of L) if (st.filter) filters[id] = st.filter;
+      const clipRec = clip ? { type: clip.type, bb: clip.bb, label: focusLabel } : null;
+      presets[name] = {
+        basemap: map.basemap,
+        center: map.center(),
+        zoom: map.zoom,
+        stack: stackRec,
+        filters,
+        clip: clipRec,
+        grid: gridOn,
+        note: '',
+      };
+      localStorage.setItem('nwg.map_presets', JSON.stringify(presets));
+      renderList();
+      toast('Map preset "' + name + '" saved');
+    };
+  });
+}
+
+function applyMapPreset(name) {
+  const presets = JSON.parse(localStorage.getItem('nwg.map_presets') || '{}');
+  const p = presets[name];
+  if (!p) return;
+  // Turn off all, then turn on preset layers
+  for (const id of [...stack]) setLayer(id, false, { quiet: true });
+  for (const rec of p.stack) {
+    const st = L.get(rec.id);
+    if (st) { st.opacity = rec.opacity; setLayer(rec.id, true, { quiet: true }); }
+  }
+  if (p.basemap && BASEMAPS[p.basemap]) map.setBasemap(p.basemap);
+  if (p.center) map.setView(p.center[0], p.center[1], p.zoom);
+  gridOn = p.grid || false; map.setGrid(gridOn);
+  if (p.clip) setFocus({ type: p.clip.type, wb: p.clip.wb, label: p.clip.label || '' });
+  else stopFocus();
+  // restore filters
+  for (const [id, fl] of Object.entries(p.filters || {})) { const st = L.get(id); if (st) { st.filter = fl; applyFilter(st, false); } }
+  renderLayerLists(); refreshLegend(); updateFocusUI(); updateToolState(); saveProject();
+  toast('Map preset "' + name + '" restored');
+}
+
+// ---- Print Layouts tool ----
+function toolPrintLayout() {
+  openModal('Print Layouts', (body) => {
+    body.innerHTML = '<p>Choose a page template for PNG export. Adds margins, title block, and scale bar area around the map.</p>' +
+      '<div class="frow"><label>Page size</label><select id="pl-size">' +
+        '<option value="a4">A4 (210 × 297 mm)</option>' +
+        '<option value="letter">Letter (8.5 × 11 in)</option>' +
+        '<option value="a3">A3 (297 × 420 mm)</option>' +
+      '</select></div>' +
+      '<div class="frow"><label>Orientation</label><select id="pl-orient">' +
+        '<option value="portrait">Portrait</option>' +
+        '<option value="landscape">Landscape</option>' +
+      '</select></div>' +
+      '<div class="frow"><label>Margin (mm)</label><input id="pl-margin" type="number" min="5" max="50" value="15"></div>' +
+      '<div class="frow act"><button class="btn primary" id="pl-set">' + icon('camera') + ' Use for Next Export</button></div>' +
+      '<p class="muted">The chosen layout applies when you download a PNG from Export results.</p>';
+    body.querySelector('#pl-set').onclick = () => {
+      localStorage.setItem('nwg.print_layout', JSON.stringify({
+        size: body.querySelector('#pl-size').value,
+        orient: body.querySelector('#pl-orient').value,
+        margin: +body.querySelector('#pl-margin').value || 15,
+      }));
+      closeModal();
+      toast('Print layout set: ' + body.querySelector('#pl-size').value + ' ' + body.querySelector('#pl-orient').value);
+    };
+  });
+}
+
 
 
 // ------------------------------------------------ view: reset, full screen, back
