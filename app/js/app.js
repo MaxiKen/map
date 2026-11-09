@@ -61,6 +61,12 @@ const IC = {
   style: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="5" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
   time: '<circle cx="12" cy="12" r="9"/><polyline fill="none" stroke="currentColor" stroke-width="2" points="12,7 12,12 16,12"/><circle cx="12" cy="12" r="1" fill="currentColor"/>',
   timer: '<path d="M12 2v20M12 8l-4 4M12 8l4 4"/><path d="M5 12h14M12 5v14"/><circle cx="12" cy="12" r="1"/>',
+  share: '<path d="M18 16v-2a6 6 0 0 0-7.333-4.533L11 9.333 9 7v-2c0-2.21 1.79-4 4-4s4 1.79 4 4v2a6 6 0 0 0-7.333 4.533L13 14.667 15 17v2c0 2.21-1.79 4-4 4s-4-1.79-4-4v-2a6 6 0 0 0 7.333-4.533L11 18.667 9 21v-2c0-2.21 1.79-4 4-4s4 1.79 4 4z"/><circle cx="12" cy="12" r="3"/>',
+  link: '<path d="M13.5 8.5c-2.8 0-5.5 2.2-5.5 5s2.2 5 5.5 5c1.6 0 3.2-.7 4.4-1.8l1.4 1.4c1.3-1.3 2-3.1 1.4-4.9 0-2.8-2.2-5-5-5zM17.5 8c0-1.1-.9-2-2-2h-1.4c-.3 0-.5.2-.5.5v1.4c0 .3.2.5.5.5h1.4c1.1 0 2 .9 2 2s-.9 2-2 2h-1.4c-.3 0-.5.2-.5.5v1.4c0 .3.2.5.5.5h1.4c2.8 0 5-2.2 5-5s-2.2-5-5-5z"/><path d="M10.2 14.2c-.3-.3-.5-.8-.5-1.3v-1.4c0-.3.2-.5.5-.5s.5.2.5.5v1.4c0 .5.4 1 1 1h1.4c.3 0 .5.2.5.5s-.2.5-.5.5h-1.4c-.5 0-1-.4-1-1z"/><circle cx="13" cy="8" r="1"/>',
+  qrcode: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="8" y="8" width="2" height="2"/><rect x="12" y="8" width="2" height="2"/><rect x="8" y="12" width="2" height="2"/><rect x="12" y="12" width="2" height="2"/>',
+  note: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="8 6 12 11 16 7"/><line x1="12" y1="11" x2="12" y2="11"/>',
+  code: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/><line x1="12" y1="18" x2="12" y2="6"/>',
+  copy: '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
 };
 const icon = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
 const KIND_LABEL = { point: 'Points', line: 'Lines', polygon: 'Polygons', raster: 'Raster', image: 'Picture', table: 'Table' };
@@ -1150,6 +1156,11 @@ const TOOL_GROUPS = {
     ['screenreader', 'info', 'Screen Reader', 'Enhanced ARIA labels and live announcements'],
     ['colorblind', 'palette', 'Colorblind Palettes', 'Colorblind-safe color ramps'],
   ],
+  sharing: [
+    ['shareview', 'share', 'Share View', 'Copy a link to the current map view'],
+    ['session', 'code', 'Session Codes', 'Save and restore map sessions by code'],
+    ['mapnotes', 'note', 'Map Notes', 'Add text notes and markers to the map'],
+  ],
 };
 
 function buildTools() {
@@ -1242,6 +1253,9 @@ function runTool(t) {
     case 'gestures': toolGestures(); break;
     case 'screenreader': toolScreenReader(); break;
     case 'colorblind': toolColorblindPalettes(); break;
+    case 'shareview': toolShareView(); break;
+    case 'session': toolSessionCodes(); break;
+    case 'mapnotes': toolMapNotes(); break;
   }
 }
 
@@ -4197,7 +4211,7 @@ function saveProject() {
   }
   try {
     const f = clip ? (clip.type === 'rect' ? { type: 'rect', wb: clip.wb, label: focusLabel } : { type: 'poly', rings: clip.rings.map((r) => Array.from(r)), label: focusLabel }) : null;
-    localStorage.setItem(PKEY, JSON.stringify({ v: 1, layers, stack, annotations, grid: gridOn, clip: f }));
+    localStorage.setItem(PKEY, JSON.stringify({ v: 1, layers, stack, annotations, grid: gridOn, clip: f, notes: mapNotes }));
   } catch { }
 }
 let projTimer;
@@ -4206,6 +4220,7 @@ function restoreProject(p) {
   if (!p) return;
   if (p.grid) { gridOn = true; map.setGrid(true); }
   if (Array.isArray(p.annotations)) annotations = p.annotations.filter((a) => a && isFinite(a.lon) && isFinite(a.lat));
+  if (Array.isArray(p.notes)) mapNotes = p.notes.filter((n) => n && isFinite(n.lat) && isFinite(n.lon) && n.text);
   for (const [id, rec] of Object.entries(p.layers || {})) {
     const st = L.get(id); if (!st || !rec) continue;
     if (typeof rec.opacity === 'number') st.opacity = rec.opacity;
@@ -4420,6 +4435,179 @@ function toolColorblindPalettes() {
     }
   } catch { }
 })();
+
+// ------------------------------------------------ sharing & collaboration
+
+// Build a shareable URL with full map state
+function buildShareUrl() {
+  pushHash();
+  const u = new URL(location.href);
+  // Include clip state if active
+  if (clip) {
+    if (clip.type === 'rect') {
+      u.searchParams.set('f', JSON.stringify({ type: 'rect', wb: clip.wb, label: focusLabel || '' }));
+    } else if (clip.type === 'poly') {
+      u.searchParams.set('f', JSON.stringify({ type: 'poly', rings: clip.rings.map((r) => Array.from(r)), label: focusLabel || '' }));
+    } else if (clip.type === 'circle') {
+      u.searchParams.set('f', JSON.stringify({ type: 'circle', c: clip.c, r: clip.r, label: focusLabel || '' }));
+    }
+  }
+  u.searchParams.set('g', gridOn ? '1' : '0');
+  return u.href;
+}
+
+// Session codes (localStorage only, no backend)
+function sessionKey() { return 'nwg.sessions'; }
+function getSessions() { try { return JSON.parse(localStorage.getItem(sessionKey()) || '{}'); } catch { return {}; } }
+function setSessions(obj) { localStorage.setItem(sessionKey(), JSON.stringify(obj)); }
+function makeSessionCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+function toolShareView() {
+  openModal('Share View', (body) => {
+    const url = buildShareUrl();
+    body.innerHTML = '<p>Share the current map view (center, zoom, layers, focus area). The link contains no personal data.</p>' +
+      '<div class="frow"><label>Link</label><input id="sv-url" type="text" readonly style="flex:1"></div>' +
+      '<div class="frow act"><button class="btn primary" id="sv-copy">' + icon('copy') + ' Copy Link</button>' +
+      '<button class="btn" id="sv-share">' + icon('share') + ' Share</button></div>' +
+      '<div class="frow act" style="margin-top:8px"><button class="btn" id="sv-session">' + icon('code') + ' Save as Session Code</button></div>' +
+      '<p class="muted" style="margin-top:8px">Recipients open the link and see the same map state.</p>';
+    const urlEl = body.querySelector('#sv-url');
+    urlEl.value = url;
+    urlEl.onclick = () => { urlEl.select(); };
+    body.querySelector('#sv-copy').onclick = async () => {
+      try { await navigator.clipboard.writeText(url); toast('Link copied'); }
+      catch { urlEl.select(); document.execCommand('copy'); toast('Link copied'); }
+    };
+    body.querySelector('#sv-share').onclick = async () => {
+      try { if (navigator.share) await navigator.share({ title: catalog.title, url }); else toast('Use Copy Link'); }
+      catch { toast('Sharing not available on this device'); }
+    };
+    body.querySelector('#sv-session').onclick = () => { closeModal(); toolSessionCodes(); };
+  });
+}
+
+function toolSessionCodes() {
+  const sessions = getSessions();
+  openModal('Session Codes', (body) => {
+    body.innerHTML = '<p>Save the current map state under a short code. Anyone with the code can restore the same view. Stored in your browser only.</p>' +
+      '<div class="frow"><label>Session name</label><input id="ss-name" type="text" placeholder="e.g. Field site A"></div>' +
+      '<div class="frow act"><button class="btn primary" id="ss-save">' + icon('code') + ' Save Current Session</button></div>' +
+      '<div id="ss-list" style="margin-top:10px;max-height:260px;overflow-y:auto;border:1px solid var(--line);border-radius:6px;padding:6px"></div>' +
+      '<div class="frow act" style="margin-top:10px"><button class="btn" id="ss-restore">' + icon('link') + ' Restore by Code</button></div>' +
+      '<p class="muted" style="margin-top:8px">Session codes are 6 characters and stored locally.</p>';
+    const listDiv = body.querySelector('#ss-list');
+    function renderList() {
+      const keys = Object.keys(sessions);
+      listDiv.innerHTML = keys.length
+        ? keys.map((k) => '<div style="padding:8px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center"><div><b style="color:var(--brand)">' + esc(k) + '</b><br><small style="color:var(--muted)">' + esc(sessions[k].name || '') + ' · ' + new Date(sessions[k].ts).toLocaleDateString() + '</small></div><button class="chip" data-restore="' + esc(k) + '">Restore</button></div>').join('')
+        : '<p class="empty">No saved sessions.</p>';
+      listDiv.querySelectorAll('[data-restore]').forEach((b) => {
+        b.onclick = () => { restoreSession(b.dataset.restore); closeModal(); };
+      });
+    }
+    renderList();
+    body.querySelector('#ss-save').onclick = () => {
+      const name = body.querySelector('#ss-name').value.trim();
+      const code = makeSessionCode();
+      const state = {
+        center: map.center(),
+        zoom: map.zoom,
+        basemap: map.basemap,
+        stack: [...stack],
+        grid: gridOn,
+        clip: clip ? { type: clip.type, wb: clip.wb, c: clip.c, r: clip.r, rings: clip.rings, label: focusLabel || '' } : null,
+        annotations: annotations.map((a) => ({ text: a.text, lon: a.lon, lat: a.lat, size: a.size })),
+      };
+      sessions[code] = { name, state, ts: Date.now() };
+      setSessions(sessions);
+      renderList();
+      toast('Session saved: ' + code + (name ? ' (' + name + ')' : ''));
+      body.querySelector('#ss-name').value = '';
+    };
+    body.querySelector('#ss-restore').onclick = () => {
+      const code = prompt('Enter session code (6 characters):');
+      if (code) restoreSession(code.trim());
+    };
+  });
+}
+
+function restoreSession(code) {
+  const sessions = getSessions();
+  const s = sessions[code.toUpperCase()];
+  if (!s) { toast('Session code not found'); return; }
+  const st = s.state;
+  // Clear current filters
+  for (const [id, ls] of L) { ls.filter = null; applyFilter(ls, false); }
+  // Set basemap
+  if (st.basemap && BASEMAPS[st.basemap]) map.setBasemap(st.basemap);
+  // Set layers
+  for (const id of [...stack]) setLayer(id, false, { quiet: true });
+  for (const id of st.stack) { const ls = L.get(id); if (ls) { ls.opacity = 1; setLayer(id, true, { quiet: true }); } }
+  // Set view
+  if (st.center) map.setView(st.center[0], st.center[1], st.zoom);
+  // Set grid
+  gridOn = st.grid || false; map.setGrid(gridOn);
+  // Set focus
+  if (st.clip) {
+    if (st.clip.type === 'rect') setFocus({ type: 'rect', wb: st.clip.wb, label: st.clip.label || '' });
+    else if (st.clip.type === 'poly') setFocus({ type: 'poly', rings: st.clip.rings, label: st.clip.label || '' });
+    else if (st.clip.type === 'circle') setFocus({ type: 'circle', c: st.clip.c, r: st.clip.r, label: st.clip.label || '' });
+  } else stopFocus();
+  // Restore annotations
+  annotations = (st.annotations || []).filter((a) => a && isFinite(a.lon) && isFinite(a.lat));
+  renderLayerLists(); refreshLegend(); updateFocusUI(); updateToolState(); saveProject();
+  toast('Session restored: ' + code);
+}
+
+let mapNotes = [];
+
+function toolMapNotes() {
+  openModal('Map Notes', (body) => {
+    body.innerHTML = '<p>Add text notes and markers to the map for collaboration. Notes are drawn on the map only — not exported as data.</p>' +
+      '<div class="frow"><label>Note text</label><input id="mn-text" type="text" placeholder="e.g. Check this area"></div>' +
+      '<div class="frow act"><button class="btn primary" id="mn-add">' + icon('note') + ' Add Note at Map Center</button></div>' +
+      '<div id="mn-list" style="margin-top:10px;max-height:240px;overflow-y:auto;border:1px solid var(--line);border-radius:6px;padding:6px"></div>' +
+      '<p class="muted" style="margin-top:8px">Drag notes on the map to reposition.</p>';
+    const textEl = body.querySelector('#mn-text');
+    const listDiv = body.querySelector('#mn-list');
+    function renderList() {
+      listDiv.innerHTML = mapNotes.length
+        ? mapNotes.map((n, i) => '<div style="padding:8px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center"><div><b>' + esc(n.text) + '</b><br><small style="color:var(--muted)">' + n.lat.toFixed(4) + ', ' + n.lon.toFixed(4) + '</small></div><button class="chip" data-del="' + i + '">Del</button></div>').join('')
+        : '<p class="empty">No notes yet.</p>';
+      listDiv.querySelectorAll('[data-del]').forEach((b) => {
+        b.onclick = () => { mapNotes.splice(+b.dataset.del, 1); map.render(); renderList(); toast('Note removed'); };
+      });
+    }
+    renderList();
+    body.querySelector('#mn-add').onclick = () => {
+      const text = textEl.value.trim();
+      if (!text) { toast('Enter note text'); return; }
+      const c = map.center();
+      mapNotes.push({ text, lon: c[0], lat: c[1] });
+      map.render();
+      renderList();
+      textEl.value = '';
+      toast('Note added');
+    };
+  });
+}
+
+// Draw map notes on the map
+map.extra.push((ctx, m) => {
+  for (const n of mapNotes) {
+    const [x, y] = m.screenOf(n.lon, n.lat);
+    ctx.fillStyle = '#ffd400'; ctx.beginPath(); ctx.arc(x, y, 6, 0, 6.3); ctx.fill();
+    ctx.strokeStyle = '#0b3d2e'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#0b3d2e'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.font = '700 11px system-ui,sans-serif';
+    ctx.fillText(n.text, x, y - 9);
+  }
+});
 
 window.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
