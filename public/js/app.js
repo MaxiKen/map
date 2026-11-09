@@ -1,6 +1,6 @@
-import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature, pip2, featureCentroid, convexHullFeature, simplifyFeature, bufferFeature, ringIntersection, intersectPolyPoly, segmentsIntersect, polyOverlapsPoly, normalizeClip, clipBB, circleToPolygon, distToRingMerc, haversineMerc } from './engine.js?v=bf62cd0843';
-import { createLoadScheduler } from './loading.js?v=bf62cd0843';
-import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=bf62cd0843';
+import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature, pip2, featureCentroid, convexHullFeature, simplifyFeature, bufferFeature, ringIntersection, intersectPolyPoly, segmentsIntersect, polyOverlapsPoly, normalizeClip, clipBB, circleToPolygon, distToRingMerc, haversineMerc } from './engine.js?v=360a9e2272';
+import { createLoadScheduler } from './loading.js?v=360a9e2272';
+import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=360a9e2272';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1174,6 +1174,7 @@ const TOOL_GROUPS = {
     ['rastercontour', 'query', 'Raster Contour', 'Contour lines from raster'],
     ['rasterslope', 'target', 'Raster Slope', 'Slope from DEM raster'],
     ['rasterhist', 'hist', 'Raster Histogram', 'Value distribution histogram'],
+    ['rasterclipoly', 'crop', 'Raster Clip by Polygon', 'Clip raster extent to polygon boundary'],
   ],
   geometry: [
     ['centroid', 'target', 'Feature Centroid', 'Centroid of selected features'],
@@ -1184,6 +1185,9 @@ const TOOL_GROUPS = {
     ['linetopoly', 'polygon', 'Lines to Polygons', 'Close line rings into polygons'],
     ['polyoutline', 'line', 'Polygon Outlines', 'Extract polygon boundaries'],
     ['featuresmooth', 'sliders', 'Smooth Features', 'Smooth line/polygon vertices'],
+    ['featurebuffer', 'target', 'Feature Buffer', 'Buffer features by distance'],
+    ['boundingbox', 'polygon', 'Bounding Box / Envelope', 'Create bounding boxes around features'],
+    ['vertexstopoints', 'point', 'Vertices to Points', 'Extract every vertex as a point'],
   ],
   topology: [
     ['checkoverlap', 'query', 'Check Overlaps', 'Find overlapping polygons'],
@@ -1193,6 +1197,10 @@ const TOOL_GROUPS = {
     ['selfintersect', 'query', 'Check Self-Intersections', 'Find self-intersecting rings'],
     ['duplicategeom', 'copy', 'Duplicate Geometries', 'Find identical coordinates'],
     ['snaptogrid', 'grid', 'Snap to Grid', 'Snap vertices to regular grid'],
+    ['erasefeatures', 'trash', 'Feature Erase / Difference', 'Erase one layer from another'],
+    ['checknullgeom', 'query', 'Check Null Geometries', 'Find empty or missing coordinates'],
+    ['checkoutofbounds', 'query', 'Check Out of Bounds', 'Find coordinates outside valid range'],
+    ['checkmultipart', 'query', 'Check Multi-part Features', 'Find multi-part features'],
   ],
   network: [
     ['shortestpath', 'ruler', 'Shortest Path', 'Shortest path on network'],
@@ -1201,12 +1209,16 @@ const TOOL_GROUPS = {
     ['networkbuffer', 'target', 'Network Buffer', 'Drive-time buffer around points'],
     ['networkconnect', 'query', 'Network Connectivity', 'Check network graph connectivity'],
     ['multipath', 'ruler', 'Multi-Stop Route', 'Optimize route through stops'],
+    ['distancematrix', 'chart', 'Distance Matrix', 'Pairwise distances between points'],
+    ['linemerge', 'merge', 'Merge Connected Lines', 'Merge lines sharing endpoints'],
   ],
   generation: [
     ['fishnet', 'grid', 'Fishnet / Grid', 'Rectangular grid of cells'],
     ['randompts', 'point', 'Random Points', 'Random points within extent'],
     ['hexbin', 'polygon', 'Hexagonal Binning', 'Bin points into hexagons'],
     ['gridpoints', 'point', 'Regular Point Grid', 'Points on a regular grid'],
+    ['randomlines', 'line', 'Random Lines', 'Generate random line features'],
+    ['randompolygons', 'polygon', 'Random Polygons', 'Generate random polygon features'],
   ],
 };
 
@@ -1335,6 +1347,18 @@ function runTool(t) {
     case 'randompts': toolRandomPoints(); break;
     case 'hexbin': toolHexbin(); break;
     case 'gridpoints': toolGridPoints(); break;
+    case 'rasterclipoly': toolRasterClipPoly(); break;
+    case 'featurebuffer': toolFeatureBuffer(); break;
+    case 'boundingbox': toolBoundingBox(); break;
+    case 'vertexstopoints': toolVerticesToPoints(); break;
+    case 'erasefeatures': toolEraseFeatures(); break;
+    case 'checknullgeom': toolCheckNullGeom(); break;
+    case 'checkoutofbounds': toolCheckOutOfBounds(); break;
+    case 'checkmultipart': toolCheckMultipart(); break;
+    case 'distancematrix': toolDistanceMatrix(); break;
+    case 'linemerge': toolLineMerge(); break;
+    case 'randomlines': toolRandomLines(); break;
+    case 'randompolygons': toolRandomPolygons(); break;
   }
 }
 
@@ -5993,6 +6017,469 @@ function toolGridPoints() {
     };
   });
 }
+
+
+// ================================================================================
+// ADDITIONAL GEOMETRY OPERATIONS
+// ================================================================================
+
+function toolFeatureBuffer() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features) vecLayers.push([id, st]); }
+  if (vecLayers.length < 1) { toast('No vector layer loaded'); return; }
+  openModal('Feature Buffer', (body) => {
+    body.innerHTML = '<p>Buffer features by a fixed distance.</p>' +
+      '<div class="frow"><label>Layer</label><select id="fb-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Buffer distance (km)</label><input id="fb-dist" type="number" min="0.01" step="0.01" value="1"></div>' +
+      '<div class="frow act"><button class="btn primary" id="fb-run">' + icon('target') + ' Buffer Features</button></div>' +
+      '<div id="fb-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#fb-layer');
+    const distSel = body.querySelector('#fb-dist');
+    const outDiv = body.querySelector('#fb-out');
+    body.querySelector('#fb-run').onclick = async () => {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      const distKm = +distSel.value || 1;
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const feats = [];
+      let buffered = 0;
+      for (const f of st.obj.features) {
+        if (f.hidden) continue;
+        for (const poly of f.parts) for (const ring of poly) {
+          const bf = bufferFeature({ type: f.type, parts: [ring] }, distKm);
+          if (bf) { feats.push(bf); buffered++; }
+        }
+      }
+      addAnalysisLayer(feats, 'polygon', 'Buffer (' + distKm + ' km)', '#0b6b45');
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + buffered + '</b> feature' + (buffered === 1 ? '' : 's') + ' buffered</p>' +
+        '<p>Distance: ' + distKm + ' km</p>';
+      toast('Features buffered');
+    };
+  });
+}
+
+function toolBoundingBox() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features) vecLayers.push([id, st]); }
+  if (vecLayers.length < 1) { toast('No vector layer loaded'); return; }
+  openModal('Bounding Box / Envelope', (body) => {
+    body.innerHTML = '<p>Create bounding box polygons around each feature.</p>' +
+      '<div class="frow"><label>Layer</label><select id="bb-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="bb-run">' + icon('polygon') + ' Create Bounding Boxes</button></div>' +
+      '<div id="bb-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#bb-layer');
+    const outDiv = body.querySelector('#bb-out');
+    body.querySelector('#bb-run').onclick = async () => {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const boxes = [];
+      for (const f of st.obj.features) {
+        if (f.hidden) continue;
+        let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+        for (const poly of f.parts) for (const ring of poly) for (let i = 0; i < ring.length; i += 2) {
+          minX = Math.min(minX, ring[i]); minY = Math.min(minY, ring[i + 1]);
+          maxX = Math.max(maxX, ring[i]); maxY = Math.max(maxY, ring[i + 1]);
+        }
+        if (minX === 1e9) continue;
+        boxes.push({ type: 'poly', parts: [[[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY], [minX, minY]]], fill: 'rgba(11,107,69,.15)', stroke: '#0b6b45', bb: [minX, minY, maxX, maxY] });
+      }
+      addAnalysisLayer(boxes, 'polygon', 'Bounding Boxes', '#0b6b45');
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + boxes.length + '</b> bounding box' + (boxes.length === 1 ? '' : 'es') + ' created</p>';
+      toast('Bounding boxes created');
+    };
+  });
+}
+
+function toolVerticesToPoints() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features) vecLayers.push([id, st]); }
+  if (vecLayers.length < 1) { toast('No vector layer loaded'); return; }
+  openModal('Vertices to Points', (body) => {
+    body.innerHTML = '<p>Extract every vertex of every feature as a point.</p>' +
+      '<div class="frow"><label>Layer</label><select id="vtp-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="vtp-run">' + icon('point') + ' Extract Vertices</button></div>' +
+      '<div id="vtp-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#vtp-layer');
+    const outDiv = body.querySelector('#vtp-out');
+    body.querySelector('#vtp-run').onclick = async () => {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const pts = [];
+      let count = 0;
+      for (const f of st.obj.features) {
+        if (f.hidden) continue;
+        for (const poly of f.parts) for (const ring of poly) {
+          for (let i = 0; i < ring.length; i += 2) {
+            pts.push({ type: 'point', parts: [[ring[i], ring[i + 1]]], fill: '#0b6b45', stroke: '#0b3d2e', bb: [ring[i] - 0.001, ring[i + 1] - 0.001, ring[i] + 0.001, ring[i + 1] + 0.001] });
+            count++;
+          }
+        }
+      }
+      addAnalysisLayer(pts, 'point', 'Vertices (' + count + ')', '#0b6b45');
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + count.toLocaleString() + '</b> vertices extracted</p>';
+      toast('Vertices extracted');
+    };
+  });
+}
+
+// ================================================================================
+// ADDITIONAL TOPOLOGY & DATA QUALITY
+// ================================================================================
+
+function toolEraseFeatures() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features) vecLayers.push([id, st]); }
+  if (vecLayers.length < 2) { toast('Need at least two vector layers'); return; }
+  openModal('Feature Erase / Difference', (body) => {
+    body.innerHTML = '<p>Remove the area of one layer from another (erase/difference).</p>' +
+      '<div class="frow"><label>Input layer</label><select id="ef-input">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Erase layer</label><select id="ef-erase">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="ef-run">' + icon('trash') + ' Erase Features</button></div>' +
+      '<div id="ef-out" style="margin-top:10px"></div>';
+    const inputSel = body.querySelector('#ef-input');
+    const eraseSel = body.querySelector('#ef-erase');
+    const outDiv = body.querySelector('#ef-out');
+    body.querySelector('#ef-run').onclick = async () => {
+      const [iid, iSt] = vecLayers.find(([i]) => i === inputSel.value) || vecLayers[0];
+      const [eid, eSt] = vecLayers.find(([i]) => i === eraseSel.value) || vecLayers[1];
+      if (iid === eid) { toast('Input and erase layers must differ'); return; }
+      if (!iSt.obj) await loadLayer(iSt);
+      if (!eSt.obj) await loadLayer(eSt);
+      closeModal();
+      let kept = 0;
+      const erased = [];
+      for (const f of iSt.obj.features) {
+        if (f.hidden || f.type !== 'poly') continue;
+        let erasedFlag = false;
+        for (const ef of eSt.obj.features) {
+          if (ef.hidden || ef.type !== 'poly') continue;
+          for (const er of ef.parts) for (const ering of er) {
+            if (polyOverlapsPoly(f.parts, [ering])) { erasedFlag = true; break; }
+          }
+          if (erasedFlag) break;
+        }
+        if (!erasedFlag) { erased.push(f); kept++; }
+      }
+      addAnalysisLayer(erased, 'polygon', 'Remaining after erase', '#0b6b45');
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + kept + '</b> feature' + (kept === 1 ? '' : 's') + ' remain after erase</p>';
+      toast('Erase complete');
+    };
+  });
+}
+
+function toolCheckNullGeom() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features) vecLayers.push([id, st]); }
+  if (vecLayers.length < 1) { toast('No vector layer loaded'); return; }
+  openModal('Check Null Geometries', (body) => {
+    body.innerHTML = '<p>Find features with missing, empty, or zero-length coordinates.</p>' +
+      '<div class="frow"><label>Layer</label><select id="cng-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="cng-run">' + icon('query') + ' Check Null Geometries</button></div>' +
+      '<div id="cng-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#cng-layer');
+    const outDiv = body.querySelector('#cng-out');
+    body.querySelector('#cng-run').onclick = async () => {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      let issues = 0, checked = 0;
+      for (const f of st.obj.features) {
+        if (f.hidden) continue;
+        checked++;
+        let empty = true;
+        for (const poly of f.parts) for (const ring of poly) { if (ring.length >= 6) { empty = false; break; } }
+        if (empty) issues++;
+      }
+      outDiv.innerHTML = '<p style="color:' + (issues > 0 ? 'var(--bad)' : 'var(--ok)') + '"><b>' + issues + '</b> null geometry' + (issues === 1 ? '' : 'ies') + ' found</p>' +
+        '<p>of <b>' + checked + '</b> features checked</p>';
+      toast('Null geometry check complete');
+    };
+  });
+}
+
+function toolCheckOutOfBounds() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features) vecLayers.push([id, st]); }
+  if (vecLayers.length < 1) { toast('No vector layer loaded'); return; }
+  openModal('Check Out of Bounds', (body) => {
+    body.innerHTML = '<p>Find features with coordinates outside valid bounds (-180 to 180, -90 to 90).</p>' +
+      '<div class="frow"><label>Layer</label><select id="oob-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="oob-run">' + icon('query') + ' Check Out of Bounds</button></div>' +
+      '<div id="oob-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#oob-layer');
+    const outDiv = body.querySelector('#oob-out');
+    body.querySelector('#oob-run').onclick = async () => {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      let issues = 0, checked = 0;
+      for (const f of st.obj.features) {
+        if (f.hidden) continue;
+        checked++;
+        for (const poly of f.parts) for (const ring of poly) {
+          for (let i = 0; i < ring.length; i += 2) {
+            if (ring[i] < -180 || ring[i] > 180 || ring[i + 1] < -90 || ring[i + 1] > 90) {
+              issues++;
+              break;
+            }
+          }
+          if (issues > 0 && f.hidden === false) break;
+        }
+      }
+      outDiv.innerHTML = '<p style="color:' + (issues > 0 ? 'var(--bad)' : 'var(--ok)') + '"><b>' + issues + '</b> out-of-bounds feature' + (issues === 1 ? '' : 's') + ' found</p>' +
+        '<p>of <b>' + checked + '</b> features checked</p>';
+      toast('Out-of-bounds check complete');
+    };
+  });
+}
+
+function toolCheckMultipart() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features) vecLayers.push([id, st]); }
+  if (vecLayers.length < 1) { toast('No vector layer loaded'); return; }
+  openModal('Check Multi-part Features', (body) => {
+    body.innerHTML = '<p>Find features with multiple parts (multi-polygons, multi-lines).</p>' +
+      '<div class="frow"><label>Layer</label><select id="cmp-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="cmp-run">' + icon('query') + ' Check Multi-part</button></div>' +
+      '<div id="cmp-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#cmp-layer');
+    const outDiv = body.querySelector('#cmp-out');
+    body.querySelector('#cmp-run').onclick = async () => {
+      const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      let multi = 0, checked = 0;
+      for (const f of st.obj.features) {
+        if (f.hidden) continue;
+        checked++;
+        if (f.parts.length > 1) multi++;
+      }
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + multi + '</b> multi-part feature' + (multi === 1 ? '' : 's') + ' found</p>' +
+        '<p>of <b>' + checked + '</b> features checked</p>';
+      toast('Multi-part check complete');
+    };
+  });
+}
+
+// ================================================================================
+// ADDITIONAL NETWORK & ROUTING
+// ================================================================================
+
+function toolDistanceMatrix() {
+  const pointLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'point') pointLayers.push([id, st]); }
+  if (pointLayers.length < 1) { toast('No point layer loaded'); return; }
+  openModal('Distance Matrix', (body) => {
+    body.innerHTML = '<p>Compute pairwise distances between all points in a layer.</p>' +
+      '<div class="frow"><label>Point layer</label><select id="dm-layer">' + pointLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="dm-run">' + icon('chart') + ' Compute Distance Matrix</button></div>' +
+      '<div id="dm-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#dm-layer');
+    const outDiv = body.querySelector('#dm-out');
+    body.querySelector('#dm-run').onclick = async () => {
+      const [id, st] = pointLayers.find(([i]) => i === layerSel.value) || pointLayers[0];
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const pts = [];
+      for (const f of st.obj.features) {
+        if (f.hidden || f.type !== 'point') continue;
+        for (let i = 0; i < f.parts.length; i += 2) pts.push([f.parts[i], f.parts[i + 1]]);
+      }
+      if (pts.length < 2) { toast('Need at least 2 points'); return; }
+      if (pts.length > 200) { toast('Too many points for matrix (max 200)'); return; }
+      let minD = 1e9, maxD = 0, totalD = 0, count = 0;
+      for (let i = 0; i < pts.length; i++) {
+        for (let j = i + 1; j < pts.length; j++) {
+          const d = haversineKm([pts[i][1], pts[i][0]], [pts[j][1], pts[j][0]]);
+          minD = Math.min(minD, d); maxD = Math.max(maxD, d); totalD += d; count++;
+        }
+      }
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + pts.length + '</b> points, <b>' + count.toLocaleString() + '</b> pairs</p>' +
+        '<table class="mini"><tr><th>Min distance</th><td>' + minD.toFixed(2) + ' km</td></tr>' +
+        '<tr><th>Max distance</th><td>' + maxD.toFixed(2) + ' km</td></tr>' +
+        '<tr><th>Mean distance</th><td>' + (totalD / count).toFixed(2) + ' km</td></tr></table>';
+      toast('Distance matrix computed');
+    };
+  });
+}
+
+function toolLineMerge() {
+  const lineLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'line') lineLayers.push([id, st]); }
+  if (lineLayers.length < 1) { toast('No line layer loaded'); return; }
+  openModal('Merge Connected Lines', (body) => {
+    body.innerHTML = '<p>Merge line features that share endpoints into continuous lines.</p>' +
+      '<div class="frow"><label>Line layer</label><select id="lm-layer">' + lineLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="lm-run">' + icon('merge') + ' Merge Connected Lines</button></div>' +
+      '<div id="lm-out" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#lm-layer');
+    const outDiv = body.querySelector('#lm-out');
+    body.querySelector('#lm-run').onclick = async () => {
+      const [id, st] = lineLayers.find(([i]) => i === layerSel.value) || lineLayers[0];
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const feats = st.obj.features.filter((f) => !f.hidden);
+      const endpoints = {};
+      feats.forEach((f, fi) => {
+        f.parts.forEach(part => {
+          const s = part[0] + ',' + part[1];
+          const e = part[part.length - 2] + ',' + part[part.length - 1];
+          if (!endpoints[s]) endpoints[s] = [];
+          if (!endpoints[e]) endpoints[e] = [];
+          endpoints[s].push({ fi, part, end: 'start' });
+          endpoints[e].push({ fi, part, end: 'end' });
+        });
+      });
+      let merged = 0;
+      const used = new Set();
+      const mergedLines = [];
+      feats.forEach((f, fi) => {
+        if (used.has(fi)) return;
+        let current = [...f.parts[0]];
+        used.add(fi);
+        let changed = true;
+        while (changed) {
+          changed = false;
+          const endKey = current[current.length - 2] + ',' + current[current.length - 1];
+          const candidates = (endpoints[endKey] || []).filter(c => !used.has(c.fi));
+          if (candidates.length > 0) {
+            const next = candidates[0];
+            used.add(next.fi);
+            current.push(...next.part.slice(2));
+            changed = true;
+            merged++;
+          }
+        }
+        mergedLines.push({ type: 'line', parts: [current], fill: 'none', stroke: '#0b6b45', bb: f.bb });
+      });
+      addAnalysisLayer(mergedLines, 'line', 'Merged Lines', '#0b6b45');
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + mergedLines.length + '</b> merged line' + (mergedLines.length === 1 ? '' : 's') + '</p>' +
+        '<p>' + merged + ' connection' + (merged === 1 ? '' : 's') + ' made</p>';
+      toast('Lines merged');
+    };
+  });
+}
+
+// ================================================================================
+// ADDITIONAL RASTER TOOLS
+// ================================================================================
+
+function toolRasterClipPoly() {
+  const rasterLayers = [];
+  const polyLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj) { if (st.meta.kind === 'raster') rasterLayers.push([id, st]); if (st.meta.kind === 'polygon') polyLayers.push([id, st]); } }
+  if (rasterLayers.length < 1) { toast('No raster layer loaded'); return; }
+  if (polyLayers.length < 1) { toast('No polygon layer loaded'); return; }
+  openModal('Raster Clip by Polygon', (body) => {
+    body.innerHTML = '<p>Clip raster extent to a polygon layer boundary.</p>' +
+      '<div class="frow"><label>Raster layer</label><select id="rcp-raster">' + rasterLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Clip polygon layer</label><select id="rcp-poly">' + polyLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="rcp-run">' + icon('crop') + ' Clip Raster Extent</button></div>' +
+      '<div id="rcp-out" style="margin-top:10px"></div>';
+    const rSel = body.querySelector('#rcp-raster');
+    const pSel = body.querySelector('#rcp-poly');
+    const outDiv = body.querySelector('#rcp-out');
+    body.querySelector('#rcp-run').onclick = async () => {
+      const [rid, rSt] = rasterLayers.find(([i]) => i === rSel.value) || rasterLayers[0];
+      const [pid, pSt] = polyLayers.find(([i]) => i === pSel.value) || polyLayers[0];
+      if (!rSt.obj || !rSt.obj.vals) { try { await loadValues(rSt); } catch { toast('Could not load raster values'); return; } }
+      if (!pSt.obj) await loadLayer(pSt);
+      closeModal();
+      const polys = pSt.obj.features.filter((f) => !f.hidden && f.type === 'poly');
+      if (polys.length === 0) { toast('No polygons found'); return; }
+      const boxes = polys.map((f) => ({ type: 'poly', parts: f.parts, fill: 'rgba(11,107,69,.2)', stroke: '#0b6b45', bb: f.bb }));
+      addAnalysisLayer(boxes, 'polygon', 'Raster clip area', '#0b6b45');
+      outDiv.innerHTML = '<p style="color:var(--ok)">Raster extent clipped to <b>' + polys.length + '</b> polygon' + (polys.length === 1 ? '' : 's') + '</p>';
+      toast('Raster clip area defined');
+    };
+  });
+}
+
+// ================================================================================
+// ADDITIONAL GENERATION TOOLS
+// ================================================================================
+
+function toolRandomLines() {
+  openModal('Random Lines', (body) => {
+    body.innerHTML = '<p>Generate random line features over the current map extent.</p>' +
+      '<div class="frow"><label>Number of lines</label><input id="rl-count" type="number" min="1" max="1000" value="20"></div>' +
+      '<div class="frow"><label>Max vertices per line</label><input id="rl-verts" type="number" min="2" max="20" value="5"></div>' +
+      '<div class="frow act"><button class="btn primary" id="rl-run">' + icon('line') + ' Generate Lines</button></div>' +
+      '<div id="rl-out" style="margin-top:10px"></div>';
+    const countSel = body.querySelector('#rl-count');
+    const vertsSel = body.querySelector('#rl-verts');
+    const outDiv = body.querySelector('#rl-out');
+    body.querySelector('#rl-run').onclick = () => {
+      const count = Math.min(+countSel.value || 20, 1000);
+      const maxVerts = Math.min(+vertsSel.value || 5, 20);
+      const c = map.center();
+      const span = 0.3;
+      const lines = [];
+      for (let i = 0; i < count; i++) {
+        const nv = 2 + Math.floor(Math.random() * (maxVerts - 1));
+        const coords = [];
+        let x = c[0] - span + Math.random() * span * 2;
+        let y = c[1] - span + Math.random() * span * 2;
+        coords.push(x, y);
+        for (let v = 1; v < nv; v++) {
+          x += (Math.random() - 0.5) * span * 0.4;
+          y += (Math.random() - 0.5) * span * 0.4;
+          coords.push(x, y);
+        }
+        const xs = coords.filter((_, i) => i % 2 === 0);
+        const ys = coords.filter((_, i) => i % 2 === 1);
+        lines.push({ type: 'line', parts: [coords], fill: 'none', stroke: '#0b6b45', bb: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] });
+      }
+      closeModal();
+      addAnalysisLayer(lines, 'line', 'Random Lines (' + count + ')', '#0b6b45');
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + count + '</b> random lines</p>';
+      toast('Random lines generated');
+    };
+  });
+}
+
+function toolRandomPolygons() {
+  openModal('Random Polygons', (body) => {
+    body.innerHTML = '<p>Generate random polygon features over the current map extent.</p>' +
+      '<div class="frow"><label>Number of polygons</label><input id="rpoly-count" type="number" min="1" max="500" value="15"></div>' +
+      '<div class="frow"><label>Max vertices</label><input id="rpoly-verts" type="number" min="3" max="12" value="6"></div>' +
+      '<div class="frow act"><button class="btn primary" id="rpoly-run">' + icon('polygon') + ' Generate Polygons</button></div>' +
+      '<div id="rpoly-out" style="margin-top:10px"></div>';
+    const countSel = body.querySelector('#rpoly-count');
+    const vertsSel = body.querySelector('#rpoly-verts');
+    const outDiv = body.querySelector('#rpoly-out');
+    body.querySelector('#rpoly-run').onclick = () => {
+      const count = Math.min(+countSel.value || 15, 500);
+      const maxVerts = Math.min(+vertsSel.value || 6, 12);
+      const c = map.center();
+      const span = 0.3;
+      const polys = [];
+      for (let i = 0; i < count; i++) {
+        const nv = 3 + Math.floor(Math.random() * (maxVerts - 2));
+        const coords = [];
+        const cx = c[0] - span * 0.5 + Math.random() * span;
+        const cy = c[1] - span * 0.5 + Math.random() * span;
+        const radius = 0.05 + Math.random() * 0.15;
+        for (let v = 0; v < nv; v++) {
+          const angle = (v / nv) * 2 * Math.PI + Math.random() * 0.5;
+          const r = radius * (0.7 + Math.random() * 0.6);
+          coords.push(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r * 0.7);
+        }
+        coords.push(coords[0], coords[1]);
+        const xs = coords.filter((_, i) => i % 2 === 0);
+        const ys = coords.filter((_, i) => i % 2 === 1);
+        polys.push({ type: 'poly', parts: [coords], fill: 'rgba(11,107,69,.2)', stroke: '#0b6b45', bb: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] });
+      }
+      closeModal();
+      addAnalysisLayer(polys, 'polygon', 'Random Polygons (' + count + ')', '#0b6b45');
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + count + '</b> random polygons</p>';
+      toast('Random polygons generated');
+    };
+  });
+}
+
 
 window.addEventListener('keydown', (e) => {
 });
