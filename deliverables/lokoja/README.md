@@ -1,7 +1,15 @@
-# Map of Lokoja — cleaned images, georeferenced sheet and one GeoPackage
+# Nigeria WebGIS layers (nationwide) and the Map of Lokoja sheet
 
-Everything asked for, built from the Lokoja map image you supplied plus the layers that
-already live in this repository. All deliverables sit in this folder.
+Two things live in this folder:
+
+* **`Nigeria_map_and_data.gpkg`** — the thematic layers of the repository at **national
+  coverage**, copied whole: geology (both maps), faults, minerals, elevation, water, major
+  rivers, roads, towns, states and LGAs are every feature the repository holds, with nothing
+  clipped, simplified, reprojected or re-attributed.
+* **the Map of Lokoja sheet** — the scanned sheet you supplied, cleaned, georeferenced and
+  accompanied by the local layers that cross it.
+
+Both GeoPackages are described below; the PNG/TIFF files are the Lokoja sheet product.
 
 ---
 
@@ -9,7 +17,9 @@ already live in this repository. All deliverables sit in this folder.
 
 | File | What it is |
 |---|---|
-| **Lokoja_map_and_data.gpkg** | **The single GeoPackage.** 2 raster map sheets + 1 DEM raster + 20 vector layers + 2 attribute tables (`layer_catalogue`, `geology_legend_2011`). Everything is clipped to the map sheet extent. Built from the repository at `a479c0b` (after the geology legend fix). |
+| **Nigeria_map_and_data.gpkg** | **The nationwide GeoPackage (50.8 MB).** 13 national vector layers (≈101 000 features), the two complete geology/mineral map images, the national SRTM DEM, the Lokoja sheet rasters + extent + the two sheet-derived layers, and 3 tables. **Nothing is clipped** — see §2. Built from the repository at `a479c0b`. |
+| **nigeria_national_preview.png** | Four-panel overview of the nationwide layers: geology units, faults + mineral occurrences, water + roads, towns over states/LGAs. |
+| **Lokoja_map_and_data.gpkg** | **The local GeoPackage.** 2 raster map sheets + 1 DEM raster + 20 vector layers + 2 attribute tables (`layer_catalogue`, `geology_legend_2011`). Everything is clipped to the map sheet extent. Built from the repository at `a479c0b` (after the geology legend fix). |
 | **lokoja_map_clear.png** | The whole sheet, cleaned and enlarged 4× (2740 × 1716 px, 300 dpi). Coordinate labels, legend, scale bar and north arrow all kept. |
 | **lokoja_map_no_coordinates.png** | The map face only (no margin, no coordinate labels, no legend/scale/north arrow), place names kept. 2160 × 1500 px. |
 | **lokoja_map_clean_no_labels.png** | The map face with **no text at all** — no coordinates, no place names, no river names. Only the drawn map graphics and the neat line. 2160 × 1500 px. |
@@ -23,7 +33,55 @@ already live in this repository. All deliverables sit in this folder.
 
 ---
 
-## 2. How the sheet was georeferenced
+## 2. The nationwide GeoPackage — nothing clipped
+
+`Nigeria_map_and_data.gpkg` carries each layer **exactly as the repository holds it**: same
+features, same attributes, same EPSG:4326, same geometry. It was not cut to the Lokoja sheet,
+not generalised, not re-projected — a straight copy, renamed only at the layer level. Verified
+against the sources after the build: feature counts, total bounds and field lists all match to
+the last feature (see the table).
+
+| Layer | Features | Extent (W / S / E / N) | Source in `data/` |
+|---|---|---|---|
+| `geology_units_2011` | 1 485 | 2.40 / 4.30 / 14.68 / 13.90 | Geology/geology_units_map2011_pg |
+| `geology_unit_boundaries_2011` | 22 851 | 2.74 / 4.41 / 13.87 / 13.90 | Geology/geology_unit_boundaries_map2011_ln |
+| `geology_background_2023` | 305 | 2.48 / 4.27 / 14.70 / 13.92 | Geology/geology_background_map2023_pg |
+| `geology_faults_2011` | 11 638 | 2.67 / 4.27 / 14.68 / 13.90 | Geology/geology_faults_map2011_ln |
+| `minerals_occurrences_2023` | 1 547 | 2.73 / 4.48 / 14.11 / 13.87 | Mineral resources/minerals_occurrences_map2023_pt |
+| `water_areas` | 1 186 | 2.71 / 4.28 / 14.68 / 13.75 | Water/water_areas_diva_pg |
+| `water_lines` | 5 162 | 2.68 / 4.30 / 14.68 / 13.89 | Water/water_lines_diva_ln |
+| `water_major_rivers` | 2 | 3.60 / 4.30 / 12.90 / 11.69 | Water/water_rivers_major_wfp_ln |
+| `water_basins` | 83 | 2.50 / 4.00 / 15.00 / 14.00 | Water/water_basins_fao_pg |
+| `roads` | 4 708 | 2.68 / 4.53 / 14.65 / 13.87 | Transport/transport_roads_diva_ln |
+| `towns_osm` | 51 230 | 2.61 / 4.27 / 14.65 / 13.98 | Settlements/settlements_places_osm_pt |
+| `admin_states` | 38 | 2.67 / 4.27 / 14.68 / 13.89 | Administrative boundaries/admin_states_gadm_pg |
+| `admin_lgas` | 775 | 2.67 / 4.27 / 14.68 / 13.89 | Administrative boundaries/admin_lgas_gadm_pg |
+
+Rasters, also copied whole:
+
+| Layer | Size | Note |
+|---|---|---|
+| `MAP_GEOLOGY_2011` | 2998 × 2447 | **the 2011 Geological Map of Nigeria**, the printed map itself |
+| `MAP_MINERALS_2023` | 2745 × 2234 | **the 2023 Mineral Resources Map of Nigeria**, the printed map itself |
+| `ELEVATION_DEM` | 500 × 400 | SRTM for the whole country on its native 0.025° (≈2.8 km) grid, nodata −9999 |
+| `MAP_SHEET_LOKOJA` | 2160 × 1500 | the Lokoja sheet, georeferenced (the only localised raster) |
+| `MAP_SHEET_LOKOJA_UNLABELLED` | 2160 × 1500 | the same, all lettering removed |
+
+The three "map" rasters are the whole-country sheets — a 40 × 28 px thumbnail when clipped to
+Lokoja, which is why the earlier package carried only their vector form. Here they are complete
+and usable.
+
+The only localised content in the file is the Lokoja sheet trio (`map_extent`,
+`sheet_rivers`, `sheet_roads`) and its two rasters — kept because they are the sheet product,
+not as a statement about the national layers. **The national layers are not clipped to them.**
+
+**Not included** (not asked for, and would have added 10 MB of geometry): `admin_wards`,
+`builtup_areas` (`settlements_extents_grid3_pg`), `roads_map2023`. Say the word and they go in
+on the same terms — complete and unclipped.
+
+---
+
+## 3. How the sheet was georeferenced
 
 The sheet carries its own graticule, so it was fitted from that — not estimated by eye.
 
@@ -69,10 +127,11 @@ The sheet carries its own graticule, so it was fitted from that — not estimate
 
 ---
 
-## 3. What is inside the GeoPackage
+## 4. What is inside the Lokoja GeoPackage (the local product)
 
 Open `Lokoja_map_and_data.gpkg` in QGIS/ArcGIS Pro (drag and drop, or *Add vector/raster layer*).
-All vectors are **EPSG:4326**, clipped to the sheet extent. The `layer_catalogue` table lists
+All vectors are **EPSG:4326**, clipped to the sheet extent — this file is the *local* companion
+to `Nigeria_map_and_data.gpkg`, kept for sheet work at 1:~2 000 000 detail. The `layer_catalogue` table lists
 every layer with its source file and a note.
 
 ### Rasters (3)
@@ -124,7 +183,7 @@ nothing. The vector layers are the usable form of the same maps.
 
 ---
 
-## 3a. Alignment and coordination — everything shares one footprint
+## 4a. Alignment and coordination — everything shares one footprint
 
 Everything in the package is on **one frame**, not four different ones:
 
@@ -154,7 +213,7 @@ have moved the sheet ~0.5 km and stretched it 1.5 %, which contradicts the print
 Where you need exact overlay, use the `sheet_*` layers; where you need national datasets, use
 the repository layers and expect their own error.
 
-## 3b. Repository update of 2026-11-09 — what it did and did not change here
+## 4b. Repository update of 2026-11-09 — what it did and did not change here
 
 The repository moved from `31dba92` to `a479c0b` (PR #11, "assign real geology to unclassified
 legend entries"). That work fills in formation / series / epoch / colour for **six `UNCL_*`
@@ -177,7 +236,7 @@ along the Niger–Benue floodplain. The 2011 dataset carries **no fault line ins
 the two nearest mapped faults are 4–10 km outside (see the right-hand panel of
 `lokoja_geology_preview.png`).
 
-## 4. How the pictures were made (so you can redo it)
+## 5. How the pictures were made (so you can redo it)
 
 1. **Enlarge** 4× with Lanczos, paper-white clean-up of the JPEG haze, unsharp mask on the
    luminance channel only (so colours are not over-saturated), slight saturation lift, and a
@@ -195,7 +254,7 @@ the two nearest mapped faults are 4–10 km outside (see the right-hand panel of
 
 ---
 
-## 5. Things to be aware of
+## 6. Things to be aware of
 
 * The scan is small (685 × 429 px). The 4× version is sharper and easier to read, but it cannot
   invent detail that was not in the original; expect soft edges at 100 % zoom.
@@ -209,3 +268,7 @@ the two nearest mapped faults are 4–10 km outside (see the right-hand panel of
   but those lines lie outside the sheet and must be treated as context, not as sheet content.
 * Cross-border / whole-feature policy of the source repository is preserved: features are cut
   at the sheet extent, the underlying dataset is untouched in `data/`.
+* In `Nigeria_map_and_data.gpkg` the national layers carry the **accuracy of their sources**,
+  not more: DIVA roads ≈1:1 000 000, the 2011/2023 geology sheets ≈1:2 000 000, SRTM at 2.8 km,
+  OSM places as crowd-sourced. Nothing was warped to agree with anything else — that is the
+  point of shipping them unclipped.
