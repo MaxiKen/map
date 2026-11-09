@@ -586,6 +586,12 @@ def fold_legends(layers, out, lcfg):
                 continue
             ki = cols.index(key)
             extra = [c for c in cols if c not in (key, 'id') and c not in {f['name'] for f in owner.get('fields', [])}]
+            # Always carry geologic classification fields in legend props, even when
+            # they also exist on the owner layer (needed for legend-only entries
+            # that have no matching vector feature, e.g. unclassified map colours)
+            for c in ('formation', 'series', 'epoch', 'legend_colour'):
+                if c in cols and c not in extra:
+                    extra.append(c)
             classes = []
             lut = {}
             for r in rows:
