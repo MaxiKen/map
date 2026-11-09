@@ -1,6 +1,6 @@
-import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature } from './engine.js?v=a6bfa2f0c9';
-import { createLoadScheduler } from './loading.js?v=a6bfa2f0c9';
-import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=a6bfa2f0c9';
+import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature } from './engine.js?v=a6b3ea7e20';
+import { createLoadScheduler } from './loading.js?v=a6b3ea7e20';
+import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=a6b3ea7e20';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -54,6 +54,7 @@ const IC = {
   undo: '<path d="M4 10h9a5 5 0 0 1 0 10H8"/><path d="m8 6-4 4 4 4"/>',
   expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   hist: '<path d="M4 20V8M9 20V4M14 20v-6M19 20v-9M2 20h20"/>',
+  calc: '<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z"/><path d="M9 10h6M9 14h6M15 8v8"/>',
 };
 const icon = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
 const KIND_LABEL = { point: 'Points', line: 'Lines', polygon: 'Polygons', raster: 'Raster', image: 'Picture', table: 'Table' };
@@ -1093,6 +1094,9 @@ const TOOL_GROUPS = {
     ['stats', 'chart', 'Layer statistics', 'Totals, averages and a chart'],
     ['chart', 'hist', 'Compare fields', 'Histogram of any numeric column'],
     ['table', 'table', 'Attribute table', 'Browse, sort and search rows'],
+    ['fieldcalc', 'calc', 'Field Calculator', 'Calculate new attribute fields'],
+    ['selectattr', 'filter', 'Select by Attribute', 'Select features by attribute values'],
+    ['colmanage', 'view', 'Column Manager', 'Show/hide table columns'],
     ['labels', 'tag', 'Feature labels', 'Write a field on the map'],
     ['zoomlayer', 'zoom', 'Zoom to a layer', 'Fit a whole layer on screen'],
     ['shot', 'camera', 'Save map picture', 'Download the screen as a PNG'],
@@ -1164,6 +1168,9 @@ function runTool(t) {
     case 'import': toolImport(); break;
     case 'export': toolExport(); break;
     case 'table': toolTable(); break;
+    case 'fieldcalc': toolFieldCalc(); break;
+    case 'selectattr': toolSelectAttr(); break;
+    case 'colmanage': toolColManage(); break;
     case 'bearing': toolBearing(); break;
     case 'savelabels': openSheet('tools'); renderAnnotations(); toast('Labels are listed under “Labels you placed”'); break;
     case 'reset': resetWork(); break;
@@ -3228,6 +3235,9 @@ async function openTable(id) {
   let shown = 300, q = '', mapFilterActive = false;
   const textFields = (m.fields || []).filter((f) => f.type === 'text');
   const labelField = m.labelField || (textFields[0] && textFields[0].name);
+  const colVis = getColVis(id);
+  const visCols = cols.filter((c) => colVis ? colVis[c] !== false : true);
+  const visColIdx = cols.map((c, i) => [c, i]).filter(([c]) => visCols.includes(c)).map(([, i]) => i);
   const draw = () => {
     const filt = q ? rows.filter((r) => r.some((v) => String(v).toLowerCase().includes(q))) : rows;
     const mapBtn = mapFilterActive
@@ -3235,7 +3245,7 @@ async function openTable(id) {
       : (filt.length && filt.length < rows.length && labelField
         ? '<button class="btn primary" id="tm-mapon">' + icon('crop') + ' Show only ' + filt.length + ' matching row' + (filt.length === 1 ? '' : 's') + ' on map</button>'
         : '');
-    $('#tm-body').innerHTML = '<table><thead><tr>' + cols.map((c) => '<th>' + esc(labels[c] || extra[c] || c.replace(/_/g, ' ')) + '</th>').join('') + '</tr></thead><tbody>' + filt.slice(0, shown).map((r) => '<tr>' + r.map((v) => '<td title="' + esc(v) + '">' + esc(typeof v === 'number' ? fmtNum(v) : v) + '</td>').join('') + '</tr>').join('') + '</tbody></table>' +
+    $('#tm-body').innerHTML = '<table><thead><tr>' + visCols.map((c) => '<th>' + esc(labels[c] || extra[c] || c.replace(/_/g, ' ')) + '</th>').join('') + '</tr></thead><tbody>' + filt.slice(0, shown).map((r) => '<tr>' + visColIdx.map((i) => '<td title="' + esc(r[i]) + '">' + esc(typeof r[i] === 'number' ? fmtNum(r[i]) : r[i]) + '</td>').join('') + '</tr>').join('') + '</tbody></table>' +
       '<div class="muted" style="padding:8px 12px;display:flex;justify-content:space-between;align-items:center">' + filt.length.toLocaleString() + ' rows' + (filt.length > shown ? ' (showing ' + shown + ')' : '') + (mapBtn ? ' <span style="font-size:11px;color:var(--muted)">·</span> ' + mapBtn : '') + '</div>' +
       (filt.length > shown ? '<button class="more">Show more</button>' : '');
     const mb = $('#tm-body .more'); if (mb) mb.onclick = () => { shown += 400; draw(); };
@@ -3260,6 +3270,190 @@ async function openTable(id) {
   draw();
 }
 $('#tm-close').onclick = () => { $('#tablemodal').hidden = true; };
+$('#tm-cols').onclick = () => { toolColManage(); };
+
+// ---------------------------------------------------------------- data table & attribute tools
+
+// Column visibility state per layer (localStorage only)
+function colVisKey(id) { return 'nwg.colvis_' + id; }
+function getColVis(id) {
+  try { return JSON.parse(localStorage.getItem(colVisKey(id)) || 'null'); } catch { return null; }
+}
+function setColVis(id, vis) { localStorage.setItem(colVisKey(id), JSON.stringify(vis)); }
+
+// ---- Column Manager tool ----
+function toolColManage() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.fields) vecLayers.push([id, st]); }
+  if (!vecLayers.length) { toast('No vector layer with attributes loaded'); return; }
+  openModal('Column Manager', (body) => {
+    body.innerHTML = '<p>Choose which columns show in the attribute table. Hidden columns are still used for filtering and symbology.</p>' +
+      '<div class="frow"><label>Layer</label><select id="cm-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div id="cm-cols" style="max-height:300px;overflow-y:auto;border:1px solid var(--line);border-radius:6px;padding:8px"></div>' +
+      '<div class="frow act" style="margin-top:10px"><button class="btn primary" id="cm-apply">' + icon('view') + ' Apply to table</button></div>';
+    const layerSel = body.querySelector('#cm-layer');
+    const colsDiv = body.querySelector('#cm-cols');
+    let currentCols = [], currentVis = {};
+    function renderCols() {
+      const st = L.get(layerSel.value);
+      if (!st || !st.meta.fields) return;
+      currentCols = st.meta.fields.map((f) => f.name);
+      currentVis = getColVis(layerSel.value) || {};
+      colsDiv.innerHTML = currentCols.map((c) => {
+        const checked = currentVis[c] !== false ? 'checked' : '';
+        return '<label style="display:flex;align-items:center;gap:8px;padding:4px 0"><input type="checkbox" ' + checked + ' data-col="' + esc(c) + '"><b>' + esc(c) + '</b></label>';
+      }).join('');
+      colsDiv.querySelectorAll('input').forEach((cb) => {
+        cb.onchange = () => { currentVis[cb.dataset.col] = cb.checked; };
+      });
+    }
+    layerSel.onchange = renderCols;
+    renderCols();
+    body.querySelector('#cm-apply').onclick = () => {
+      setColVis(layerSel.value, currentVis);
+      toast('Column visibility saved for ' + L.get(layerSel.value).meta.label);
+    };
+  });
+}
+
+// ---- Select by Attribute tool ----
+function toolSelectAttr() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.fields) vecLayers.push([id, st]); }
+  if (!vecLayers.length) { toast('No vector layer with attributes loaded'); return; }
+  openModal('Select by Attribute', (body) => {
+    body.innerHTML = '<p>Select features by matching attribute values. Results are highlighted on the map only — no data is exported.</p>' +
+      '<div class="frow"><label>Layer</label><select id="sa-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Field</label><select id="sa-field"></select></div>' +
+      '<div class="frow"><label>Operator</label><select id="sa-op">' +
+        '<option value="=">= (equals)</option>' +
+        '<option value="!=">≠ (not equals)</option>' +
+        '<option value=">">&gt; (greater than)</option>' +
+        '<option value="<">&lt; (less than)</option>' +
+        '<option value=">=">&gt;= (greater or equal)</option>' +
+        '<option value="<=">&lt;= (less or equal)</option>' +
+        '<option value="like">LIKE (contains text)</option>' +
+        '<option value="in">IN (one of several values)</option>' +
+      '</select></div>' +
+      '<div class="frow"><label>Value</label><input id="sa-value" type="text" placeholder="e.g. 5 or Forest"></div>' +
+      '<div class="frow act"><button class="btn primary" id="sa-run">' + icon('query') + ' Select Features</button></div>' +
+      '<div id="sa-result" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#sa-layer');
+    const fieldSel = body.querySelector('#sa-field');
+    const opSel = body.querySelector('#sa-op');
+    const valSel = body.querySelector('#sa-value');
+    const resultDiv = body.querySelector('#sa-result');
+    layerSel.onchange = () => {
+      const st = L.get(layerSel.value);
+      fieldSel.innerHTML = (st.meta.fields || []).map((f) => '<option value="' + esc(f.name) + '">' + esc(f.label || f.name) + '</option>').join('');
+      resultDiv.innerHTML = '';
+    };
+    layerSel.onchange();
+    opSel.onchange = () => {
+      valSel.placeholder = opSel.value === 'in' ? 'e.g. A, B, C' : 'e.g. 5 or Forest';
+    };
+    body.querySelector('#sa-run').onclick = () => {
+      const st = L.get(layerSel.value);
+      const field = fieldSel.value;
+      const op = opSel.value;
+      const raw = valSel.value.trim();
+      if (!field || !raw) { toast('Pick a field and enter a value'); return; }
+      if (!st.obj) { toast('Layer not loaded'); return; }
+      const vals = op === 'in' ? raw.split(',').map((v) => v.trim()).filter(Boolean) : [raw];
+      let matches = 0;
+      for (const f of st.obj.features) {
+        const v = f.props[field];
+        let hit = false;
+        if (op === '=') hit = v == vals[0];
+        else if (op === '!=') hit = v != vals[0];
+        else if (op === '>') hit = +v > +vals[0];
+        else if (op === '<') hit = +v < +vals[0];
+        else if (op === '>=') hit = +v >= +vals[0];
+        else if (op === '<=') hit = +v <= +vals[0];
+        else if (op === 'like') hit = String(v != null ? v : '').toLowerCase().includes(String(vals[0]).toLowerCase());
+        else if (op === 'in') hit = vals.some((x) => v != null && String(v) === String(x));
+        f._sel = hit;
+        if (hit) matches++;
+      }
+      // Highlight selected features on map
+      st.selColor = '#ffd400';
+      map.render();
+      resultDiv.innerHTML = '<p style="color:var(--ok)"><b>' + matches + '</b> feature' + (matches === 1 ? '' : 's') + ' selected.</p>' +
+        '<button class="btn" id="sa-clear">' + icon('eyeoff') + ' Clear selection</button>';
+      body.querySelector('#sa-clear').onclick = () => {
+        for (const f of st.obj.features) delete f._sel;
+        map.render();
+        resultDiv.innerHTML = '';
+        toast('Selection cleared');
+      };
+      toast(matches + ' feature' + (matches === 1 ? '' : 's') + ' selected on ' + st.meta.label);
+    };
+  });
+}
+
+// ---- Field Calculator tool ----
+function toolFieldCalc() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.fields) vecLayers.push([id, st]); }
+  if (!vecLayers.length) { toast('No vector layer with attributes loaded'); return; }
+  openModal('Field Calculator', (body) => {
+    body.innerHTML = '<p>Calculate a new attribute field from existing fields. Stored in memory only — shown on map and PNG, never exported as data.</p>' +
+      '<div class="frow"><label>Layer</label><select id="fc-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>New field name</label><input id="fc-name" type="text" placeholder="e.g. area_km2"></div>' +
+      '<div class="frow"><label>Expression</label><input id="fc-expr" type="text" placeholder="e.g. POP * 1000 / AREA"></div>' +
+      '<div class="frow" style="font-size:11px;color:var(--muted)">Supports: field names, + - * /, and Math functions. Fields: <span id="fc-fields"></span></div>' +
+      '<div class="frow act"><button class="btn primary" id="fc-run">' + icon('calc') + ' Calculate Field</button></div>' +
+      '<div id="fc-result" style="margin-top:10px"></div>';
+    const layerSel = body.querySelector('#fc-layer');
+    const nameSel = body.querySelector('#fc-name');
+    const exprSel = body.querySelector('#fc-expr');
+    const fieldsDiv = body.querySelector('#fc-fields');
+    const resultDiv = body.querySelector('#fc-result');
+    layerSel.onchange = () => {
+      const st = L.get(layerSel.value);
+      fieldsDiv.textContent = (st.meta.fields || []).map((f) => f.name).join(', ');
+    };
+    layerSel.onchange();
+    body.querySelector('#fc-run').onclick = () => {
+      const st = L.get(layerSel.value);
+      const fname = nameSel.value.trim();
+      const expr = exprSel.value.trim();
+      if (!fname || !expr) { toast('Enter field name and expression'); return; }
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(fname)) { toast('Invalid field name (letters, numbers, underscore)'); return; }
+      if (!st.obj) { toast('Layer not loaded'); return; }
+      // Build safe evaluation context from feature props
+      const fields = (st.meta.fields || []).map((f) => f.name);
+      let calcCount = 0;
+      for (const f of st.obj.features) {
+        const ctx = {};
+        for (const field of fields) ctx[field] = f.props[field];
+        // Allow Math functions
+        const safeCtx = { ...ctx, Math, abs: Math.abs, round: Math.round, floor: Math.floor, ceil: Math.ceil, sqrt: Math.sqrt, min: Math.min, max: Math.max };
+        try {
+          const val = new Function(...Object.keys(safeCtx), 'return ' + expr + ';')(...Object.values(safeCtx));
+          if (typeof val === 'number' && isFinite(val)) {
+            f.props[fname] = val;
+            calcCount++;
+          }
+        } catch { /* skip feature on expression error */ }
+      }
+      // Add field to meta if not already
+      if (!st.meta.fields.some((f) => f.name === fname)) {
+        st.meta.fields.push({ name: fname, label: fname, type: 'number' });
+      }
+      resultDiv.innerHTML = '<p style="color:var(--ok)"><b>' + calcCount + '</b> feature' + (calcCount === 1 ? '' : 's') + ' calculated.</p>' +
+        '<button class="btn" id="fc-clear">' + icon('trash') + ' Remove field</button>';
+      body.querySelector('#fc-clear').onclick = () => {
+        for (const f of st.obj.features) delete f.props[fname];
+        st.meta.fields = st.meta.fields.filter((f) => f.name !== fname);
+        resultDiv.innerHTML = '';
+        toast('Field removed');
+      };
+      toast('Calculated ' + fname + ' for ' + calcCount + ' feature' + (calcCount === 1 ? '' : 's'));
+      map.render();
+    };
+  });
+}
 
 // ---------------------------------------------------------------- view, hash, project
 let hashT;
