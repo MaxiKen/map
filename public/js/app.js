@@ -1,6 +1,6 @@
-import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature } from './engine.js?v=3c0128eebe';
-import { createLoadScheduler } from './loading.js?v=3c0128eebe';
-import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=3c0128eebe';
+import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature } from './engine.js?v=9f5fcff703';
+import { createLoadScheduler } from './loading.js?v=9f5fcff703';
+import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=9f5fcff703';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -64,6 +64,7 @@ let catalog = null;
 let qualityLayerId = null;
 const L = new Map();          // id -> { meta, on, opacity, loading, obj, sym, labels, filter, reclass, stats }
 const stack = [];             // visible layer ids, bottom -> top (last switched on is on top)
+const analysisLayers = [];  // temporary spatial-analysis layers drawn on the map
 let baseOrder = [];           // every layer id in list order
 const expanded = new Set();
 let annotations = [];         // labels placed on the map
@@ -1071,6 +1072,16 @@ const TOOL_GROUPS = {
     ['filter', 'filter', 'Filter features', 'Show only the rows that match'],
     ['reclass', 'sliders', 'Group into classes', 'Reclassify and recolour a numeric field'],
   ],
+  analyse: [
+    ['buffer', 'target', 'Buffer / Proximity', 'Find features within a distance of another layer'],
+    ['intersect', 'query', 'Intersect / Overlay', 'Find where two polygon layers overlap'],
+    ['nearest', 'compass', 'Nearest Neighbor', 'Match each feature to its closest feature in another layer'],
+    ['dissolve', 'merge', 'Dissolve / Merge', 'Merge polygons sharing the same attribute'],
+    ['count', 'table', 'Count Points in Polygons', 'Tally point features inside each polygon'],
+    ['hull', 'polygon', 'Convex Hull', 'Smallest convex boundary around selected points'],
+    ['simplify', 'sliders', 'Simplify Geometry', 'Reduce vertices while preserving shape'],
+    ['zonal', 'chart', 'Zonal Statistics', 'Summarize raster values within polygons']
+  ],
   navigate: [
     ['measure-dist', 'ruler', 'Measure distance', 'Tap along a line to total the km'],
     ['measure-area', 'area', 'Measure area', 'Tap a shape to get km² and edge'],
@@ -1154,6 +1165,14 @@ function runTool(t) {
     case 'query': toolQuery(); break;
     case 'aoi': toolAoi(); break;
     case 'chart': toolChart(); break;
+    case 'buffer': toolBuffer(); break;
+    case 'intersect': toolIntersect(); break;
+    case 'nearest': toolNearest(); break;
+    case 'dissolve': toolDissolve(); break;
+    case 'count': toolCount(); break;
+    case 'hull': toolHull(); break;
+    case 'simplify': toolSimplify(); break;
+    case 'zonal': toolZonal(); break;
     case 'resetview': resetView(); break;
     case 'fullscreen': toggleFullscreen(); break;
   }
@@ -2250,6 +2269,402 @@ function toolChart(preferred) {
   });
 }
 
+
+// ------------------------------------------------ spatial analysis tools
+
+function clearAnalysisLayers() {
+  for (const lyr of analysisLayers) map.removeLayer(lyr.id);
+  analysisLayers.length = 0;
+  map.render();
+}
+
+function addAnalysisLayer(features, kind, label, color) {
+  clearAnalysisLayers();
+  const id = 'analysis_' + Date.now().toString(36);
+  const obj = { id, kind, visible: true, opacity: 0.8, order: 99999, features, labels: null, sym: { fill: color || '#0b6b45', stroke: '#0b6b45', strokeWidth: 1, fillOpacity: 0.4, dash: 'solid', pointSize: 4, pointShape: 'circle' } };
+  map.addLayer(obj);
+  analysisLayers.push(obj);
+  return obj;
+}
+
+function analysisResultModal(title, html) {
+  openModal(title, (body) => {
+    body.innerHTML = html + '<div class="frow act" style="justify-content:stretch"><button class="btn primary" id="an-png">' + icon('camera') + ' Download Picture (PNG)</button><button class="btn" id="an-clear">' + icon('trash') + ' Clear from Map</button></div>';
+    body.querySelector('#an-png').onclick = () => { closeModal(); exportMapImage(); };
+    body.querySelector('#an-clear').onclick = () => { closeModal(); clearAnalysisLayers(); toast('Analysis cleared'); };
+  });
+}
+
+// ---- Buffer / Proximity ----
+function toolBuffer() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && ['polygon','line','point'].includes(st.meta.kind)) vecLayers.push([id, st]); }
+  openModal('Buffer / Proximity', (body) => {
+    body.innerHTML = '<p>Create a buffer zone around features of one layer, then list features from another layer that fall inside it.</p>' +
+      '<div class="frow"><label>Source layer</label><select id="bf-src">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Buffer distance (km)</label><input id="bf-dist" type="number" min="0.1" step="0.1" value="5"></div>' +
+      '<div class="frow"><label>Check features from layer</label><select id="bf-check">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="bf-run">' + icon('target') + ' Run Buffer Analysis</button></div>';
+    body.querySelector('#bf-run').onclick = async () => {
+      const srcId = body.querySelector('#bf-src').value;
+      const distKm = +body.querySelector('#bf-dist').value;
+      const checkId = body.querySelector('#bf-check').value;
+      if (!srcId || !distKm || distKm <= 0) { toast('Enter a valid distance'); return; }
+      const srcSt = L.get(srcId), checkSt = L.get(checkId);
+      if (!srcSt.obj) await loadLayer(srcSt);
+      if (!checkSt.obj) await loadLayer(checkSt);
+      closeModal();
+      const distM = distKm * 1000;
+      const buffered = [];
+      for (const f of srcSt.obj.features) {
+        if (f.hidden) continue;
+        buffered.push(bufferFeature(f, distM));
+      }
+      const hits = [];
+      for (const f of checkSt.obj.features) {
+        if (f.hidden) continue;
+        for (const b of buffered) {
+          const br = b.parts[0] && b.parts[0][0];
+          if (br && polyOverlapsPoly(f.type === 'poly' ? f.parts : f.parts, [br])) {
+            hits.push(f); break;
+          }
+        }
+      }
+      addAnalysisLayer(buffered, 'polygon', 'Buffer ' + distKm + ' km', '#0b6b45');
+      const html = '<p class="hint">Buffer: <b>' + esc(srcSt.meta.label) + '</b> at <b>' + distKm + ' km</b> radius.</p>' +
+        '<p>Features in <b>' + esc(checkSt.meta.label) + '</b> inside the buffer: <b>' + hits.length + '</b></p>' +
+        '<p class="muted">Results are shown on the map only. Use the camera button to download a PNG picture.</p>';
+      analysisResultModal('Buffer Result', html);
+      if (buffered.length) {
+        const bb = buffered.reduce((acc, b) => { const b2 = b.bb; return [Math.min(acc[0], b2[0]), Math.min(acc[1], b2[1]), Math.max(acc[2], b2[2]), Math.max(acc[3], b2[3])] }, [1e9, 1e9, -1e9, -1e9]);
+        map.fitBounds(bb, 40);
+      }
+    };
+  });
+}
+
+// ---- Intersect / Overlay ----
+function toolIntersect() {
+  const polyLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'polygon') polyLayers.push([id, st]); }
+  openModal('Intersect / Overlay', (body) => {
+    if (polyLayers.length < 2) { body.innerHTML = '<p class="empty">Need at least two polygon layers switched on.</p>'; return; }
+    body.innerHTML = '<p>Find the geometric overlap between two polygon layers. Only the intersecting areas are shown.</p>' +
+      '<div class="frow"><label>Layer A</label><select id="ig-a">' + polyLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Layer B</label><select id="ig-b">' + polyLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="ig-run">' + icon('query') + ' Run Intersection</button></div>';
+    body.querySelector('#ig-run').onclick = async () => {
+      const aId = body.querySelector('#ig-a').value;
+      const bId = body.querySelector('#ig-b').value;
+      if (!aId || !bId || aId === bId) { toast('Pick two different layers'); return; }
+      const aSt = L.get(aId), bSt = L.get(bId);
+      if (!aSt.obj) await loadLayer(aSt);
+      if (!bSt.obj) await loadLayer(bSt);
+      closeModal();
+      const results = [];
+      for (const fA of aSt.obj.features) {
+        if (fA.hidden) continue;
+        for (const fB of bSt.obj.features) {
+          if (fB.hidden) continue;
+          const inter = intersectPolyPoly(fA, fB);
+          for (const ring of inter) {
+            results.push({ ...fA, parts: [[ring]], fill: bSt.sym.fill || '#a83232' });
+          }
+        }
+      }
+      addAnalysisLayer(results, 'polygon', 'Intersection', '#a83232');
+      const html = '<p class="hint">Intersection: <b>' + esc(aSt.meta.label) + '</b> ∩ <b>' + esc(bSt.meta.label) + '</b>.</p>' +
+        '<p>Overlapping polygon parts: <b>' + results.length + '</b></p>' +
+        '<p class="muted">Results are shown on the map only. Use the camera button to download a PNG picture.</p>';
+      analysisResultModal('Intersection Result', html);
+      if (results.length) {
+        const bb = results.reduce((acc, r) => { const b = r.bb; return [Math.min(acc[0], b[0]), Math.min(acc[1], b[1]), Math.max(acc[2], b[2]), Math.max(acc[3], b[3])] }, [1e9, 1e9, -1e9, -1e9]);
+        map.fitBounds(bb, 40);
+      } else {
+        toast('No overlapping areas found');
+      }
+    };
+  });
+}
+
+// ---- Nearest Neighbor ----
+function toolNearest() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && ['polygon','line','point'].includes(st.meta.kind)) vecLayers.push([id, st]); }
+  openModal('Nearest Neighbor', (body) => {
+    body.innerHTML = '<p>For each feature in layer A, find the closest feature in layer B and draw a connector line.</p>' +
+      '<div class="frow"><label>Source layer (A)</label><select id="nn-a">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Target layer (B)</label><select id="nn-b">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Max results</label><input id="nn-max" type="number" min="1" max="500" value="50"></div>' +
+      '<div class="frow act"><button class="btn primary" id="nn-run">' + icon('compass') + ' Find Nearest Neighbors</button></div>';
+    body.querySelector('#nn-run').onclick = async () => {
+      const aId = body.querySelector('#nn-a').value;
+      const bId = body.querySelector('#nn-b').value;
+      const maxN = +body.querySelector('#nn-max').value || 50;
+      if (!aId || !bId || aId === bId) { toast('Pick two different layers'); return; }
+      const aSt = L.get(aId), bSt = L.get(bId);
+      if (!aSt.obj) await loadLayer(aSt);
+      if (!bSt.obj) await loadLayer(bSt);
+      closeModal();
+      const connectors = [];
+      const summary = [];
+      let count = 0;
+      for (const fA of aSt.obj.features) {
+        if (fA.hidden || count >= maxN) continue;
+        const cA = featureCentroid(fA);
+        let bestF = null, bestD = 1e9;
+        for (const fB of bSt.obj.features) {
+          if (fB.hidden) continue;
+          const cB = featureCentroid(fB);
+          const d = haversineMerc(cA[0], cA[1], cB[0], cB[1]);
+          if (d < bestD) { bestD = d; bestF = fB; }
+        }
+        if (bestF) {
+          const cB = featureCentroid(bestF);
+          connectors.push({ type: 'line', parts: [[cA[0], cA[1], cB[0], cB[1]]], fill: '#0b6b45', stroke: '#0b6b45', idx: count, props: { from: titleOf(aSt.obj, fA), to: titleOf(bSt.obj, bestF), dist_km: bestD.toFixed(2) } });
+          summary.push({ from: titleOf(aSt.obj, fA), to: titleOf(bSt.obj, bestF), dist: bestD });
+          count++;
+        }
+      }
+      addAnalysisLayer(connectors, 'line', 'Nearest connectors', '#0b6b45');
+      const avg = summary.length ? (summary.reduce((s, r) => s + r.dist, 0) / summary.length).toFixed(2) : '0';
+      const html = '<p class="hint">Nearest Neighbor: <b>' + esc(aSt.meta.label) + '</b> → <b>' + esc(bSt.meta.label) + '</b>.</p>' +
+        '<p>Connections made: <b>' + count + '</b> · Average distance: <b>' + avg + ' km</b></p>' +
+        '<table class="mini"><tr><th>From</th><th>To</th><th>Distance (km)</th></tr>' +
+        summary.slice(0, 15).map((r) => '<tr><td>' + esc(r.from) + '</td><td>' + esc(r.to) + '</td><td>' + r.dist + '</td></tr>').join('') +
+        '</table>' +
+        '<p class="muted">Results are shown on the map only. Use the camera button to download a PNG picture.</p>';
+      analysisResultModal('Nearest Neighbor Result', html);
+    };
+  });
+}
+
+// ---- Dissolve / Merge ----
+function toolDissolve() {
+  const polyLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'polygon') polyLayers.push([id, st]); }
+  openModal('Dissolve / Merge', (body) => {
+    body.innerHTML = '<p>Merge polygons that share the same attribute value into a single multi-polygon.</p>' +
+      '<div class="frow"><label>Layer to dissolve</label><select id="ds-layer">' + polyLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Dissolve field</label><select id="ds-field"></select></div>' +
+      '<div class="frow act"><button class="btn primary" id="ds-run">' + icon('merge') + ' Run Dissolve</button></div>';
+    const layerSel = body.querySelector('#ds-layer');
+    const fieldSel = body.querySelector('#ds-field');
+    layerSel.onchange = () => {
+      const st = L.get(layerSel.value);
+      fieldSel.innerHTML = (st?.meta.fields || []).map((f) => '<option value="' + esc(f.name) + '">' + esc(f.label || f.name) + '</option>').join('');
+    };
+    layerSel.onchange();
+    body.querySelector('#ds-run').onclick = async () => {
+      const st = L.get(layerSel.value);
+      const field = fieldSel.value;
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const groups = new Map();
+      for (const f of st.obj.features) {
+        if (f.hidden) continue;
+        const key = String(f.props[field] ?? '');
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(f);
+      }
+      const dissolved = [];
+      let idx = 0;
+      for (const [key, feats] of groups) {
+        const allRings = [];
+        for (const f of feats) for (const poly of f.parts) for (const ring of poly) {
+          const pts = [];
+          for (let i = 0; i < ring.length; i += 2) pts.push([ring[i], ring[i + 1]]);
+          allRings.push(pts);
+        }
+        const flatPts = allRings.flat();
+        const hullRing = convexHullPoints(flatPts);
+        if (hullRing) dissolved.push({ type: 'poly', parts: [[hullRing]], fill: '#7a4b00', stroke: '#7a4b00', idx: idx++, props: { [field]: key, dissolved_count: feats.length } });
+      }
+      addAnalysisLayer(dissolved, 'polygon', 'Dissolved: ' + field, '#7a4b00');
+      const html = '<p class="hint">Dissolve: <b>' + esc(st.meta.label) + '</b> by <b>' + esc(field) + '</b>.</p>' +
+        '<p>Resulting merged polygons: <b>' + dissolved.length + '</b></p>' +
+        '<table class="mini"><tr><th>' + esc(field) + '</th><th>Features merged</th></tr>' +
+        [...groups.entries()].map(([k, fs]) => '<tr><td>' + esc(k) + '</td><td>' + fs.length + '</td></tr>').join('') +
+        '</table>' +
+        '<p class="muted">Results are shown on the map only. Use the camera button to download a PNG picture.</p>';
+      analysisResultModal('Dissolve Result', html);
+      if (dissolved.length) {
+        const bb = dissolved.reduce((acc, d) => { const b = d.bb; return [Math.min(acc[0], b[0]), Math.min(acc[1], b[1]), Math.max(acc[2], b[2]), Math.max(acc[3], b[3])] }, [1e9, 1e9, -1e9, -1e9]);
+        map.fitBounds(bb, 40);
+      }
+    };
+  });
+}
+
+// ---- Count Points in Polygons ----
+function toolCount() {
+  const polyLayers = [], pointLayers = [];
+  for (const id of stack) { const st = L.get(id); if (!st?.obj?.features) continue; if (st.meta.kind === 'polygon') polyLayers.push([id, st]); if (st.meta.kind === 'point') pointLayers.push([id, st]); }
+  openModal('Count Points in Polygons', (body) => {
+    if (!polyLayers.length || !pointLayers.length) { body.innerHTML = '<p class="empty">Need at least one polygon layer and one point layer switched on.</p>'; return; }
+    body.innerHTML = '<p>Count how many point features fall inside each polygon.</p>' +
+      '<div class="frow"><label>Polygon layer</label><select id="cp-poly">' + polyLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Point layer</label><select id="cp-pt">' + pointLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="cp-run">' + icon('table') + ' Count Points</button></div>';
+    body.querySelector('#cp-run').onclick = async () => {
+      const polyId = body.querySelector('#cp-poly').value;
+      const ptId = body.querySelector('#cp-pt').value;
+      const pSt = L.get(polyId), tSt = L.get(ptId);
+      if (!pSt.obj) await loadLayer(pSt);
+      if (!tSt.obj) await loadLayer(tSt);
+      closeModal();
+      const results = [];
+      let total = 0;
+      for (const f of pSt.obj.features) {
+        if (f.hidden) continue;
+        let n = 0;
+        for (const pf of tSt.obj.features) {
+          if (pf.hidden) continue;
+          const c = featureCentroid(pf);
+          let inside = false;
+          for (const poly of f.parts) for (const ring of poly) { if (pip2(c[0], c[1], [ring])) { inside = true; break; } }
+          if (inside) n++;
+        }
+        total += n;
+        results.push({ ...f, fill: '#0b6b45', props: { ...f.props, point_count: n } });
+      }
+      addAnalysisLayer(results, 'polygon', 'Point count', '#0b6b45');
+      const html = '<p class="hint">Count: <b>' + esc(tSt.meta.label) + '</b> points in <b>' + esc(pSt.meta.label) + '</b> polygons.</p>' +
+        '<p>Total points inside polygons: <b>' + total + '</b></p>' +
+        '<table class="mini"><tr><th>Polygon</th><th>Point count</th></tr>' +
+        results.map((r) => '<tr><td>' + esc(titleOf(pSt.obj, r)) + '</td><td><b>' + r.props.point_count + '</b></td></tr>').slice(0, 20).join('') +
+        '</table>' +
+        '<p class="muted">Results are shown on the map only. Use the camera button to download a PNG picture.</p>';
+      analysisResultModal('Point Count Result', html);
+      const bb = results.reduce((acc, r) => { const b = r.bb; return [Math.min(acc[0], b[0]), Math.min(acc[1], b[1]), Math.max(acc[2], b[2]), Math.max(acc[3], b[3])] }, [1e9, 1e9, -1e9, -1e9]);
+      map.fitBounds(bb, 40);
+    };
+  });
+}
+
+// ---- Convex Hull ----
+function toolHull() {
+  const ptLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'point') ptLayers.push([id, st]); }
+  openModal('Convex Hull', (body) => {
+    body.innerHTML = '<p>Draw the smallest convex boundary that encloses all points of a layer.</p>' +
+      '<div class="frow"><label>Point layer</label><select id="hu-layer">' + ptLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="hu-run">' + icon('polygon') + ' Create Convex Hull</button></div>';
+    body.querySelector('#hu-run').onclick = async () => {
+      const st = L.get(body.querySelector('#hu-layer').value);
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const pts = [];
+      for (const f of st.obj.features) {
+        if (f.hidden) continue;
+        const c = featureCentroid(f);
+        pts.push(c);
+      }
+      const ring = convexHullPoints(pts);
+      if (!ring) { toast('Not enough points for a hull'); return; }
+      const area = ringAreaKm2(pts.map(p => [unX(p[0]), unY(p[1])]));
+      addAnalysisLayer([{ type: 'poly', parts: [[ring]], fill: '#1e78ff', stroke: '#1e78ff', props: { hull_area_km2: area.toFixed(2) } }], 'polygon', 'Convex hull', '#1e78ff');
+      const html = '<p class="hint">Convex Hull: <b>' + esc(st.meta.label) + '</b>.</p>' +
+        '<p>Points enclosed: <b>' + pts.length + '</b> · Hull area: <b>' + area.toFixed(2) + ' km²</b></p>' +
+        '<p class="muted">Results are shown on the map only. Use the camera button to download a PNG picture.</p>';
+      analysisResultModal('Convex Hull Result', html);
+    };
+  });
+}
+
+// ---- Simplify Geometry ----
+function toolSimplify() {
+  const vecLayers = [];
+  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.kind === 'polygon') vecLayers.push([id, st]); }
+  openModal('Simplify Geometry', (body) => {
+    body.innerHTML = '<p>Reduce the vertex count of polygon boundaries while preserving overall shape (Douglas-Peucker).</p>' +
+      '<div class="frow"><label>Layer</label><select id="sy-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Tolerance (km)</label><input id="sy-tol" type="number" min="0.01" step="0.1" value="1"></div>' +
+      '<div class="frow act"><button class="btn primary" id="sy-run">' + icon('sliders') + ' Simplify</button></div>';
+    body.querySelector('#sy-run').onclick = async () => {
+      const st = L.get(body.querySelector('#sy-layer').value);
+      const tol = +body.querySelector('#sy-tol').value || 1;
+      if (!st.obj) await loadLayer(st);
+      closeModal();
+      const simplified = [];
+      let totalVerts = 0, newVerts = 0;
+      for (const f of st.obj.features) {
+        if (f.hidden) continue;
+        totalVerts += f.parts.reduce((s, p) => s + p.reduce((ss, r) => ss + r.length / 2, 0), 0);
+        const sf = simplifyFeature(f, tol);
+        newVerts += sf.parts.reduce((s, p) => s + p.reduce((ss, r) => ss + r.length / 2, 0), 0);
+        simplified.push(sf);
+      }
+      addAnalysisLayer(simplified, 'polygon', 'Simplified', '#34c27d');
+      const html = '<p class="hint">Simplify: <b>' + esc(st.meta.label) + '</b> at <b>' + tol + ' km</b> tolerance.</p>' +
+        '<p>Vertices: <b>' + totalVerts + '</b> → <b>' + newVerts + '</b> (' + ((1 - newVerts / Math.max(1, totalVerts)) * 100).toFixed(1) + '% reduction)</p>' +
+        '<p class="muted">Results are shown on the map only. Use the camera button to download a PNG picture.</p>';
+      analysisResultModal('Simplify Result', html);
+    };
+  });
+}
+
+// ---- Zonal Statistics ----
+function toolZonal() {
+  const polyLayers = [], rasterLayers = [];
+  for (const id of stack) { const st = L.get(id); if (!st?.obj) continue; if (st.meta.kind === 'polygon') polyLayers.push([id, st]); if (st.meta.kind === 'raster') rasterLayers.push([id, st]); }
+  openModal('Zonal Statistics', (body) => {
+    if (!polyLayers.length || !rasterLayers.length) { body.innerHTML = '<p class="empty">Need at least one polygon layer and one raster layer switched on.</p>'; return; }
+    body.innerHTML = '<p>Summarize raster cell values within each polygon (count, mean, min, max).</p>' +
+      '<div class="frow"><label>Polygon layer</label><select id="zn-poly">' + polyLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow"><label>Raster layer</label><select id="zn-raster">' + rasterLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
+      '<div class="frow act"><button class="btn primary" id="zn-run">' + icon('chart') + ' Compute Zonal Stats</button></div>';
+    body.querySelector('#zn-run').onclick = async () => {
+      const pSt = L.get(body.querySelector('#zn-poly').value);
+      const rSt = L.get(body.querySelector('#zn-raster').value);
+      if (!pSt.obj) await loadLayer(pSt);
+      if (!rSt.obj || !rSt.obj.vals) { try { await loadValues(rSt); } catch { toast('Could not load raster values'); return; } }
+      closeModal();
+      const o = rSt.obj.vals;
+      const { w, h, data, dtype, wb } = o;
+      const results = [];
+      for (const f of pSt.obj.features) {
+        if (f.hidden) continue;
+        let count = 0, sum = 0, min = 1e9, max = -1e9, valid = 0;
+        const step = Math.max(1, Math.floor(Math.sqrt((w * h) / 20000)));
+        for (let j = 0; j < h; j += step) {
+          for (let i = 0; i < w; i += step) {
+            const v = data[j * w + i];
+            if (dtype === 'i2' ? v === -32768 : !isFinite(v)) continue;
+            const wx = wb[0] + (i + step / 2) / w * (wb[2] - wb[0]);
+            const wy = wb[1] + (j + step / 2) / h * (wb[3] - wb[1]);
+            let inside = false;
+            for (const poly of f.parts) for (const ring of poly) { if (pip2(wx, wy, [ring])) { inside = true; break; } }
+            if (inside) {
+              count++;
+              valid++;
+              sum += v;
+              if (v < min) min = v;
+              if (v > max) max = v;
+            }
+          }
+        }
+        if (valid > 0) {
+          results.push({ ...f, fill: '#a83232', props: { ...f.props, zn_count: count, zn_mean: (sum / valid).toFixed(2), zn_min: min.toFixed(2), zn_max: max.toFixed(2) } });
+        }
+      }
+      addAnalysisLayer(results, 'polygon', 'Zonal stats', '#a83232');
+      const html = '<p class="hint">Zonal Statistics: <b>' + esc(rSt.meta.label) + '</b> within <b>' + esc(pSt.meta.label) + '</b>.</p>' +
+        '<p>Polygons with valid data: <b>' + results.length + '</b></p>' +
+        '<table class="mini"><tr><th>Polygon</th><th>Cells</th><th>Mean</th><th>Min</th><th>Max</th></tr>' +
+        results.map((r) => '<tr><td>' + esc(titleOf(pSt.obj, r)) + '</td><td>' + r.props.zn_count + '</td><td>' + r.props.zn_mean + '</td><td>' + r.props.zn_min + '</td><td>' + r.props.zn_max + '</td></tr>').slice(0, 15).join('') +
+        '</table>' +
+        '<p class="muted">Results are shown on the map only. Use the camera button to download a PNG picture.</p>';
+      analysisResultModal('Zonal Statistics Result', html);
+      if (results.length) {
+        const bb = results.reduce((acc, r) => { const b = r.bb; return [Math.min(acc[0], b[0]), Math.min(acc[1], b[1]), Math.max(acc[2], b[2]), Math.max(acc[3], b[3])] }, [1e9, 1e9, -1e9, -1e9]);
+        map.fitBounds(bb, 40);
+      }
+    };
+  });
+}
+
+
 // ------------------------------------------------ view: reset, full screen, back
 function resetView() {
   stopFocus();
@@ -2709,6 +3124,8 @@ window.__nwg = {
   setFocus, stopFocus, focusFromLonLat, focusFromRect, focusFromFeature, focusAreaKm2, focusPerimeterKm,
   startDraw, endDraw, startPick, toolClip, toolAoi, toolQuery, runQuery, toolChart, resetView, toggleFullscreen,
   get viewHist() { return viewHist; }, goBack, onView,
+  clearAnalysisLayers,
+  get analysisLayers() { return analysisLayers; }
 };
 
 start();

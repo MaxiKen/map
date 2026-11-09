@@ -644,6 +644,297 @@ function distLine(x, y, a) {
   return best;
 }
 
+// ------------------------------------------------------------------ spatial analysis geometry helpers
+
+// Meters to degrees at a given latitude (Web-Mercator local approximation).
+export function metersToDegLon(m, lat) { return m / (111320.0 * Math.cos(lat * Math.PI / 180)); }
+export function metersToDegLat(m) { return m / 110540.0; }
+
+// Centroid of a flat ring [x0,y0,x1,y1,...] in mercator coords.
+export function ringCentroidMerc(ring) {
+  let sx = 0, sy = 0, n = ring.length / 2;
+  for (let i = 0; i < ring.length; i += 2) { sx += ring[i]; sy += ring[i + 1]; }
+  return [sx / n, sy / n];
+}
+
+// Centroid of a feature (mercator). For polygons uses outer ring centroid.
+export function featureCentroid(f) {
+  if (f.type === 'point') return [f.parts[0], f.parts[1]];
+  if (f.type === 'line') {
+    const line = f.parts[0] || [];
+    return ringCentroidMerc(line);
+  }
+  const outer = f.parts[0] && f.parts[0][0];
+  return outer ? ringCentroidMerc(outer) : [(f.bb[0] + f.bb[2]) / 2, (f.bb[1] + f.bb[3]) / 2];
+}
+
+// Haversine distance between two mercator points (converts to lon/lat internally).
+export function haversineMerc(x1, y1, x2, y2) {
+  return haversineKm([unX(x1), unY(y1)], [unX(x2), unY(y2)]);
+}
+
+// Distance from point (px,py) to a segment (x1,y1)-(x2,y2) in mercator space (approx km).
+export function distToSegmentMerc(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const L = dx * dx + dy * dy;
+  let t = L ? ((px - x1) * dx + (py - y1) * dy) / L : 0;
+  t = Math.max(0, Math.min(1, t));
+  const mx = x1 + t * dx, my = y1 + t * dy;
+  return haversineMerc(px, py, mx, my);
+}
+
+// Minimum distance between a point and a flat ring (approx km).
+export function distToRingMerc(px, py, ring) {
+  let best = 1e9;
+  const n = ring.length;
+  for (let i = 0; i < n; i += 2) {
+    const x2 = ring[(i + 2) % n], y2 = ring[(i + 3) % n];
+    const d = distToSegmentMerc(px, py, ring[i], ring[i + 1], x2, y2);
+    if (d < best) best = d;
+  }
+  return best;
+}
+
+// Minimum distance between two flat rings (approx km).
+export function distBetweenRings(r1, r2) {
+  let best = 1e9;
+  for (let i = 0; i < r1.length; i += 2) {
+    const d = distToRingMerc(r1[i], r1[i + 1], r2);
+    if (d < best) best = d;
+    if (best === 0) return 0;
+  }
+  return best;
+}
+
+// Buffer a flat mercator ring by distance in meters (approximate local tangent plane).
+// Returns a new flat ring expanded outward by distMeters.
+export function bufferRing(ring, distMeters, segments = 8) {
+  const n = ring.length / 2;
+  if (n < 3) return ring.slice();
+
+  // Average latitude for scale
+  let avgLat = 0;
+  for (let i = 0; i < ring.length; i += 2) avgLat += unY(ring[i + 1]);
+  avgLat /= n;
+
+  const degX = metersToDegLon(distMeters, avgLat);
+  const degY = metersToDegLat(distMeters);
+  const od = (degX + degY) / 2;
+
+  const ll = [];
+  for (let i = 0; i < n; i++) ll.push([unX(ring[i * 2]), unY(ring[i * 2 + 1])]);
+
+  const result = [];
+  const isCW = ringSignedArea(ring) > 0; // CW in screen coords = positive area
+
+  for (let i = 0; i < n; i++) {
+    const prev = ll[(i - 1 + n) % n];
+    const curr = ll[i];
+    const next = ll[(i + 1) % n];
+
+    const v1x = curr[0] - prev[0], v1y = curr[1] - prev[1];
+    const v2x = next[0] - curr[0], v2y = next[1] - curr[1];
+    const l1 = Math.hypot(v1x, v1y) || 1;
+    const l2 = Math.hypot(v2x, v2y) || 1;
+
+    // Unit edge directions
+    const u1x = v1x / l1, u1y = v1y / l1;
+    const u2x = v2x / l2, u2y = v2y / l2;
+
+    // Right-hand normal of each edge (outward depends on winding)
+    const n1x = isCW ? v1y / l1 : -v1y / l1;
+    const n1y = isCW ? -v1x / l1 : v1x / l1;
+    const n2x = isCW ? v2y / l2 : -v2y / l2;
+    const n2y = isCW ? -v2x / l2 : v2x / l2;
+
+    // Average normal at vertex (angle bisector of outward normals)
+    let bx = n1x + n2x, by = n1y + n2y;
+    const blen = Math.hypot(bx, by);
+
+    let ox, oy;
+    if (blen < 1e-9) {
+      ox = n1x * od; oy = n1y * od;
+    } else {
+      const ux = bx / blen, uy = by / blen;
+      const halfCos = blen / 2;
+      const miter = od / Math.max(halfCos, 0.1);
+      ox = ux * miter; oy = uy * miter;
+    }
+
+    result.push(curr[0] + ox, curr[1] + oy);
+
+    // Arc points for sharp corners
+    const dot = u1x * u2x + u1y * u2y;
+    const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+    if (angle > 0.05 && angle < Math.PI - 0.05) {
+      const start = Math.atan2(oy, ox);
+      const end = start + (isCW ? -angle : angle);
+      const segs = Math.max(2, Math.round(Math.abs(angle) / Math.PI * segments));
+      for (let s = 1; s <= segs; s++) {
+        const t = s / segs;
+        const a = start + (end - start) * t;
+        const r = od / Math.max(Math.cos(angle / 2), 0.1);
+        result.push(curr[0] + Math.cos(a) * r, curr[1] + Math.sin(a) * r);
+      }
+    }
+  }
+
+  if (result.length >= 4) { result.push(result[0], result[1]); }
+
+  const merc = [];
+  for (let i = 0; i < result.length; i += 2) merc.push(mercX(result[i]), mercY(result[i + 1]));
+  return merc;
+}
+
+// Buffer all rings of a polygon feature by distMeters.
+export function bufferFeature(f, distMeters, segments = 8) {
+  const outParts = [];
+  for (const poly of f.parts) {
+    const outPoly = [];
+    for (const ring of poly) outPoly.push(bufferRing(ring, distMeters, segments));
+    outParts.push(outPoly);
+  }
+  return { ...f, parts: outParts, bb: bufferBB(f.bb, distMeters) };
+}
+
+function bufferBB(bb, distMeters) {
+  const cx = (bb[0] + bb[2]) / 2, cy = (bb[1] + bb[3]) / 2;
+  const avgLat = unY(cy);
+  const degX = metersToDegLon(distMeters, avgLat);
+  const degY = metersToDegLat(distMeters);
+  return [bb[0] - degX * 0.9, bb[1] - degY * 0.9, bb[2] + degX * 0.9, bb[3] + degY * 0.9];
+}
+
+// Sutherland-Hodgman polygon clipping: clip subjectRing against clipRing (both flat mercator rings).
+// Returns the intersection flat ring(s). Simple version returns one ring.
+export function ringIntersection(subjectRing, clipRing) {
+  let output = subjectRing.slice();
+  const n = clipRing.length;
+  for (let i = 0; i < n; i += 2) {
+    const x1 = clipRing[i], y1 = clipRing[i + 1];
+    const x2 = clipRing[(i + 2) % n], y2 = clipRing[(i + 3) % n];
+    if (output.length < 4) break;
+    const input = output; output = [];
+    const m = input.length;
+    for (let j = 0; j < m; j += 2) {
+      const curX = input[j], curY = input[j + 1];
+      const prevX = input[(j - 2 + m) % m], prevY = input[(j - 1 + m) % m];
+      const curIn = pipStrict(curX, curY, [clipRing]);
+      const prevIn = pipStrict(prevX, prevY, [clipRing]);
+      if (curIn) {
+        if (!prevIn) output.push(segmentIntersectXY(prevX, prevY, curX, curY, x1, y1, x2, y2));
+        output.push(curX, curY);
+      } else if (prevIn) {
+        output.push(segmentIntersectXY(prevX, prevY, curX, curY, x1, y1, x2, y2));
+      }
+    }
+  }
+  return output.length >= 6 ? output : null;
+}
+
+// Intersection of two infinite lines given by two points each; returns [x,y] or null.
+function segmentIntersectXY(x1, y1, x2, y2, x3, y3, x4, y4) {
+  const d = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+  if (Math.abs(d) < 1e-12) return [x2, y2];
+  const px = ((x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (x3 * y4 - y3 * x4)) / d;
+  const py = ((x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4)) / d;
+  return [px, py];
+}
+
+// Intersect a polygon feature with a clip polygon feature. Returns array of flat rings (intersection).
+export function intersectPolyPoly(fSubj, fClip) {
+  const results = [];
+  const clipRings = fClip.parts[0] || [];
+  for (const subPoly of fSubj.parts) {
+    const subRing = subPoly[0];
+    if (!subRing) continue;
+    const inter = ringIntersection(subRing, clipRings);
+    if (inter) results.push(inter);
+  }
+  return results;
+}
+
+// Convex hull of an array of [x,y] points (monotone chain), returns flat ring [x0,y0,...].
+export function convexHullPoints(pts) {
+  if (pts.length < 3) return null;
+  const sorted = pts.slice().sort((a, b) => a[0] === b[0] ? a[1] - b[1] : a[0] - b[0]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lower = [];
+  for (const p of sorted) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  const upper = [];
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const p = sorted[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  upper.pop(); lower.pop();
+  const hull = lower.concat(upper);
+  if (hull.length < 3) return null;
+  const ring = [];
+  for (const p of hull) ring.push(p[0], p[1]);
+  ring.push(hull[0][0], hull[0][1]);
+  return ring;
+}
+
+// Convex hull of all vertices of a feature (flat mercator ring).
+export function convexHullFeature(f) {
+  const pts = [];
+  if (f.type === 'point') {
+    pts.push([f.parts[0], f.parts[1]]);
+  } else {
+    for (const poly of f.parts) for (const ring of poly) {
+      for (let i = 0; i < ring.length; i += 2) pts.push([ring[i], ring[i + 1]]);
+    }
+  }
+  const ring = convexHullPoints(pts);
+  return ring ? { ...f, parts: [[ring]], bb: clipBB([ring]) } : null;
+}
+
+// Douglas-Peucker simplification of a flat ring, tolerance in mercator units (approx km).
+export function simplifyRing(ring, tolerance) {
+  const n = ring.length / 2;
+  if (n < 3) return ring.slice();
+  const pts = [];
+  for (let i = 0; i < n; i++) pts.push([ring[i * 2], ring[i * 2 + 1]]);
+  const keep = new Array(n).fill(false);
+  keep[0] = true; keep[n - 1] = true;
+  function simplify(start, end) {
+    let maxDist = 0, maxIdx = -1;
+    const x1 = pts[start][0], y1 = pts[start][1];
+    const x2 = pts[end][0], y2 = pts[end][1];
+    for (let i = start + 1; i < end; i++) {
+      const d = distToSegmentMerc(pts[i][0], pts[i][1], x1, y1, x2, y2);
+      if (d > maxDist) { maxDist = d; maxIdx = i; }
+    }
+    if (maxDist > tolerance && maxIdx >= 0) {
+      keep[maxIdx] = true;
+      simplify(start, maxIdx);
+      simplify(maxIdx, end);
+    }
+  }
+  simplify(0, n - 1);
+  const out = [];
+  for (let i = 0; i < n; i++) if (keep[i]) out.push(pts[i][0], pts[i][1]);
+  return out.length >= 6 ? out : ring.slice();
+}
+
+// Simplify all rings of a polygon feature.
+export function simplifyFeature(f, toleranceKm) {
+  const outParts = [];
+  for (const poly of f.parts) {
+    const outPoly = [];
+    for (const ring of poly) outPoly.push(simplifyRing(ring, toleranceKm));
+    outParts.push(outPoly);
+  }
+  const bb = f.bb.slice();
+  return { ...f, parts: outParts, bb };
+}
+
+// ------------------------------------------------------------------ end spatial analysis helpers
+
 // ------------------------------------------------------------------ clip geometry helpers (hard spatial clipping)
 
 // Signed area of a flat ring [x0,y0,x1,y1,...]. Positive = clockwise in screen/Mercator coords (y down).
