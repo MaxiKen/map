@@ -1,7 +1,7 @@
 {
   "register_id": "ngmap-layer-quality-v1",
   "schema_version": 1,
-  "generated_utc": "2026-11-08T16:06:21.644529+00:00",
+  "generated_utc": "2026-11-10T06:46:56.635256+00:00",
   "methodology": {
     "quality_score": "not_assigned",
     "quality_basis": "Measured GeoPackage/audit checks plus reviewed layer dispositions and scope limits",
@@ -2620,7 +2620,7 @@
       ],
       "raster_units": null,
       "raster_nodata": null,
-      "source_sha256": "37c251526ecd8726439f6244a329a7a5681a7574562fc837f26fb6d6934db15b",
+      "source_sha256": "ed93d3340b241c98fe9f8c6146b51af73eb49cea92ce42a100f7302ca8bde3cf",
       "gpkg_last_change": "2026-11-04T02:12:19.515Z",
       "source_description": "Geological Map of Nigeria (2011): topologically clean polygon coverage (no gaps/overlaps). Source CRS unknown; georeferenced to EPSG:4326 from the 1-degree graticule (verified against national extents).",
       "source_description_status": "recorded",
@@ -3975,7 +3975,7 @@
       ],
       "raster_units": null,
       "raster_nodata": null,
-      "source_sha256": "1022bdf717bf10d535623c81e76c2454981f40bb55fef339c8da37d0fd6168e7",
+      "source_sha256": "88b735ab85d19d45c67370cc33a5f33cc781c8e5e2b4a64e181de8bff91b7ac0",
       "gpkg_last_change": "2026-11-04T02:12:20.735Z",
       "source_description": "Mineral Resources Map of Nigeria (2023): occurrence points hand-picked at every mineral symbol on the sheet. Each point is re-centered on its raster symbol where a one-to-one template match was certain; points in ambiguous symbol clusters keep their as-digitized position. match_class records which case applied.",
       "source_description_status": "recorded",
