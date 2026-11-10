@@ -1,7 +1,7 @@
 {
   "register_id": "ngmap-layer-quality-v1",
   "schema_version": 1,
-  "generated_utc": "2026-11-10T06:46:56.635256+00:00",
+  "generated_utc": "2026-11-10T15:53:43.228408+00:00",
   "methodology": {
     "quality_score": "not_assigned",
     "quality_basis": "Measured GeoPackage/audit checks plus reviewed layer dispositions and scope limits",
@@ -3975,7 +3975,7 @@
       ],
       "raster_units": null,
       "raster_nodata": null,
-      "source_sha256": "88b735ab85d19d45c67370cc33a5f33cc781c8e5e2b4a64e181de8bff91b7ac0",
+      "source_sha256": "31527b0e3ef1b551d5e719c4ca41b253e7ed8de56b81625424c1dedfbf501c4a",
       "gpkg_last_change": "2026-11-04T02:12:20.735Z",
       "source_description": "Mineral Resources Map of Nigeria (2023): occurrence points hand-picked at every mineral symbol on the sheet. Each point is re-centered on its raster symbol where a one-to-one template match was certain; points in ambiguous symbol clusters keep their as-digitized position. match_class records which case applied.",
       "source_description_status": "recorded",
