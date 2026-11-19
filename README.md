@@ -57,6 +57,22 @@ in Layers) restricts the map to one shape:
 Press **Esc** to cancel a drawing. The focus chip turns green while a focus area is active; tapping it
 again lets you change or clear it, and the same link appears in the Legend and Info panels.
 
+### Selecting features (single, several, or by area)
+**Tools -> Select features** turns on an explicit select mode, with its own bar at the bottom of the
+map. It is the same on a phone and a desktop:
+
+- **tap a feature** to select it and read everything about it in the Info panel; **tap it again** to
+  unselect it;
+- **drag a box** across the map to select every feature of that layer inside it — you can pick one
+  polygon, several, or a whole cluster;
+- **List** shows what is selected (removable row by row), **Zoom** fits the selection, **Export**
+  saves it as CSV, **Clear** empties it;
+- the Select bar only exists in select mode. Press **Done** (or Esc) and the map pans and zooms
+  normally again — nothing stays "stuck".
+
+Selecting works on all switched-on layers at once, or on one layer you pick. It is read-only: the
+selected features are highlighted, never edited.
+
 ### Analysis tools
 - **Select by area** — tap a polygon of any layer and every feature inside it is listed, counted by
   layer, and exportable as CSV. It uses the real boundary, so a state or LGA outline works as a rubber band.
@@ -94,13 +110,25 @@ reset — are hidden from visitors. Open the site with **`?author=1`** to get th
 mode* to go back to the reader view. To hand them to every visitor, set `"authorMode": true` under
 `app` in `config/layers.config.json`.
 
+### The complete tool guide
+Every tool in the app is documented in two places that are generated from the same source, so neither
+can fall behind the Tools panel:
+
+- **in the app** — **Tools -> Guide** (or **Guide** in the About panel). Searchable, grouped, with the
+  steps and a tip for each tool, plus the gesture table for phone and desktop;
+- **on paper** — [docs/tools-guide.md](docs/tools-guide.md), the same content as a Markdown file.
+
+After adding, renaming or re-describing a tool, regenerate the file with `npm run docs:tools`;
+`npm run docs:tools:check` fails if it is stale.
+
 Colours, filters, classifications, labels, the focus area and the panel order are kept in
 `localStorage`, so a reload does not lose your view. "Reset the view" (everyone) clears filters and the
 focus; "Reset the work" (author mode) clears everything.
 
 For scripting and support the console exposes `window.__nwg` (`map`, `L`, `stack`, `annotations`,
 `setFocus`, `focusFromLonLat`, `stopFocus`, `focusAreaKm2`, `toolAoi`, `runQuery`, `rasterClassAnchor`,
-`layerRank`).
+`layerRank`, and the selection API: `enterSelectMode(layerId)`, `exitSelectMode(restorePanning)`,
+`sel`, `selItems()`, `selClear()`, `selToggle()`, `openSelectionList()`).
 
 ## Loading performance
 

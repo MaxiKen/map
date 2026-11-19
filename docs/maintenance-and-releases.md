@@ -36,6 +36,22 @@ A failure reports missing, unexpected, and different files.
 commit or release**. With `python` from the virtual environment on `PATH`, the npm conveniences are
 `npm run verify` and `npm run verify:build`.
 
+## Tool guide and tool tests
+
+`docs/tools-guide.md` is generated from `TOOL_GROUPS` and `TOOL_HELP` in `app/js/app.js`:
+
+```bash
+npm run docs:tools         # rewrite docs/tools-guide.md
+npm run docs:tools:check   # fail if it is stale (run this after touching the tool lists)
+```
+
+`tests/browser/tools.spec.mjs` guards the parts a reader depends on: tapping the map identifies a
+feature, select mode selects by tap and by dragged box (and gives panning back), every registered tool
+opens and runs without throwing, the in-app guide documents every tool, and field dropdowns list real
+column names. `tests/browser/mobile.spec.mjs` repeats the selection test in a 390x844 touch viewport, so
+the phone behaviour cannot regress silently. When you add a tool, add it to `TOOL_GROUPS` and
+`TOOL_HELP`, regenerate the guide, and re-run the browser suite.
+
 ## Reproducible public builds
 
 The ten-character build identifier hashes the semantic catalog and application shell; it does not hash
