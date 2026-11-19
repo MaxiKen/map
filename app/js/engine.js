@@ -107,6 +107,8 @@ export class GeoMap {
     this.cv = canvas; this.ctx = canvas.getContext('2d');
     this.cx = mercX(8.7); this.cy = mercY(9.1); this.zoom = 5.4;
     this.layers = []; this.selection = null; this.extra = []; // extra: transient overlays (measure, location, labels)
+    this.selectionSet = [];     // [{ layer: {id}, feature }] — many features at once
+    this.panLock = false;       // true while box-selecting, so a drag draws a box instead of panning
     this.extraTop = [];                                        // drawn above everything, incl. grid labels
     this.basemap = 'light'; this.tiles = new Map(); this.minZoom = 2; this.maxZoom = 19;
     this.grid = { on: false, step: null };
@@ -146,7 +148,14 @@ export class GeoMap {
   toScreen(wx, wy) { const S = this.S; return [(wx - this.cx) * S + this.W / 2, (wy - this.cy) * S + this.H / 2]; }
   fromScreen(px, py) { const S = this.S; return [this.cx + (px - this.W / 2) / S, this.cy + (py - this.H / 2) / S]; }
   lonlatAt(px, py) { const [wx, wy] = this.fromScreen(px, py); return [unX(wx), unY(wy)]; }
-  screenOf(lon, lat) { return this.toScreen(mercX(lon), mercY(lat)); }
+  // Screen pixel position of a lon/lat, honouring map rotation (inverse of canvas rotation).
+  screenOf(lon, lat) {
+    const [x, y] = this.toScreen(mercX(lon), mercY(lat));
+    if (!this.rotation) return [x, y];
+    const cx = this.W / 2, cy = this.H / 2, a = this.rotation * Math.PI / 180;
+    const dx = x - cx, dy = y - cy;
+    return [cx + dx * Math.cos(a) - dy * Math.sin(a), cy + dx * Math.sin(a) + dy * Math.cos(a)];
+  }
   // Screen pixel position adjusted for map rotation (inverse of canvas rotation)
   rotPos(px, py) {
     if (!this.rotation) return [px, py];
@@ -209,6 +218,7 @@ export class GeoMap {
       else this._drawVector(l, tol);
     }
     ctx.globalAlpha = 1;
+    if (this.selectionSet && this.selectionSet.length) this._drawSelectionSet(this.selectionSet);
     if (this.selection) this._drawSelection(this.selection);
     if (this.clip) { ctx.restore(); this._drawClipFocus(); }
     if (this.overlay) this.overlay(ctx, this);
@@ -359,7 +369,7 @@ export class GeoMap {
       ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(0.3, strokeW);
       this._dash(ctx, sym);
       for (const f of l.features) {
-        if (f.hidden) continue;
+        if (f.hidden || !f.parts || !f.bb) continue;
         const b = this._vis(f); if (!b) continue; if (b[2] - b[0] < 0.4 && b[3] - b[1] < 0.4) continue;
         ctx.beginPath();
         for (const poly of f.parts) for (const r of poly) {
@@ -537,10 +547,101 @@ export class GeoMap {
     }
     ctx.restore();
   }
+  _drawSelectionSet(list) {
+    const ctx = this.ctx; if (!list || !list.length) return;
+    ctx.save();
+    for (let k = 0; k < list.length; k++) {
+      const f = list[k].feature || list[k].f || list[k]; if (!f || !f.parts || f.type == null) continue;
+      const strong = k === list.length - 1;
+      // A selection has to be obvious on a busy map: bright outline plus a solid overlay,
+      // with a dark casing so it reads over pale and dark polygons alike.
+      ctx.lineWidth = strong ? 3.5 : 2.5;
+      ctx.strokeStyle = strong ? '#ffe14d' : '#ffd400';
+      ctx.fillStyle = strong ? 'rgba(255,225,77,.45)' : 'rgba(255,212,0,.34)';
+      ctx.setLineDash([]); ctx.lineJoin = 'round';
+      if (f.type === 'point') {
+        for (let i = 0; i < f.parts.length; i += 2) {
+          const [x, y] = this.screenOf(unX(f.parts[i]), unY(f.parts[i + 1]));
+          ctx.beginPath(); ctx.arc(x, y, strong ? 9 : 7, 0, TAU); ctx.fill(); ctx.stroke();
+        }
+      } else if (f.type === 'line') {
+        ctx.beginPath();
+        for (const r of f.parts) {
+          for (let i = 0; i < r.length; i += 2) {
+            const [x, y] = this.screenOf(unX(r[i]), unY(r[i + 1]));
+            i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+          }
+        }
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        for (const poly of f.parts) for (const ring of poly) {
+          for (let i = 0; i < ring.length; i += 2) {
+            const [x, y] = this.screenOf(unX(ring[i]), unY(ring[i + 1]));
+            i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+          }
+          ctx.closePath();
+        }
+        ctx.fill('evenodd'); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+  // Every feature whose geometry crosses a world-space box [wx0, wy0, wx1, wy1]
+  // (drag a box on the map to select). Pass screen corners through fromScreen first;
+  // doing it there keeps rotated maps correct.
+  featuresInRect(box, opts = {}) {
+    const wx0 = Math.min(box[0], box[2]), wx1 = Math.max(box[0], box[2]);
+    const wy0 = Math.min(box[1], box[3]), wy1 = Math.max(box[1], box[3]);
+    const mode = opts.mode || 'intersect';   // 'intersect' | 'contain'
+    const limit = opts.limit || Infinity;
+    const out = [];
+    const wrapped = (x, y) => x >= wx0 && x <= wx1 && y >= wy0 && y <= wy1;
+    for (const l of [...this.layers].reverse()) {
+      if (!l.visible || l.opacity <= 0) continue;
+      if (l.kind === 'raster' || l.kind === 'image') continue;
+      if (opts.layers && !opts.layers.includes(l.id)) continue;
+      for (const f of l.features) {
+        if (f.hidden) continue;
+        if (f.bb[2] < wx0 || f.bb[0] > wx1 || f.bb[3] < wy0 || f.bb[1] > wy1) continue;
+        let hit;
+        if (mode === 'contain') hit = f.bb[0] >= wx0 && f.bb[2] <= wx1 && f.bb[1] >= wy0 && f.bb[3] <= wy1;
+        else {
+          hit = false;
+          if (f.type === 'point') {
+            for (let i = 0; i < f.parts.length && !hit; i += 2) hit = wrapped(f.parts[i], f.parts[i + 1]);
+          } else {
+            const rings = f.type === 'poly' ? f.parts.flat() : f.parts;
+            for (const r of rings) {
+              for (let i = 0; i < r.length && !hit; i += 2) hit = wrapped(r[i], r[i + 1]);
+              if (hit) break;
+            }
+            // a polygon that fully encloses the box counts too
+            if (!hit && f.type === 'poly' && f.bb[0] <= wx0 && f.bb[2] >= wx1 && f.bb[1] <= wy0 && f.bb[3] >= wy1) {
+              hit = pip(wx0 + (wx1 - wx0) / 2, wy0 + (wy1 - wy0) / 2, f.parts.flat());
+            }
+            // a line or polygon edge crossing the box (no vertex inside) counts as intersecting
+            if (!hit && mode === 'intersect' && f.type === 'line') {
+              for (const r of f.parts) {
+                for (let i = 2; i < r.length && !hit; i += 2) {
+                  hit = segCrossBox(r[i - 2], r[i - 1], r[i], r[i + 1], wx0, wy0, wx1, wy1);
+                }
+                if (hit) break;
+              }
+            }
+          }
+        }
+        if (!hit) continue;
+        out.push({ layer: l, feature: f });
+        if (out.length >= limit) return out;
+      }
+    }
+    return out;
+  }
   // ---- hit testing & sampling
   identify(px, py) {
     const [wx, wy] = this.fromScreen(px, py), S = this.S, out = [];
-    if (!this.containsClip(wx, wy)) return out;
+    if (!this.clipContainsPoint(wx, wy)) return out;
     for (const l of [...this.layers].reverse()) {
       if (!l.visible || l.opacity <= 0) continue;
       if (l.kind === 'raster' || l.kind === 'image') {
@@ -580,7 +681,7 @@ export class GeoMap {
     cv.addEventListener('pointermove', (e) => {
       if (!P.has(e.pointerId)) { this._emit('hover', ...pos(e)); return; }
       const p = pos(e), old = P.get(e.pointerId); P.set(e.pointerId, p);
-      if (P.size === 1) { moved += Math.abs(p[0] - old[0]) + Math.abs(p[1] - old[1]); if (moved > 3) { this.cx -= (p[0] - old[0]) / this.S; this.cy -= (p[1] - old[1]) / this.S; this.cy = Math.max(0.0005, Math.min(0.9995, this.cy)); this._viewChanged(); } }
+      if (P.size === 1) { moved += Math.abs(p[0] - old[0]) + Math.abs(p[1] - old[1]); if (moved > 3 && !this.panLock) { this.cx -= (p[0] - old[0]) / this.S; this.cy -= (p[1] - old[1]) / this.S; this.cy = Math.max(0.0005, Math.min(0.9995, this.cy)); this._viewChanged(); } }
       else if (P.size === 2 && pinch) {
         const [a, b] = [...P.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]), mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
         this.cx -= (mx - pinch.mx) / this.S; this.cy -= (my - pinch.my) / this.S;
@@ -647,6 +748,18 @@ export function pointInFeature(x, y, f) {
   if (f.type === 'point') { for (let i = 0; i < f.parts.length; i += 2) if (Math.hypot(x - f.parts[i], y - f.parts[i + 1]) < 0.0004) return true; return false; }
   if (f.type === 'line') return false;
   return false;
+}
+// does the segment (ax,ay)-(bx,by) cross the axis-aligned box?
+function segCrossBox(ax, ay, bx, by, x0, y0, x1, y1) {
+  const segHit = (px, py, qx, qy, rx, ry, sx, sy) => {
+    const d = (qx - px) * (sy - ry) - (qy - py) * (sx - rx);
+    if (Math.abs(d) < 1e-12) return false;
+    const t = ((rx - px) * (sy - ry) - (ry - py) * (sx - rx)) / d;
+    const u = ((rx - px) * (qy - py) - (ry - py) * (qx - px)) / d;
+    return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+  };
+  return segHit(ax, ay, bx, by, x0, y0, x1, y0) || segHit(ax, ay, bx, by, x1, y0, x1, y1)
+    || segHit(ax, ay, bx, by, x1, y1, x0, y1) || segHit(ax, ay, bx, by, x0, y1, x0, y0);
 }
 function pip(x, y, rings) {
   let inside = false;
@@ -724,103 +837,157 @@ export function distBetweenRings(r1, r2) {
   return best;
 }
 
-// Buffer a flat mercator ring by distance in meters (approximate local tangent plane).
-// Returns a new flat ring expanded outward by distMeters.
+// Buffer a flat mercator ring by a distance in meters.
+// Works in degrees around the ring's mean latitude (so the offset has the right north/south
+// scale), expands outward with mitred corners, then converts back to mercator. The result is a
+// closed polygon ring that always contains the source geometry.
 export function bufferRing(ring, distMeters, segments = 8) {
   const n = ring.length / 2;
-  if (n < 3) return ring.slice();
+  if (n < 2) return ring.slice();
 
-  // Average latitude for scale
-  let avgLat = 0;
-  for (let i = 0; i < ring.length; i += 2) avgLat += unY(ring[i + 1]);
-  avgLat /= n;
+  let sinSum = 0;
+  for (let i = 0; i < ring.length; i += 2) sinSum += unY(ring[i + 1]);
+  const avgLat = sinSum / n;
+  const dLon = metersToDegLon(distMeters, avgLat);
+  const dLat = metersToDegLat(distMeters);
 
-  const degX = metersToDegLon(distMeters, avgLat);
-  const degY = metersToDegLat(distMeters);
-  const od = (degX + degY) / 2;
-
+  // Normalise to degrees so a metre is the same north and south, then scale for distance.
   const ll = [];
-  for (let i = 0; i < n; i++) ll.push([unX(ring[i * 2]), unY(ring[i * 2 + 1])]);
+  for (let i = 0; i < n; i++) ll.push([unX(ring[i * 2]) / dLon, unY(ring[i * 2 + 1]) / dLat]);
+
+  const closed = n > 2 && ll[0][0] === ll[n - 1][0] && ll[0][1] === ll[n - 1][1];
+  const pts = closed ? ll.slice(0, n - 1) : ll;
+  const m = pts.length;
+  if (m < 2) return ring.slice();
+
+  // Winding: only a genuinely closed ring is buffered as a polygon; open paths get a corridor.
+  let signed = 0;
+  if (m > 2) for (let i = 0; i < m; i++) { const a = pts[i], b = pts[(i + 1) % m]; signed += a[0] * b[1] - b[0] * a[1]; }
+  const sign = signed >= 0 ? 1 : -1;   // +1 anticlockwise
+  const dist = 1;                      // one "unit" is exactly distMeters in the normalised space
 
   const result = [];
-  const isCW = ringSignedArea(ring) > 0; // CW in screen coords = positive area
-
-  for (let i = 0; i < n; i++) {
-    const prev = ll[(i - 1 + n) % n];
-    const curr = ll[i];
-    const next = ll[(i + 1) % n];
-
-    const v1x = curr[0] - prev[0], v1y = curr[1] - prev[1];
-    const v2x = next[0] - curr[0], v2y = next[1] - curr[1];
-    const l1 = Math.hypot(v1x, v1y) || 1;
-    const l2 = Math.hypot(v2x, v2y) || 1;
-
-    // Unit edge directions
-    const u1x = v1x / l1, u1y = v1y / l1;
-    const u2x = v2x / l2, u2y = v2y / l2;
-
-    // Right-hand normal of each edge (outward depends on winding)
-    const n1x = isCW ? v1y / l1 : -v1y / l1;
-    const n1y = isCW ? -v1x / l1 : v1x / l1;
-    const n2x = isCW ? v2y / l2 : -v2y / l2;
-    const n2y = isCW ? -v2x / l2 : v2x / l2;
-
-    // Average normal at vertex (angle bisector of outward normals)
-    let bx = n1x + n2x, by = n1y + n2y;
-    const blen = Math.hypot(bx, by);
-
-    let ox, oy;
-    if (blen < 1e-9) {
-      ox = n1x * od; oy = n1y * od;
-    } else {
-      const ux = bx / blen, uy = by / blen;
-      const halfCos = blen / 2;
-      const miter = od / Math.max(halfCos, 0.1);
-      ox = ux * miter; oy = uy * miter;
+  const push = (x, y) => result.push(x, y);
+  if (!closed || m < 3) {
+    // open line: parallel offset each side, then two end caps
+    const off = (a, b) => {
+      const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1;
+      return [-dy / len * dist, dx / len * dist];
+    };
+    const left = [], right = [];
+    for (let i = 0; i < m - 1; i++) {
+      const o = off(pts[i], pts[i + 1]);
+      left.push([pts[i][0] - o[0], pts[i][1] - o[1]], [pts[i + 1][0] - o[0], pts[i + 1][1] - o[1]]);
+      right.push([pts[i][0] + o[0], pts[i][1] + o[1]], [pts[i + 1][0] + o[0], pts[i + 1][1] + o[1]]);
     }
-
-    result.push(curr[0] + ox, curr[1] + oy);
-
-    // Arc points for sharp corners
-    const dot = u1x * u2x + u1y * u2y;
-    const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
-    if (angle > 0.05 && angle < Math.PI - 0.05) {
-      const start = Math.atan2(oy, ox);
-      const end = start + (isCW ? -angle : angle);
-      const segs = Math.max(2, Math.round(Math.abs(angle) / Math.PI * segments));
-      for (let s = 1; s <= segs; s++) {
-        const t = s / segs;
-        const a = start + (end - start) * t;
-        const r = od / Math.max(Math.cos(angle / 2), 0.1);
-        result.push(curr[0] + Math.cos(a) * r, curr[1] + Math.sin(a) * r);
+    const cap = (c, from) => {
+      const a0 = Math.atan2(from[1] - c[1], from[0] - c[0]);
+      for (let k = 1; k < segments; k++) {
+        const a = a0 + Math.PI * k / segments;
+        push(c[0] + Math.cos(a) * dist, c[1] + Math.sin(a) * dist);
       }
+    };
+    for (const p of left) push(p[0], p[1]);
+    cap(pts[m - 1], left[left.length - 1]);
+    cap(pts[m - 1], right[right.length - 1]);
+    for (let i = right.length - 1; i >= 0; i--) push(right[i][0], right[i][1]);
+    cap(pts[0], right[0]);
+  } else {
+    for (let i = 0; i < m; i++) {
+      const prev = pts[(i - 1 + m) % m], curr = pts[i], next = pts[(i + 1) % m];
+      const v1x = curr[0] - prev[0], v1y = curr[1] - prev[1];
+      const v2x = next[0] - curr[0], v2y = next[1] - curr[1];
+      const l1 = Math.hypot(v1x, v1y) || 1, l2 = Math.hypot(v2x, v2y) || 1;
+      const u1x = v1x / l1, u1y = v1y / l1, u2x = v2x / l2, u2y = v2y / l2;
+      // outward normal for an anticlockwise ring is on the right of each edge
+      const n1x = sign * u1y, n1y = -sign * u1x;
+      const n2x = sign * u2y, n2y = -sign * u2x;
+      let bx = n1x + n2x, by = n1y + n2y;
+      const blen = Math.hypot(bx, by);
+      let ox, oy;
+      if (blen < 1e-9) { ox = n1x * dist; oy = n1y * dist; }
+      else {
+        const ux = bx / blen, uy = by / blen;
+        const miter = Math.min(dist / Math.max(blen / 2, 0.2), dist * 6);
+        ox = ux * miter; oy = uy * miter;
+      }
+      push(curr[0] + ox, curr[1] + oy);
     }
   }
 
-  if (result.length >= 4) { result.push(result[0], result[1]); }
-
-  const merc = [];
-  for (let i = 0; i < result.length; i += 2) merc.push(mercX(result[i]), mercY(result[i + 1]));
+  const merc = new Float64Array(result.length + 2);
+  for (let i = 0; i < result.length; i += 2) {
+    merc[i] = mercX(result[i] * dLon);
+    merc[i + 1] = mercY(result[i + 1] * dLat);
+  }
+  merc[result.length] = merc[0]; merc[result.length + 1] = merc[1];
   return merc;
 }
 
 // Buffer all rings of a polygon feature by distMeters.
+// Accepts a polygon, a line or a point feature. Points become circles; lines and
+// open rings are buffered as closed loops so a road or a river gets a real corridor.
 export function bufferFeature(f, distMeters, segments = 8) {
+  if (!f || !f.parts) return null;
+  if (f.type === 'point') {
+    const rings = ringOfPoint(f, distMeters);
+    return { ...f, type: 'poly', parts: rings.length ? [[rings[0]]] : [], bb: bufferBB(f.bb, distMeters) };
+  }
+  if (f.type === 'line') {
+    const outParts = [];
+    for (const part of f.parts) {
+      const ring = bufferRing(closeRing(part), distMeters, segments);
+      if (ring && ring.length >= 6) outParts.push([ring]);
+    }
+    return { ...f, type: 'poly', parts: outParts, bb: bufferBB(f.bb, distMeters) };
+  }
   const outParts = [];
   for (const poly of f.parts) {
     const outPoly = [];
     for (const ring of poly) outPoly.push(bufferRing(ring, distMeters, segments));
     outParts.push(outPoly);
   }
-  return { ...f, parts: outParts, bb: bufferBB(f.bb, distMeters) };
+  return { ...f, type: 'poly', parts: outParts, bb: bufferBB(f.bb, distMeters) };
 }
 
+// Buffer a single point into a closed ring in mercator coordinates.
+export function bufferPoint(x, y, distMeters, segments = 32) {
+  const lon = unX(x), lat = unY(y);
+  const dLat = distMeters / 110574;
+  const dLon = distMeters / Math.max(1, 111320 * Math.cos(lat * Math.PI / 180));
+  const ring = new Float64Array(segments * 2);
+  for (let i = 0; i < segments; i++) {
+    const a = i / segments * Math.PI * 2;
+    ring[i * 2] = mercX(lon + Math.cos(a) * dLon);
+    ring[i * 2 + 1] = mercY(lat + Math.sin(a) * dLat);
+  }
+  return ring;
+}
+function ringOfPoint(f, distMeters) {
+  const out = [];
+  for (let i = 0; i < f.parts.length; i += 2) out.push(bufferPoint(f.parts[i], f.parts[i + 1], distMeters));
+  return out;
+}
+function closeRing(part) {
+  const n = part.length;
+  if (n < 4) return part;
+  const closed = part[0] === part[n - 2] && part[1] === part[n - 1];
+  if (closed) return part;
+  const out = new Float64Array(n + 2);
+  out.set(part, 0); out[n] = part[0]; out[n + 1] = part[1];
+  return out;
+}
+
+// Feature bounding boxes are in mercator units, so the padding has to be converted
+// back through mercX/mercY — mixing degrees in here made every buffer look ~10 degrees wide.
 function bufferBB(bb, distMeters) {
-  const cx = (bb[0] + bb[2]) / 2, cy = (bb[1] + bb[3]) / 2;
+  const cy = (bb[1] + bb[3]) / 2;
   const avgLat = unY(cy);
-  const degX = metersToDegLon(distMeters, avgLat);
-  const degY = metersToDegLat(distMeters);
-  return [bb[0] - degX * 0.9, bb[1] - degY * 0.9, bb[2] + degX * 0.9, bb[3] + degY * 0.9];
+  const dLon = metersToDegLon(distMeters, avgLat);
+  const dLat = metersToDegLat(distMeters);
+  const west = unX(bb[0]) - dLon, east = unX(bb[2]) + dLon;
+  const south = unY(bb[3]) - dLat, north = unY(bb[1]) + dLat; // mercator y grows southwards
+  return [mercX(west), mercY(north), mercX(east), mercY(south)];
 }
 
 // Sutherland-Hodgman polygon clipping: clip subjectRing against clipRing (both flat mercator rings).
@@ -1051,7 +1218,29 @@ function ringCentroid(ring) {
   return [cx / n, cy / n];
 }
 
+export function ringsBBox(rings) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const r of rings) {
+    for (let i = 0; i < r.length; i += 2) {
+      const x = r[i], y = r[i + 1];
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+  }
+  return [x0, y0, x1, y1];
+}
+
 export function polyOverlapsPoly(featureRings, clipRings) {
+  if (!featureRings || !clipRings || !clipRings.length) return false;
+  // A flat coordinate list (x, y, x, y, ...) is accepted as a single ring.
+  // Rings are usually Float64Array, so test the container — not its first element —
+  // otherwise a polygon that happens to hold typed rings is misread as flat numbers.
+  const isFlatList = (r) => (r instanceof Float64Array) || (Array.isArray(r) && typeof r[0] === 'number');
+  featureRings = isFlatList(featureRings) ? [featureRings] : featureRings;
+  clipRings = isFlatList(clipRings) ? [clipRings] : clipRings;
+  // Bounding boxes first: this is what keeps layer × layer comparisons fast.
+  const bf = ringsBBox(featureRings), bc = ringsBBox(clipRings);
+  if (bf[2] < bc[0] || bf[0] > bc[2] || bf[3] < bc[1] || bf[1] > bc[3]) return false;
   // 1. Any feature vertex strictly inside clip (boundary-touching doesn't count)
   for (const ring of featureRings) {
     for (let i = 0; i < ring.length; i += 2) {

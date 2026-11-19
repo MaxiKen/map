@@ -9,6 +9,8 @@
   },
   "scripts": {
     "build:site": "python scripts/build_site.py",
+    "docs:tools": "node scripts/gen_tools_guide.mjs",
+    "docs:tools:check": "node scripts/gen_tools_guide.mjs --check",
     "verify": "python scripts/maintain.py",
     "verify:build": "python scripts/maintain.py --build --check-build",
     "test:browser": "playwright test",

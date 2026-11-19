@@ -33,10 +33,22 @@
 <div id="attrib"></div>
 <div id="measurebar" hidden><span id="measuretext">Tap the map to measure</span><button id="measureclear">Clear</button><button id="measuredone">Done</button></div>
 <div id="drawbar" hidden><span id="drawtext">Draw an area</span><button id="drawclear">Clear</button><button id="drawdone">Done</button></div>
+<div id="selbar" hidden role="toolbar" aria-label="Selection">
+  <span id="seltext">Select mode: tap a feature, or drag a box</span>
+  <span id="selcount" class="selpill" aria-live="polite">0</span>
+  <button id="selall" hidden title="Select everything on screen">All</button>
+  <button id="sellist" title="List the selected features">List</button>
+  <button id="selzoom" title="Zoom to the selection">Zoom</button>
+  <button id="selcsv" title="Export the selection as CSV">Export</button>
+  <button id="selclearall" title="Clear the selection">Clear</button>
+  <button id="seldone" class="selprimary">Done</button>
+</div>
 
 <section id="sheet" class="closed" aria-live="polite">
   <div id="grab" aria-hidden="true"><i></i></div>
-  <div id="sheethead"><h2 id="sheettitle">Layers</h2><button id="sheetclose" class="ghost" aria-label="Close panel" data-i="close"></button></div>
+  <div id="sheethead"><h2 id="sheettitle">Layers</h2>
+    <button id="sheethelp" class="ghost" aria-label="Open the guide" title="Guide — how to use this map" data-i="help"></button>
+    <button id="sheetclose" class="ghost" aria-label="Close panel" data-i="close"></button></div>
   <div id="panels">
     <div class="panel" id="panel-layers">
       <div class="searchrow"><input id="layerfilter" type="search" placeholder="Filter layers" autocomplete="off"></div>
@@ -71,6 +83,11 @@
         <h3>Labels you placed</h3><div id="annotationlist"></div>
       </div>
       <h3>View</h3><div class="toolgrid" id="tools-project"></div>
+      <h3>Guide</h3>
+      <div class="aoi" style="margin-bottom:8px">
+        <button class="btn primary" id="guide-open">Open the full guide</button>
+      </div>
+      <p class="hint">Short, task-based instructions for every tool, phone and desktop — open it any time with the <b>?</b> button at the top of this panel.</p>
       <h3>About</h3><div id="about" class="muted"></div>
     </div>
   </div>

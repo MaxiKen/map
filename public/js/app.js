@@ -1,6 +1,6 @@
-import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature, pip2, featureCentroid, convexHullFeature, simplifyFeature, bufferFeature, ringIntersection, intersectPolyPoly, segmentsIntersect, polyOverlapsPoly, normalizeClip, clipBB, circleToPolygon, distToRingMerc, haversineMerc } from './engine.js?v=7683de7b8b';
-import { createLoadScheduler } from './loading.js?v=7683de7b8b';
-import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=7683de7b8b';
+import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature, pip2, featureCentroid, convexHullFeature, convexHullPoints, simplifyFeature, bufferFeature, ringIntersection, intersectPolyPoly, segmentsIntersect, polyOverlapsPoly, ringsBBox, normalizeClip, clipBB, circleToPolygon, distToRingMerc, haversineMerc, ringSignedArea } from './engine.js?v=104c4dc72d';
+import { createLoadScheduler } from './loading.js?v=104c4dc72d';
+import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=104c4dc72d';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -71,6 +71,7 @@ const IC = {
   raster: '<rect x="4" y="4" width="16" height="16"/><path d="M4 12h16M12 4v16"/><path d="M8 8h8v8H8z"/><path d="M12 12h4v4h-4z"/>',
   alpha: '<path d="M3 3h18v18H3z"/><path d="M12 3l6 9-6 9z"/><path d="M6 12h12" stroke-linecap="butt"/>',
   magnet: '<path d="M3 7h6v10H3zM15 7h6v10h-6z"/><path d="M9 7v10M15 7v10"/><path d="M6 10h12M6 14h12"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9.2 9.3a3 3 0 0 1 5.6 1.2c0 2-2.8 2.2-2.8 4"/><path d="M12 17.2h.01"/>',
   network: '<circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/><path d="M8 6h6M8 18h6M6 8v6M18 8v6"/><path d="M10 10l4 4M14 10l-4 4"/>',
 };
 const icon = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
@@ -90,6 +91,14 @@ let activeTab = 'layers', measure = null, userLoc = null, gridOn = false, editin
 // Viewers get the read-only map: analysis and viewing only. Content/styling work lives behind ?author=1.
 let AUTHOR = new URLSearchParams(location.search).get('author') === '1';
 let draw = null;              // {kind:'rect'|'poly'|'pick', pts:[]} while the user is drawing a focus area
+// Selection mode: touch-friendly, stays on until you leave it, works with taps and with a drag box.
+const selState = {
+  active: false,
+  ids: new Set(),             // selected keys "layerId:idx"
+  filter: '',                 // only these layer ids may be picked ('' = every switched-on layer)
+  box: null,                  // {x0,y0,x1,y1} while dragging a box
+  last: null,                 // last {layer, feature} picked, for the Info panel
+};
 let clip = null;              // active focus area (mirrors map.clip)
 const viewHist = [];          // previous views, for the back button
 const RAMPS = {
@@ -102,6 +111,12 @@ const RAMPS = {
 };
 
 function toast(msg, ms = 2800) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), ms); }
+// area of a flat mercator ring [x0,y0,x1,y1,...] in km² (spherical excess on the lon/lat ring)
+function flatRingAreaKm2(flat) {
+  const ll = [];
+  for (let i = 0; i < flat.length; i += 2) ll.push([unX(flat[i]), unY(flat[i + 1])]);
+  return ringAreaKm2(ll);
+}
 const fmtNum = (v) => (v == null || isNaN(v)) ? '' : Math.abs(v) >= 1000 ? Math.round(v).toLocaleString() : (+Number(v).toFixed(2)).toString();
 const fmtLL = (la, lo) => `${Math.abs(la).toFixed(4)}°${la >= 0 ? 'N' : 'S'}  ${Math.abs(lo).toFixed(4)}°${lo >= 0 ? 'E' : 'W'}`;
 const ordinal = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
@@ -155,6 +170,8 @@ async function start() {
 
   map.on('view', onView); map.on('click', onClick);
   bindDrawPointer();
+  bindSelectPointer();
+  wireSelBar();
   $('#drawdone').onclick = () => { if (draw?.kind === 'poly') { const pts = draw.pts.slice(); endDraw(); focusFromLonLat(pts); } else endDraw(); };
   $('#drawclear').onclick = () => { endDraw(); toast('Focus drawing cancelled'); };
   $('#btn-full').onclick = toggleFullscreen;
@@ -164,7 +181,9 @@ async function start() {
   });
   $('#btn-back').onclick = goBack;
   addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && draw) { endDraw(); toast('Focus drawing cancelled'); }
+    if (e.key !== 'Escape') return;
+    if (draw) { endDraw(); toast('Focus drawing cancelled'); }
+    else if (selState.active) { exitSelectMode(false); toast('Select mode off'); }
   });
   if (saved && saved.clip) restoreFocus(saved.clip);
   map.on('hover', (x, y) => { const [lo, la] = map.lonlatAt(x, y); $('#coords').textContent = fmtLL(la, lo); });
@@ -372,7 +391,8 @@ async function loadValues(st) {
   const v = st.meta.values; if (!v || typeof DecompressionStream === 'undefined') return;
   const res = await fetch(v.file); const ds = res.body.pipeThrough(new DecompressionStream('gzip'));
   const buf = await new Response(ds).arrayBuffer();
-  st.obj.vals = { w: v.w, h: v.h, dtype: v.dtype, data: v.dtype === 'i2' ? new Int16Array(buf) : new Float32Array(buf) };
+  const wb = st.obj.wb;
+  st.obj.vals = { w: v.w, h: v.h, wb, dtype: v.dtype, data: v.dtype === 'i2' ? new Int16Array(buf) : new Float32Array(buf) };
 }
 
 function applyLayerState(st) {
@@ -869,7 +889,7 @@ async function showResults(res, lonlat) {
     if (!r.feature) { parts.push(`<div class="card"><header>${icon(m.kind)}${esc(m.label)}<small>picture</small></header><div class="rastv muted">Scanned map picture</div><div class="actions"><button class="btn" data-x="layer-quality" data-id="${esc(m.id)}">${icon('quality')}Quality &amp; source</button></div></div>`); continue; }
     const f = r.feature;
     parts.push(`<div class="card" data-id="${esc(m.id)}" data-idx="${f.idx}">
-      <header>${icon(m.kind)}${esc(titleOf(st.obj, f))}<small>${esc(KIND_LABEL[m.kind])}</small></header>
+      <header>${icon(m.kind)}<span>${esc(titleOf(st.obj, f))}</span><small>${esc(m.label)}</small></header>
       ${propTable(m, f.props)}
       ${factsHtml(st, f)}
       <div class="actions">
@@ -899,6 +919,20 @@ async function showResults(res, lonlat) {
 }
 function onClick(x, y) {
   const [lo, la] = map.lonlatAt(x, y);
+  // ---- selection mode: tapping a feature toggles it, a drag box selects everything inside
+  if (selState.active) {
+    const res = map.identify(x, y).filter((r) => r.feature && (!selState.filter || r.layer.id === selState.filter));
+    const hit = res[res.length - 1];
+    if (!hit) {
+      if (!selCount()) toast('Tap a feature, or press and drag to select a box');
+      return;
+    }
+    const st = L.get(hit.layer.id);
+    const added = selToggle(hit.layer.id, hit.feature);
+    if (added) showResults([{ layer: { id: hit.layer.id, kind: hit.layer.kind }, feature: hit.feature }], [lo, la]);
+    toast(`${added ? 'Selected' : 'Unselected'} ${titleOf(st.obj, hit.feature)}${selCount() ? ` · ${selCount()} selected` : ''}`, 1600);
+    return;
+  }
   if (draw?.kind === 'pick') {
     const res = map.identify(x, y);
     const hit = res.find((r) => r.feature && r.layer.kind === 'polygon');
@@ -1085,7 +1119,7 @@ $('#sheetclose').onclick = closeSheet;
 const TOOL_GROUPS = {
   focus: [
     ['clip', 'crop', 'Clip to an area', 'Fade everything outside a shape you draw'],
-    ['query', 'query', 'Select by area', 'List what lies inside a polygon'],
+    ['select', 'target', 'Select features', 'Tap or drag a box to select features'],
     ['aoi', 'hist', 'Area summary', 'Counts, classes and area inside the focus'],
     ['filter', 'filter', 'Filter features', 'Show only the rows that match'],
     ['reclass', 'sliders', 'Group into classes', 'Reclassify and recolour a numeric field'],
@@ -1156,6 +1190,7 @@ const TOOL_GROUPS = {
     ['fullscreen', 'expand', 'Full screen', 'Use the whole screen, no browser chrome'],
   ],
   mobile: [
+    ['guide', 'help', 'Guide', 'Every tool, step by step'],
     ['a11y', 'eye', 'Accessibility', 'High contrast, text size, reduced motion'],
     ['gestures', 'grip', 'Gesture Guide', 'Touch gestures for phone and tablet'],
     ['screenreader', 'info', 'Screen Reader', 'Enhanced ARIA labels and live announcements'],
@@ -1280,7 +1315,7 @@ function updateToolState() {
     const t = b.dataset.tool;
     b.classList.toggle('on', (t === 'grid' && gridOn)
       || (t === 'measure-dist' && measure?.mode === 'line') || (t === 'measure-area' && measure?.mode === 'area')
-      || (t === 'clip' && !!clip) || (t === 'query' && draw?.mode === 'query'));
+      || (t === 'clip' && !!clip) || (t === 'select' && selState.active));
   }
   const g = $('#lyrtools [data-x="grid"]'); if (g) g.classList.toggle('on', gridOn);
 }
@@ -1326,7 +1361,7 @@ function runTool(t) {
     case 'savelabels': openSheet('tools'); renderAnnotations(); toast('Labels are listed under “Labels you placed”'); break;
     case 'reset': resetWork(); break;
     case 'clip': toolClip(); break;
-    case 'query': toolQuery(); break;
+    case 'select': toolSelect(); break;
     case 'aoi': toolAoi(); break;
     case 'chart': toolChart(); break;
     case 'buffer': toolBuffer(); break;
@@ -1346,6 +1381,7 @@ function runTool(t) {
     case 'timefilter': toolTemporalFilter(); break;
     case 'timelayers': toolTemporalLayers(); break;
     case 'timeslider': toolTimeSlider(); break;
+    case 'guide': openGuide(); break;
     case 'a11y': toolA11y(); break;
     case 'gestures': toolGestures(); break;
     case 'screenreader': toolScreenReader(); break;
@@ -1612,6 +1648,46 @@ function drawPreview() {
   };
   map.render();
 }
+// press-and-drag inside select mode draws a selection box (works with touch and mouse)
+function bindSelectPointer() {
+  const cv = map.cv;
+  let startPt = null, dragging = false;
+  const local = (e) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  cv.addEventListener('pointerdown', (e) => {
+    if (!selState.active || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    startPt = local(e); dragging = false;
+  }, true);
+  cv.addEventListener('pointermove', (e) => {
+    if (!startPt || !selState.active) return;
+    const p = local(e);
+    if (!dragging && Math.hypot(p[0] - startPt[0], p[1] - startPt[1]) > 12) dragging = true;
+    if (!dragging) return;
+    selState.box = { x0: startPt[0], y0: startPt[1], x1: p[0], y1: p[1] };
+    map.render();
+  }, true);
+  const finish = (e) => {
+    if (!startPt) return;
+    const wasDragging = dragging, box = selState.box;
+    startPt = null; dragging = false; selState.box = null;
+    if (!wasDragging || !box) { map.render(); return; }
+    // convert the dragged corners through the (possibly rotated) view
+    const [ax, ay] = map.fromScreen(box.x0, box.y0), [bx, by] = map.fromScreen(box.x1, box.y1);
+    const found = map.featuresInRect([ax, ay, bx, by], { mode: 'intersect', layers: selState.filter ? [selState.filter] : null });
+    let added = 0, removed = 0;
+    for (const r of found) {
+      const k = selKey(r.layer.id, r.feature);
+      if (selState.ids.has(k)) { selState.ids.delete(k); removed++; } else { selState.ids.add(k); added++; }
+    }
+    selState.box = null;
+    selSyncMap();
+    toast(found.length
+      ? (removed ? `Box: ${added} added, ${removed} removed · ${selCount()} selected` : `${selCount()} selected in the box${added ? '' : ' (already selected)'}`)
+      : 'Nothing inside the box — try a larger box or check the layer is on', 2400);
+  };
+  cv.addEventListener('pointerup', finish, true);
+  cv.addEventListener('pointercancel', () => { startPt = null; dragging = false; selState.box = null; map.render(); }, true);
+}
+
 // drag-to-draw shapes: rect, square, circle, freehand
 function bindDrawPointer() {
   const cv = map.cv;
@@ -1847,6 +1923,451 @@ function toolAoi() {
       });
     }, 40);
   });
+}
+
+// ================================================================================
+// Heavy-work helpers: keep the UI honest and make layer x layer tools fast
+// ================================================================================
+// A coarse grid of bounding boxes, so a point or feature only tests the few shapes near it.
+function bboxGrid(items, bboxOf, cells = 48) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const it of items) {
+    const b = bboxOf(it);
+    if (!b) continue;
+    x0 = Math.min(x0, b[0]); y0 = Math.min(y0, b[1]); x1 = Math.max(x1, b[2]); y1 = Math.max(y1, b[3]);
+  }
+  if (!Number.isFinite(x0)) { x0 = y0 = 0; x1 = y1 = 1; }
+  const w = Math.max(1e-12, x1 - x0), h = Math.max(1e-12, y1 - y0);
+  const grid = new Array(cells * cells);
+  for (const it of items) {
+    const b = bboxOf(it);
+    if (!b) continue;
+    const cx0 = Math.max(0, Math.min(cells - 1, Math.floor((b[0] - x0) / w * cells)));
+    const cx1 = Math.max(0, Math.min(cells - 1, Math.floor((b[2] - x0) / w * cells)));
+    const cy0 = Math.max(0, Math.min(cells - 1, Math.floor((b[1] - y0) / h * cells)));
+    const cy1 = Math.max(0, Math.min(cells - 1, Math.floor((b[3] - y0) / h * cells)));
+    for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
+      const k = cy * cells + cx;
+      (grid[k] || (grid[k] = [])).push(it);
+    }
+  }
+  return {
+    near(x, y) {
+      const cx = Math.max(0, Math.min(cells - 1, Math.floor((x - x0) / w * cells)));
+      const cy = Math.max(0, Math.min(cells - 1, Math.floor((y - y0) / h * cells)));
+      return grid[cy * cells + cx] || [];
+    },
+    nearBox(b) {
+      const out = new Set();
+      const cx0 = Math.max(0, Math.min(cells - 1, Math.floor((b[0] - x0) / w * cells)));
+      const cx1 = Math.max(0, Math.min(cells - 1, Math.floor((b[2] - x0) / w * cells)));
+      const cy0 = Math.max(0, Math.min(cells - 1, Math.floor((b[1] - y0) / h * cells)));
+      const cy1 = Math.max(0, Math.min(cells - 1, Math.floor((b[3] - y0) / h * cells)));
+      for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) for (const it of grid[cy * cells + cx] || []) out.add(it);
+      return [...out];
+    },
+  };
+}
+// Let the browser paint a "working" message before a long computation starts.
+async function working(label) {
+  toast(label + '…', 60000);
+  await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
+}
+function ringOfFeature(f) { return f.type === 'poly' ? f.parts.flat() : f.type === 'line' ? f.parts : [f.parts]; }
+// One mercator unit is at most this many metres (at the equator), so dividing a
+// metre tolerance by it gives a mercator radius that is safe everywhere.
+const MERC_METRES_PER_UNIT = 40075016.686;
+// Grid of single points (x, y, payload) in mercator units, for nearest-neighbour work.
+function pointGrid(pts, cellMerc) {
+  const cell = Math.max(cellMerc, 1e-12);
+  const map = new Map();
+  const key = (cx, cy) => cx + ',' + cy;
+  for (const p of pts) {
+    const cx = Math.floor(p.x / cell), cy = Math.floor(p.y / cell);
+    const k = key(cx, cy);
+    let list = map.get(k);
+    if (!list) map.set(k, (list = []));
+    list.push(p);
+  }
+  return {
+    around(x, y, rings = 1) {
+      const cx = Math.floor(x / cell), cy = Math.floor(y / cell);
+      const out = [];
+      for (let dy = -rings; dy <= rings; dy++) for (let dx = -rings; dx <= rings; dx++) {
+        const list = map.get(key(cx + dx, cy + dy));
+        if (list) out.push(...list);
+      }
+      return out;
+    },
+  };
+}
+// <option> list for a layer's fields. meta.fields holds {name, label, type} objects,
+// not strings, so using the object directly produced "[object Object]" for every choice.
+function fieldOptions(st, filter = null) {
+  const fields = (st?.meta?.fields || []).filter((f) => f && typeof f === 'object' && f.name && (!filter || filter(f)));
+  return fields.map((f) => '<option value="' + esc(f.name) + '">' + esc(f.label || f.name) + '</option>').join('');
+}
+// Flatten nested coordinate arrays (parts → rings → numbers) into one number array.
+function flattenNums(v, out = []) {
+  if (typeof v === 'number') out.push(v);
+  else if (v && typeof v.length === 'number') for (let i = 0; i < v.length; i++) flattenNums(v[i], out);
+  return out;
+}
+// Every pair of features whose extents touch, without the n^2 full scan.
+// `reject(a, b)` lets a caller drop pairs whose boxes merely overlap.
+function bboxPairs(items, reject = null, cells = 32) {
+  const out = [];
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const it of items) { const b = it.bb; x0 = Math.min(x0, b[0]); y0 = Math.min(y0, b[1]); x1 = Math.max(x1, b[2]); y1 = Math.max(y1, b[3]); }
+  if (!Number.isFinite(x0)) return out;
+  const w = Math.max(1e-12, x1 - x0), h = Math.max(1e-12, y1 - y0);
+  const cell = (v, lo, span) => Math.max(0, Math.min(cells - 1, Math.floor((v - lo) / span * cells)));
+  const buckets = new Map();
+  const seen = new Set();
+  for (let i = 0; i < items.length; i++) {
+    const b = items[i].bb;
+    const cx0 = cell(b[0], x0, w), cx1 = cell(b[2], x0, w);
+    const cy0 = cell(b[1], y0, h), cy1 = cell(b[3], y0, h);
+    for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
+      const k = cy * cells + cx;
+      let list = buckets.get(k);
+      if (!list) buckets.set(k, (list = []));
+      for (const j of list) {
+        const key = j < i ? j * items.length + i : i * items.length + j;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        if (reject && reject(items[i], items[j])) continue;
+        out.push([items[i], items[j]]);
+      }
+      list.push(i);
+    }
+  }
+  return out;
+}
+// Does a feature fall inside any buffered zone? Uses the buffer grid, so only the
+// few zones near the feature are ever tested.
+function bufferHits(f, index) {
+  for (const b of index.nearBox(f.bb)) {
+    if (f.bb[2] < b.bb[0] || f.bb[0] > b.bb[2] || f.bb[3] < b.bb[1] || f.bb[1] > b.bb[3]) continue;
+    if (f.type === 'point') {
+      // a point is "inside" when it falls within any buffered polygon
+      for (let i = 0; i < f.parts.length; i += 2) {
+        const x = f.parts[i], y = f.parts[i + 1];
+        for (const poly of b.parts) if (pip2(x, y, poly)) return true;
+      }
+      continue;
+    }
+    const fr = ringOfFeature(f);
+    for (const poly of b.parts) if (polyOverlapsPoly(fr, poly)) return true;
+  }
+  return false;
+}
+// Which feature pairs share a boundary? Instead of testing every pair of polygons,
+// index every boundary segment in one grid and only compare segments that land in the
+// same cell. Cost is proportional to the number of vertices, not to n².
+function adjacentPairs(feats, cells = 96) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const f of feats) { const b = f.bb; x0 = Math.min(x0, b[0]); y0 = Math.min(y0, b[1]); x1 = Math.max(x1, b[2]); y1 = Math.max(y1, b[3]); }
+  if (!Number.isFinite(x0)) return [];
+  const w = Math.max(1e-12, x1 - x0), h = Math.max(1e-12, y1 - y0);
+  const cellOf = (v, lo, span) => Math.max(0, Math.min(cells - 1, Math.floor((v - lo) / span * cells)));
+  const buckets = new Map();
+  // 1. file every boundary segment under the cells its extent covers
+  for (let fi = 0; fi < feats.length; fi++) {
+    const f = feats[fi];
+    for (const ring of ringOfFeature(f)) {
+      for (let i = 0; i < ring.length - 2; i += 2) {
+        const ax = ring[i], ay = ring[i + 1], bx = ring[i + 2], by = ring[i + 3];
+        const cx0 = cellOf(Math.min(ax, bx), x0, w), cx1 = cellOf(Math.max(ax, bx), x0, w);
+        const cy0 = cellOf(Math.min(ay, by), y0, h), cy1 = cellOf(Math.max(ay, by), y0, h);
+        for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
+          const k = cy * cells + cx;
+          let list = buckets.get(k);
+          if (!list) buckets.set(k, (list = []));
+          list.push(fi, ax, ay, bx, by);
+        }
+      }
+    }
+  }
+  // 2. any cell holding segments from two features means those two touch
+  const pairs = new Set();
+  const touched = [];
+  for (const list of buckets.values()) {
+    const stride = 5;
+    for (let a = 0; a < list.length; a += stride) {
+      const fa = list[a];
+      for (let b = 0; b < list.length; b += stride) {
+        const fb = list[b];
+        if (fa === fb) continue;
+        const key = fa < fb ? fa * feats.length + fb : fb * feats.length + fa;
+        if (pairs.has(key)) continue;
+        if (segmentsIntersect(list[a + 1], list[a + 2], list[a + 3], list[a + 4], list[b + 1], list[b + 2], list[b + 3], list[b + 4])) {
+          pairs.add(key);
+          touched.push(key);
+        }
+      }
+    }
+  }
+  return touched;
+}
+// Ring extents are cached on the ring, because adjacency asks the same question
+// for the same rings over and over.
+function ringBBoxCached(ring) {
+  if (ring._bbx) return ring._bbx;
+  const bb = ringsBBox([ring]);
+  try { Object.defineProperty(ring, '_bbx', { value: bb, enumerable: false }); } catch { /* frozen ring */ }
+  return bb;
+}
+function ringsTouch(ringsA, ringsB, tolMerc = 0) {
+  for (const ra of ringsA) {
+    const ba = ringBBoxCached(ra);
+    for (const rb of ringsB) {
+      const bb = ringBBoxCached(rb);
+      if (ba[2] + tolMerc < bb[0] || ba[0] - tolMerc > bb[2] || ba[3] + tolMerc < bb[1] || ba[1] - tolMerc > bb[3]) continue;
+      for (let i = 0; i < ra.length - 2; i += 2) {
+        const ax1 = ra[i], ay1 = ra[i + 1], ax2 = ra[i + 2], ay2 = ra[i + 3];
+        const sMinX = Math.min(ax1, ax2) - tolMerc, sMaxX = Math.max(ax1, ax2) + tolMerc;
+        const sMinY = Math.min(ay1, ay2) - tolMerc, sMaxY = Math.max(ay1, ay2) + tolMerc;
+        for (let j = 0; j < rb.length - 2; j += 2) {
+          const bx1 = rb[j], by1 = rb[j + 1], bx2 = rb[j + 2], by2 = rb[j + 3];
+          if (sMaxX < Math.min(bx1, bx2) || sMinX > Math.max(bx1, bx2)) continue;
+          if (sMaxY < Math.min(by1, by2) || sMinY > Math.max(by1, by2)) continue;
+          if (segmentsIntersect(ax1, ay1, ax2, ay2, bx1, by1, bx2, by2)) return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+// ================================================================================
+// SELECTION  (Select by area, tap-to-select, multi-select and box select)
+// ================================================================================
+function selKey(layerId, f) { return layerId + ':' + f.idx; }
+function selCount() { return selState.ids.size; }
+function selItems() {
+  const out = [];
+  for (const id of stack) {
+    const st = L.get(id); if (!st?.obj?.features) continue;
+    for (const f of st.obj.features) if (selState.ids.has(selKey(id, f))) out.push({ layer: id, st, f });
+  }
+  return out;
+}
+function selClear(announce) {
+  selState.ids.clear();
+  selState.last = null;
+  map.selection = null; map.selectionSet = []; map.render();
+  updateSelBar(); updateToolState();
+  if (announce) toast('Selection cleared');
+}
+function selToggle(layerId, f) {
+  const k = selKey(layerId, f);
+  if (selState.ids.has(k)) selState.ids.delete(k); else selState.ids.add(k);
+  selState.last = selState.ids.has(k) ? { layer: layerId, feature: f } : selState.last;
+  selSyncMap(); return selState.ids.has(k);
+}
+function selSyncMap() {
+  const items = selItems();
+  map.selectionSet = items.slice(0, 1500);
+  map.selection = items.length === 1 ? { feature: items[0].f, layer: { id: items[0].layer } } : null;
+  map.render();
+  updateSelBar();
+  updateToolState();
+}
+function enterSelectMode(filter) {
+  selState.active = true;
+  map.panLock = true;            // a drag draws the selection box; two fingers still pan and zoom
+  selState.filter = filter || '';
+  if (measure) { measure = null; $('#measurebar').hidden = true; }
+  if (draw) endDraw();
+  map.cv.style.cursor = 'crosshair';
+  updateSelBar();
+  updateToolState();
+}
+function exitSelectMode(keepSelection) {
+  selState.active = false;
+  selState.box = null;
+  map.panLock = false;
+  map.cv.style.cursor = '';
+  if (!keepSelection) selClear(false);
+  map.render();
+  updateSelBar();
+  updateToolState();
+}
+// live feedback for the drag box (drawn above the layers, inside the map render loop)
+map.extra.push((ctx, m) => {
+  if (selState.box) {
+    const { x0, y0, x1, y1 } = selState.box;
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,212,0,.18)';
+    ctx.strokeStyle = '#ffd400'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+    ctx.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0));
+    ctx.strokeRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0));
+    ctx.restore();
+  }
+});
+
+function wireSelBar() {
+  const bar = $('#selbar'); if (!bar || bar.dataset.wired) return;
+  bar.dataset.wired = '1';
+  $('#seldone').onclick = () => { const was = selState.active; exitSelectMode(true); toast(was ? 'Select mode off' : 'Selection closed'); };
+  $('#selclearall').onclick = () => selClear(true);
+  $('#sellist').onclick = () => openSelectionList();
+  $('#selzoom').onclick = () => selZoom();
+  $('#selcsv').onclick = () => selExportCsv();
+  $('#selall').onclick = () => {
+    const [x0, y1] = map.fromScreen(0, 0), [x1, y0] = map.fromScreen(map.W, map.H);
+    const found = map.featuresInRect([x0, y0, x1, y1], { mode: 'intersect', layers: selState.filter ? [selState.filter] : null, limit: 2000 });
+    let added = 0;
+    for (const r of found) { const k = selKey(r.layer.id, r.feature); if (!selState.ids.has(k)) { selState.ids.add(k); added++; } }
+    selSyncMap();
+    toast(added ? `${added} feature${added === 1 ? '' : 's'} added from the screen` : 'Everything on screen is already selected', 2200);
+  };
+  updateSelBar();
+}
+
+function updateSelBar() {
+  const bar = $('#selbar'); if (!bar) return;
+  const on = selState.active, n = selCount();
+  bar.hidden = !on && !n;
+  bar.classList.toggle('active', on);
+  document.body.classList.toggle('sel-open', !bar.hidden);
+  const txt = $('#seltext');
+  if (txt) txt.textContent = on
+    ? (n ? n + ' selected — tap a feature to add or remove it' : 'Select mode: tap a feature, or drag a box')
+    : n + ' feature' + (n === 1 ? '' : 's') + ' selected';
+  const cnt = $('#selcount'); if (cnt) cnt.textContent = String(n);
+  const done = $('#seldone'); if (done) done.textContent = on ? 'Done' : 'Close';
+  const all = $('#selall'); if (all) all.hidden = !on;
+}
+function toolSelect() {
+  const vec = activeVectorLayerIds();
+  openModal('Select features', (body) => {
+    if (!vec.length) {
+      body.innerHTML = '<p class="empty">Turn on a feature layer first (a polygon, line or point layer).</p>';
+      return;
+    }
+    body.innerHTML = `<p class="hint">Pick one layer to work in, or select across everything that is switched on.</p>
+      <div class="frow"><label>Layer</label><select id="sb-layer">
+        <option value="">All switched-on layers (${vec.length})</option>
+        ${vec.map((id) => `<option value="${esc(id)}">${esc(L.get(id).meta.label)}</option>`).join('')}
+      </select></div>
+      <div class="frow act"><button class="btn primary" data-act="start">${icon('query')} Start selecting</button></div>
+      <h4>How selecting works</h4>
+      <ul class="steps">
+        <li><b>Tap a feature</b> on the map to select it. Tap it again to unselect it.</li>
+        <li><b>Drag a box</b> (press, hold and pull) to select everything inside it. Great on a phone.</li>
+        <li>The bar at the bottom of the map shows the count, with <b>List</b>, <b>Zoom</b> and <b>Export</b>.</li>
+        <li>Press <b>Done</b> to leave select mode and go back to panning the map.</li>
+      </ul>`;
+    body.addEventListener('click', (e) => {
+      if (!e.target.closest('[data-act="start"]')) return;
+      const lid = body.querySelector('#sb-layer').value;
+      closeModal();
+      enterSelectMode(lid);
+      toast('Select mode on — tap features or drag a box');
+    });
+  });
+}
+function activeVectorLayerIds() {
+  return stack.filter((id) => { const st = L.get(id); return st?.obj?.features && st.meta.kind !== 'table'; });
+}
+function openSelectionList() {
+  const items = selItems();
+  const byLayer = new Map();
+  for (const r of items) byLayer.set(r.st.meta.label, (byLayer.get(r.st.meta.label) || 0) + 1);
+  const sample = items.slice(0, 200);
+  openModal('Selected features', (body) => {
+    if (!items.length) {
+      body.innerHTML = `<p class="empty">Nothing is selected yet.</p>
+        <div class="frow act"><button class="btn primary" data-act="start">${icon('query')} Start selecting</button></div>`;
+      body.addEventListener('click', (e) => { if (e.target.closest('[data-act="start"]')) { closeModal(); enterSelectMode(selState.filter); } });
+      return;
+    }
+    const maxN = Math.max(1, ...byLayer.values());
+    body.innerHTML = `<p class="hint"><b>${fmtNum(items.length)}</b> feature${items.length === 1 ? '' : 's'} selected across ${byLayer.size} layer${byLayer.size === 1 ? '' : 's'}.</p>
+      <div class="chart">${[...byLayer.entries()].sort((a, b) => b[1] - a[1]).map(([l, n]) => `<div class="brow"><span>${esc(l)}</span><span class="barwrap"><i style="width:${Math.max(2, 100 * n / maxN)}%"></i></span><b>${fmtNum(n)}</b></div>`).join('')}</div>
+      <table class="mini"><tr>${byLayer.size > 1 ? '<th>Layer</th>' : ''}<th>Feature</th><th>${items.every((it) => layerRank(it.st)) ? 'Area rank' : 'Value'}</th></tr>
+      ${sample.map((r, i) => `<tr>${byLayer.size > 1 ? `<td>${esc(r.st.meta.label)}</td>` : ''}<td><button class="linkbtn" data-row="${i}">${esc(titleOf(r.st.obj, r.f))}</button></td><td>${esc(valueFor(r.st, r.f))}</td></tr>`).join('')}</table>
+      ${items.length > sample.length ? `<p class="hint">Showing the first ${sample.length} of ${fmtNum(items.length)}.</p>` : ''}
+      <div class="aoi" style="margin-top:10px">
+        <button class="btn" data-act="zoom">${icon('zoom')} Zoom to selection</button>
+        <button class="btn" data-act="focus">${icon('crop')} Focus on selection</button>
+        <button class="btn" data-act="attrs">${icon('info')} Feature details</button>
+        <button class="btn" data-act="csv">${icon('down')} Export CSV</button>
+        <button class="btn" data-act="clear">Clear selection</button>
+      </div>
+      <p class="hint">Leave this panel open and keep tapping the map — the list updates as you select.</p>`;
+    body.addEventListener('click', (e) => {
+      const rowBtn = e.target.closest('[data-row]');
+      if (rowBtn) {
+        const r = sample[+rowBtn.dataset.row]; closeModal();
+        map.fitBounds([unX(r.f.bb[0]), unY(r.f.bb[3]), unX(r.f.bb[2]), unY(r.f.bb[1])], 60);
+        map.selection = { feature: r.f, layer: { id: r.layer } }; map.render();
+        showResults([{ layer: { id: r.layer, kind: r.st.meta.kind }, feature: r.f }]); openSheet('info', true);
+        return;
+      }
+      const b = e.target.closest('[data-act]'); if (!b) return;
+      const act = b.dataset.act;
+      if (act === 'zoom') { const bb = selBounds(true); if (bb) map.fitBounds(bb, 40); closeModal(); }
+      else if (act === 'focus') { selFocus(); closeModal(); }
+      else if (act === 'attrs') { closeModal(); selShowAttrs(); }
+      else if (act === 'csv') selExportCsv();
+      else if (act === 'clear') { selClear(true); closeModal(); }
+    });
+  });
+}
+function selBounds(ll) {
+  const items = selItems(); if (!items.length) return null;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const r of items) {
+    x0 = Math.min(x0, r.f.bb[0]); y0 = Math.min(y0, r.f.bb[1]);
+    x1 = Math.max(x1, r.f.bb[2]); y1 = Math.max(y1, r.f.bb[3]);
+  }
+  return ll ? [unX(x0), unY(y1), unX(x1), unY(y0)] : [x0, y0, x1, y1];
+}
+function selFocus() {
+  const items = selItems(); if (!items.length) { toast('Nothing is selected'); return; }
+  const polys = items.filter((r) => r.f.type === 'poly');
+  if (polys.length) {
+    const rings = [];
+    for (const r of polys) for (const poly of r.f.parts) for (const ring of poly) rings.push(Array.from(ring));
+    setFocus({ type: 'poly', rings, multi: true }, false);
+    focusLabel = polys.length === 1 ? titleOf(polys[0].st.obj, polys[0].f) : polys.length + ' selected features';
+    toast(`Focused on ${polys.length} selected polygon${polys.length === 1 ? '' : 's'}`);
+  } else {
+    const bb = selBounds(false); if (!bb) return;
+    setFocus({ type: 'rect', wb: bb }, false);
+    toast('Focused on the selection');
+  }
+}
+function selExportCsv() {
+  const items = selItems(); if (!items.length) { toast('Nothing is selected'); return; }
+  const keys = [];
+  for (const r of items) for (const k of Object.keys(r.f.props || {})) if (!keys.includes(k)) keys.push(k);
+  const lines = ['layer,' + keys.map((k) => `"${String(k).replace(/"/g, '""')}"`).join(',') + ',lat,lon'];
+  for (const r of items) {
+    const [wx, wy] = labelAnchor(r.f);
+    lines.push([r.st.meta.label, ...keys.map((k) => r.f.props?.[k] ?? ''), unY(wy).toFixed(5), unX(wx).toFixed(5)]
+      .map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','));
+  }
+  download('selection.csv', lines.join(String.fromCharCode(10)), 'text/csv');
+  toast('Selection exported');
+}
+function selShowAttrs() {
+  const items = selItems();
+  if (!items.length) { toast('Nothing is selected'); return; }
+  if (items.length === 1) {
+    const r = items[0];
+    showResults([{ layer: { id: r.layer, kind: r.st.meta.kind }, feature: r.f }]);
+    openSheet('info', true);
+    return;
+  }
+  openSelectionList();
+}
+function selZoom() {
+  const bb = selBounds(true); if (!bb) { toast('Nothing is selected'); return; }
+  map.fitBounds(bb, 40);
 }
 
 // select by area: list features inside a polygon feature -------------------
@@ -2610,22 +3131,22 @@ function toolBuffer() {
       if (!checkSt.obj) await loadLayer(checkSt);
       closeModal();
       const distM = distKm * 1000;
+      await working('Buffering ' + srcSt.meta.label);
       const buffered = [];
       for (const f of srcSt.obj.features) {
         if (f.hidden) continue;
         buffered.push(bufferFeature(f, distM));
       }
+      await working('Testing ' + checkSt.meta.label);
+      const bufs = buffered.filter(Boolean);
+      const index = bboxGrid(bufs, (b) => b.bb, 40);
       const hits = [];
       for (const f of checkSt.obj.features) {
         if (f.hidden) continue;
-        for (const b of buffered) {
-          const br = b.parts[0] && b.parts[0][0];
-          if (br && polyOverlapsPoly(f.type === 'poly' ? f.parts : f.parts, [br])) {
-            hits.push(f); break;
-          }
-        }
+        if (bufferHits(f, index)) hits.push(f);
       }
       addAnalysisLayer(buffered, 'polygon', 'Buffer ' + distKm + ' km', '#0b6b45');
+      toast('Buffer: ' + hits.length + ' feature' + (hits.length === 1 ? '' : 's') + ' inside ' + distKm + ' km');
       const html = '<p class="hint">Buffer: <b>' + esc(srcSt.meta.label) + '</b> at <b>' + distKm + ' km</b> radius.</p>' +
         '<p>Features in <b>' + esc(checkSt.meta.label) + '</b> inside the buffer: <b>' + hits.length + '</b></p>' +
         '<p class="muted">Results are shown on the map only. Use the camera button to download a PNG picture.</p>';
@@ -2773,7 +3294,7 @@ function toolDissolve() {
         }
         const flatPts = allRings.flat();
         const hullRing = convexHullPoints(flatPts);
-        if (hullRing) dissolved.push({ type: 'poly', parts: [[hullRing]], fill: '#7a4b00', stroke: '#7a4b00', idx: idx++, props: { [field]: key, dissolved_count: feats.length } });
+        if (hullRing) dissolved.push({ type: 'poly', parts: [[hullRing]], bb: clipBB([hullRing]), fill: '#7a4b00', stroke: '#7a4b00', idx: idx++, props: { [field]: key, dissolved_count: feats.length } });
       }
       addAnalysisLayer(dissolved, 'polygon', 'Dissolved: ' + field, '#7a4b00');
       const html = '<p class="hint">Dissolve: <b>' + esc(st.meta.label) + '</b> by <b>' + esc(field) + '</b>.</p>' +
@@ -2808,24 +3329,29 @@ function toolCount() {
       if (!pSt.obj) await loadLayer(pSt);
       if (!tSt.obj) await loadLayer(tSt);
       closeModal();
-      const results = [];
-      let total = 0;
-      for (const f of pSt.obj.features) {
-        if (f.hidden) continue;
-        let n = 0;
-        for (const pf of tSt.obj.features) {
-          if (pf.hidden) continue;
-          const c = featureCentroid(pf);
-          let inside = false;
-          for (const poly of f.parts) for (const ring of poly) { if (pip2(c[0], c[1], [ring])) { inside = true; break; } }
-          if (inside) n++;
+      await working('Counting ' + tSt.meta.label);
+      // One pass over the points: each point only tests the polygons whose extent holds it.
+      const polys = pSt.obj.features.filter((f) => !f.hidden && f.type === 'poly');
+      const index = bboxGrid(polys, (f) => f.bb, 64);
+      const counts = new Map();
+      let total = 0, seen = 0;
+      for (const pf of tSt.obj.features) {
+        if (pf.hidden || pf.type !== 'point') continue;
+        for (let i = 0; i < pf.parts.length; i += 2) {
+          const px = pf.parts[i], py = pf.parts[i + 1];
+          seen++;
+          let hit = false;
+          for (const f of index.near(px, py)) {
+            if (px < f.bb[0] || px > f.bb[2] || py < f.bb[1] || py > f.bb[3]) continue;
+            if (pip2(px, py, f.parts)) { counts.set(f, (counts.get(f) || 0) + 1); hit = true; }
+          }
+          if (hit) total++;
         }
-        total += n;
-        results.push({ ...f, fill: '#0b6b45', props: { ...f.props, point_count: n } });
       }
+      const results = polys.map((f) => ({ ...f, fill: '#0b6b45', props: { ...f.props, point_count: counts.get(f) || 0 } }));
       addAnalysisLayer(results, 'polygon', 'Point count', '#0b6b45');
       const html = '<p class="hint">Count: <b>' + esc(tSt.meta.label) + '</b> points in <b>' + esc(pSt.meta.label) + '</b> polygons.</p>' +
-        '<p>Total points inside polygons: <b>' + total + '</b></p>' +
+        '<p>Points inside a polygon: <b>' + total + '</b> of ' + seen.toLocaleString() + ' tested</p>' +
         '<table class="mini"><tr><th>Polygon</th><th>Point count</th></tr>' +
         results.map((r) => '<tr><td>' + esc(titleOf(pSt.obj, r)) + '</td><td><b>' + r.props.point_count + '</b></td></tr>').slice(0, 20).join('') +
         '</table>' +
@@ -2857,7 +3383,7 @@ function toolHull() {
       }
       const ring = convexHullPoints(pts);
       if (!ring) { toast('Not enough points for a hull'); return; }
-      const area = ringAreaKm2(pts.map(p => [unX(p[0]), unY(p[1])]));
+      const area = flatRingAreaKm2(ring);
       addAnalysisLayer([{ type: 'poly', parts: [[ring]], fill: '#1e78ff', stroke: '#1e78ff', props: { hull_area_km2: area.toFixed(2) } }], 'polygon', 'Convex hull', '#1e78ff');
       const html = '<p class="hint">Convex Hull: <b>' + esc(st.meta.label) + '</b>.</p>' +
         '<p>Points enclosed: <b>' + pts.length + '</b> · Hull area: <b>' + area.toFixed(2) + ' km²</b></p>' +
@@ -2917,33 +3443,37 @@ function toolZonal() {
       closeModal();
       const o = rSt.obj.vals;
       const { w, h, data, dtype, wb } = o;
-      const results = [];
-      for (const f of pSt.obj.features) {
-        if (f.hidden) continue;
-        let count = 0, sum = 0, min = 1e9, max = -1e9, valid = 0;
-        const step = Math.max(1, Math.floor(Math.sqrt((w * h) / 20000)));
-        for (let j = 0; j < h; j += step) {
-          for (let i = 0; i < w; i += step) {
-            const v = data[j * w + i];
-            if (dtype === 'i2' ? v === -32768 : !isFinite(v)) continue;
-            const wx = wb[0] + (i + step / 2) / w * (wb[2] - wb[0]);
-            const wy = wb[1] + (j + step / 2) / h * (wb[3] - wb[1]);
+      await working('Summarising the raster inside ' + pSt.meta.label);
+      const polys = pSt.obj.features.filter((f) => !f.hidden && f.type === 'poly');
+      const index = bboxGrid(polys, (f) => f.bb, 64);
+      const acc = new Map();   // polygon -> {count,sum,min,max}
+      const step = Math.max(1, Math.floor(Math.sqrt((w * h) / 20000)));
+      for (let j = 0; j < h; j += step) {
+        for (let i = 0; i < w; i += step) {
+          const v = data[j * w + i];
+          if (dtype === 'i2' ? v === -32768 : !isFinite(v)) continue;
+          const wx = wb[0] + (i + step / 2) / w * (wb[2] - wb[0]);
+          const wy = wb[1] + (j + step / 2) / h * (wb[3] - wb[1]);
+          for (const f of index.near(wx, wy)) {
             let inside = false;
             for (const poly of f.parts) for (const ring of poly) { if (pip2(wx, wy, [ring])) { inside = true; break; } }
-            if (inside) {
-              count++;
-              valid++;
-              sum += v;
-              if (v < min) min = v;
-              if (v > max) max = v;
-            }
+            if (!inside) continue;
+            let a = acc.get(f);
+            if (!a) { a = { count: 0, sum: 0, min: 1e9, max: -1e9 }; acc.set(f, a); }
+            a.count++; a.sum += v;
+            if (v < a.min) a.min = v;
+            if (v > a.max) a.max = v;
           }
         }
-        if (valid > 0) {
-          results.push({ ...f, fill: '#a83232', props: { ...f.props, zn_count: count, zn_mean: (sum / valid).toFixed(2), zn_min: min.toFixed(2), zn_max: max.toFixed(2) } });
-        }
+      }
+      const results = [];
+      for (const [f, a] of acc) {
+        results.push({ ...f, fill: '#a83232', props: { ...f.props, zn_count: a.count, zn_mean: (a.sum / a.count).toFixed(2), zn_min: a.min.toFixed(2), zn_max: a.max.toFixed(2) } });
       }
       addAnalysisLayer(results, 'polygon', 'Zonal stats', '#a83232');
+      toast(results.length
+        ? 'Zonal stats: ' + results.length + ' polygon' + (results.length === 1 ? '' : 's') + ' with data'
+        : 'No raster cells fell inside these polygons');
       const html = '<p class="hint">Zonal Statistics: <b>' + esc(rSt.meta.label) + '</b> within <b>' + esc(pSt.meta.label) + '</b>.</p>' +
         '<p>Polygons with valid data: <b>' + results.length + '</b></p>' +
         '<table class="mini"><tr><th>Polygon</th><th>Cells</th><th>Mean</th><th>Min</th><th>Max</th></tr>' +
@@ -3493,13 +4023,17 @@ function toolBearing() {
       const a = [+body.querySelector('#b-alat').value, +body.querySelector('#b-alon').value];
       const b = [+body.querySelector('#b-blat').value, +body.querySelector('#b-blon').value];
       if (!a.every(isFinite) || !b.every(isFinite)) { toast('Fill in all four numbers'); return; }
-      const d = haversineKm(a, b);
-      const y = Math.sin((b[0] - a[0]) * Math.PI / 180) * Math.cos(b[1] * Math.PI / 180);
-      const x = Math.cos(a[1] * Math.PI / 180) * Math.sin(b[1] * Math.PI / 180) - Math.sin(a[1] * Math.PI / 180) * Math.cos(b[1] * Math.PI / 180) * Math.cos((b[0] - a[0]) * Math.PI / 180);
+      const [latA, lonA] = a, [latB, lonB] = b;
+      const d = haversineKm([lonA, latA], [lonB, latB]);
+      const rad = Math.PI / 180;
+      const dLon = (lonB - lonA) * rad;
+      const y = Math.sin(dLon) * Math.cos(latB * rad);
+      const x = Math.cos(latA * rad) * Math.sin(latB * rad) - Math.sin(latA * rad) * Math.cos(latB * rad) * Math.cos(dLon);
       const brg = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+      const compass = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'][Math.round(brg / 22.5) % 16];
       body.querySelector('#b-out').innerHTML = `<div class="statgrid">
         <div class="statbox"><b>${fmtNum(d)} km</b><small>distance</small></div>
-        <div class="statbox"><b>${brg.toFixed(1)}°</b><small>initial bearing</small></div></div>
+        <div class="statbox"><b>${brg.toFixed(1)}° ${compass}</b><small>initial bearing</small></div></div>
         <div class="frow act"><button class="btn" id="b-fit">Show both on the map</button></div>`;
       body.querySelector('#b-fit').onclick = () => {
         map.fitBounds([Math.min(a[1], b[1]), Math.min(a[0], b[0]), Math.max(a[1], b[1]), Math.max(a[0], b[0])], 80);
@@ -5008,7 +5542,7 @@ function toolDensify() {
             const x1 = part[i], y1 = part[i + 1];
             const x2 = part[i + 2], y2 = part[i + 3];
             newPart.push(x1, y1);
-            const segLen = haversineKm([y1, x1], [y2, x2]);
+            const segLen = haversineKm([unX(x1), unY(y1)], [unX(x2), unY(y2)]);
             const nSegs = Math.max(1, Math.floor(segLen / intervalKm));
             for (let s = 1; s < nSegs; s++) {
               const t = s / nSegs;
@@ -5049,19 +5583,22 @@ function toolSplitPoly() {
       if (!pSt.obj) await loadLayer(pSt);
       if (!lSt.obj) await loadLayer(lSt);
       closeModal();
-      let splitCount = 0;
+      await working('Testing the cutting line against ' + pSt.meta.label);
+      const lines = lSt.obj.features.filter((f) => !f.hidden && f.type === 'line');
+      const lineIndex = bboxGrid(lines, (f) => f.bb, 48);
+      const hitPoly = new Set();
       for (const f of pSt.obj.features) {
         if (f.hidden || f.type !== 'poly') continue;
-        for (const lf of lSt.obj.features) {
-          if (lf.hidden || lf.type !== 'line') continue;
-          for (const ring of f.parts) {
-            for (const linePart of lf.parts) {
-              // Simple approach: mark polygons that intersect the line for splitting
-              if (polyOverlapsPoly(f.parts, [linePart])) { splitCount++; break; }
-            }
+        for (const lf of lineIndex.nearBox(f.bb)) {
+          if (lf.bb[2] < f.bb[0] || lf.bb[0] > f.bb[2] || lf.bb[3] < f.bb[1] || lf.bb[1] > f.bb[3]) continue;
+          let cross = false;
+          for (const linePart of lf.parts) {
+            if (polyOverlapsPoly(f.parts, [linePart])) { cross = true; break; }
           }
+          if (cross) { hitPoly.add(f); break; }
         }
       }
+      const splitCount = hitPoly.size;
       outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + splitCount + '</b> polygon' + (splitCount === 1 ? '' : 's') + ' intersected by cutting line</p>' +
         '<p class="muted">Full polygon splitting requires advanced topology engine — intersections identified on map.</p>';
       toast('Split analysis complete');
@@ -5132,18 +5669,15 @@ function toolCheckOverlap() {
       if (!st.obj) await loadLayer(st);
       closeModal();
       const feats = st.obj.features.filter((f) => !f.hidden && f.type === 'poly');
+      await working('Checking ' + feats.length + ' polygons');
+      // compare each polygon only with the ones sharing a grid cell
+      const pairs = bboxPairs(feats, (a, b) => a.bb[2] < b.bb[0] || a.bb[0] > b.bb[2] || a.bb[3] < b.bb[1] || a.bb[1] > b.bb[3]);
       let overlapPairs = 0;
-      const overlapFeats = [];
-      for (let i = 0; i < feats.length; i++) {
-        for (let j = i + 1; j < feats.length; j++) {
-          if (polyOverlapsPoly(feats[i].parts, feats[j].parts)) {
-            overlapPairs++;
-            overlapFeats.push(feats[i], feats[j]);
-          }
-        }
+      for (const [a, b] of pairs) {
+        if (polyOverlapsPoly(a.parts, b.parts)) overlapPairs++;
       }
       outDiv.innerHTML = '<p style="color:' + (overlapPairs > 0 ? 'var(--bad)' : 'var(--ok)') + '"><b>' + overlapPairs + '</b> overlapping pair' + (overlapPairs === 1 ? '' : 's') + ' found</p>' +
-        '<p>of <b>' + feats.length + '</b> features checked</p>';
+        '<p>of <b>' + feats.length + '</b> features checked (' + pairs.length.toLocaleString() + ' pairs with touching extents)</p>';
       toast(overlapPairs + ' overlap' + (overlapPairs === 1 ? '' : 's') + ' found');
     };
   });
@@ -5167,21 +5701,29 @@ function toolCheckGaps() {
       // Compute overall extent and check for gaps using a simple grid approach
       const feats = st.obj.features.filter((f) => !f.hidden && f.type === 'poly');
       if (feats.length < 2) { toast('Need at least 2 polygons'); return; }
+      await working('Checking gaps in ' + feats.length + ' polygons');
       let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
       for (const f of feats) { const b = f.bb; minX = Math.min(minX, b[0]); minY = Math.min(minY, b[1]); maxX = Math.max(maxX, b[2]); maxY = Math.max(maxY, b[3]); }
-      const step = Math.max((maxX - minX) / 50, (maxY - minY) / 50);
-      let gapCount = 0;
-      for (let y = minY; y < maxY; y += step) {
-        for (let x = minX; x < maxX; x += step) {
+      const N = 50;
+      const stepX = (maxX - minX) / N, stepY = (maxY - minY) / N;
+      const index = bboxGrid(feats, (f) => f.bb, 48);
+      let gapCount = 0, tested = 0;
+      for (let cy = 0; cy < N; cy++) {
+        for (let cx = 0; cx < N; cx++) {
+          const x = minX + (cx + 0.5) * stepX, y = minY + (cy + 0.5) * stepY;
+          tested++;
+          // only the handful of polygons whose extent covers this sample point
           let insideAny = false;
-          for (const f of feats) {
+          for (const f of index.near(x, y)) {
+            if (x < f.bb[0] || x > f.bb[2] || y < f.bb[1] || y > f.bb[3]) continue;
             if (pip2(x, y, f.parts)) { insideAny = true; break; }
           }
           if (!insideAny) gapCount++;
         }
       }
-      outDiv.innerHTML = '<p style="color:var(--ok)">Gap cells: <b>' + gapCount.toLocaleString() + '</b></p>' +
-        '<p>Grid resolution: ' + step.toFixed(4) + ' degrees</p>';
+      outDiv.innerHTML = '<p style="color:var(--ok)">Gap cells: <b>' + gapCount.toLocaleString() + '</b> of ' + tested.toLocaleString() + '</p>' +
+        '<p>Grid resolution: ' + stepX.toFixed(4) + ' &times; ' + stepY.toFixed(4) + ' degrees</p>' +
+        '<p class="muted">Cells outside the outer edge of the polygons count as gaps.</p>';
       toast('Gap check complete');
     };
   });
@@ -5241,28 +5783,31 @@ function toolSnap() {
       const tolM = +tolSel.value || 50;
       if (!st.obj) await loadLayer(st);
       closeModal();
-      const tolDeg = tolM / 111000;
-      let snapped = 0;
+      // Work in mercator units throughout: convert the metre tolerance to a mercator
+      // radius, then only look at the handful of points in the neighbouring cells.
+      const tolMerc = tolM / MERC_METRES_PER_UNIT;
+      await working('Snapping ' + st.meta.label);
+      const pts = [];
       for (let i = 0; i < st.obj.features.length; i++) {
         const f = st.obj.features[i];
         if (f.hidden || f.type !== 'point') continue;
-        for (let pi = 0; pi < f.parts.length; pi += 2) {
-          let bestD = tolDeg, bestX = f.parts[pi], bestY = f.parts[pi + 1];
-          for (let j = 0; j < st.obj.features.length; j++) {
-            const g = st.obj.features[j];
-            if (g === f || g.hidden || g.type !== 'point') continue;
-            for (let qi = 0; qi < g.parts.length; qi += 2) {
-              const d = haversineKm([f.parts[pi + 1], f.parts[pi]], [g.parts[qi + 1], g.parts[qi]]) / 1000;
-              if (d < tolM / 1000 && d < bestD) { bestD = d; bestX = g.parts[qi]; bestY = g.parts[qi + 1]; }
-            }
-          }
-          if (bestX !== f.parts[pi] || bestY !== f.parts[pi + 1]) { f.parts[pi] = bestX; f.parts[pi + 1] = bestY; snapped++; }
+        for (let pi = 0; pi < f.parts.length; pi += 2) pts.push({ x: f.parts[pi], y: f.parts[pi + 1], f, pi });
+      }
+      const grid = pointGrid(pts, tolMerc > 0 ? tolMerc : 1e-9);
+      let snapped = 0;
+      for (const p of pts) {
+        let bestD = Infinity, bestX = p.x, bestY = p.y;
+        for (const q of grid.around(p.x, p.y, 1)) {
+          if (q.f === p.f) continue;
+          const d = haversineKm([unX(p.x), unY(p.y)], [unX(q.x), unY(q.y)]) * 1000;
+          if (d > 0 && d <= tolM && d < bestD) { bestD = d; bestX = q.x; bestY = q.y; }
         }
+        if (bestX !== p.x || bestY !== p.y) { p.f.parts[p.pi] = bestX; p.f.parts[p.pi + 1] = bestY; snapped++; }
       }
       map.render();
       outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + snapped + '</b> point' + (snapped === 1 ? '' : 's') + ' snapped</p>' +
-        '<p>Tolerance: ' + tolM + ' m</p>';
-      toast('Points snapped');
+        '<p>Tolerance: ' + tolM + ' m &middot; ' + pts.length.toLocaleString() + ' points checked</p>';
+      toast(snapped + ' point' + (snapped === 1 ? '' : 's') + ' snapped');
     };
   });
 }
@@ -5661,7 +6206,8 @@ function toolFeatureSmooth() {
       for (let it = 0; it < iters; it++) {
         for (const f of st.obj.features) {
           if (f.hidden) continue;
-          for (const poly of f.parts) for (const ring of poly) {
+          for (const poly of f.parts) for (let idx = 0; idx < poly.length; idx++) {
+            const ring = poly[idx];
             if (ring.length < 6) continue;
             const closed = ring[0] === ring[ring.length - 2] && ring[1] === ring[ring.length - 1];
             const nPts = ring.length / 2 - (closed ? 1 : 0);
@@ -5673,7 +6219,7 @@ function toolFeatureSmooth() {
               newRing.push((ring[prev * 2 + 1] + ring[i * 2 + 1] + ring[next * 2 + 1]) / 3);
             }
             if (closed) newRing.push(newRing[0], newRing[1]);
-            ring.splice(0, ring.length, ...newRing);
+            poly[idx] = Float64Array.from(newRing);
             smoothed++;
           }
         }
@@ -5705,21 +6251,33 @@ function toolSelfIntersect() {
       const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
       if (!st.obj) await loadLayer(st);
       closeModal();
+      await working('Checking rings');
       let issues = 0, checked = 0;
       for (const f of st.obj.features) {
         if (f.hidden || f.type !== 'poly') continue;
         checked++;
-        for (const poly of f.parts) for (const ring of poly) {
-          if (ring.length < 8) continue;
-          for (let i = 0; i < ring.length - 4; i += 2) {
-            for (let j = i + 4; j < ring.length - (ring[0] === ring[ring.length - 2] ? 4 : 2); j += 2) {
-              if (segmentsIntersect(ring[i], ring[i + 1], ring[i + 2], ring[i + 3], ring[j], ring[j + 1], ring[j + 2], ring[j + 3])) {
-                issues++;
-                break;
+        let bad = false;
+        for (const poly of f.parts) {
+          for (const ring of poly) {
+            if (ring.length < 8) continue;
+            const lastJ = ring.length - (ring[0] === ring[ring.length - 2] && ring[1] === ring[ring.length - 1] ? 4 : 2);
+            for (let i = 0; i < ring.length - 4 && !bad; i += 2) {
+              const ax1 = ring[i], ay1 = ring[i + 1], ax2 = ring[i + 2], ay2 = ring[i + 3];
+              const axMin = Math.min(ax1, ax2), axMax = Math.max(ax1, ax2);
+              const ayMin = Math.min(ay1, ay2), ayMax = Math.max(ay1, ay2);
+              for (let j = i + 4; j < lastJ; j += 2) {
+                const bx1 = ring[j], by1 = ring[j + 1], bx2 = ring[j + 2], by2 = ring[j + 3];
+                // cheap reject before the full segment test
+                if (axMax < Math.min(bx1, bx2) || axMin > Math.max(bx1, bx2)) continue;
+                if (ayMax < Math.min(by1, by2) || ayMin > Math.max(by1, by2)) continue;
+                if (segmentsIntersect(ax1, ay1, ax2, ay2, bx1, by1, bx2, by2)) { bad = true; break; }
               }
             }
+            if (bad) break;
           }
+          if (bad) break;
         }
+        if (bad) issues++;
       }
       outDiv.innerHTML = '<p style="color:' + (issues > 0 ? 'var(--bad)' : 'var(--ok)') + '"><b>' + issues + '</b> self-intersecting ring' + (issues === 1 ? '' : 's') + ' found</p>' +
         '<p>of <b>' + checked + '</b> features checked</p>';
@@ -5747,25 +6305,45 @@ function toolDuplicateGeom() {
       if (!st.obj) await loadLayer(st);
       closeModal();
       const feats = st.obj.features.filter((f) => !f.hidden);
+      await working('Comparing ' + feats.length + ' features');
+      // Bucket by rounded extent: identical geometry always lands in the same bucket,
+      // so we never compare every feature with every other one.
+      const cellSize = Math.max(tol * 4, 1e-9);
+      // Quantise with a tolerance margin: a feature is filed under every bucket a
+      // near-duplicate could round into, so nothing close is missed.
+      const buckets = new Map();
+      const add = (k, f) => { const l = buckets.get(k); if (l) l.push(f); else buckets.set(k, [f]); };
+      for (const f of feats) {
+        const xs = [...new Set([Math.round((f.bb[0] - tol) / cellSize), Math.round((f.bb[0] + tol) / cellSize), Math.round((f.bb[2] - tol) / cellSize), Math.round((f.bb[2] + tol) / cellSize)])];
+        const ys = [...new Set([Math.round((f.bb[1] - tol) / cellSize), Math.round((f.bb[1] + tol) / cellSize), Math.round((f.bb[3] - tol) / cellSize), Math.round((f.bb[3] + tol) / cellSize)])];
+        for (const x0 of xs) for (const x1 of xs) for (const y0 of ys) for (const y1 of ys) add([x0, y0, x1, y1, f.type].join(':'), f);
+      }
+      // Compare the actual coordinates. Parts are nested (polygon → rings → coordinates),
+      // so walking them by hand kept comparing arrays with arrays, which is always "equal".
+      const sameGeom = (a, b) => {
+        const fa = flattenNums(a.parts), fb = flattenNums(b.parts);
+        if (fa.length !== fb.length) return false;
+        for (let k = 0; k < fa.length; k++) if (Math.abs(fa[k] - fb[k]) > tol) return false;
+        return fa.length > 0;
+      };
       const dupPairs = [];
-      for (let i = 0; i < feats.length; i++) {
-        for (let j = i + 1; j < feats.length; j++) {
-          const a = feats[i], b = feats[j];
-          if (a.type !== b.type) continue;
-          let match = true;
-          for (let pi = 0; pi < a.parts.length && match; pi++) {
-            const ra = a.parts[pi], rb = b.parts[pi];
-            if (!rb || ra.length !== rb.length) { match = false; break; }
-            for (let k = 0; k < ra.length; k++) {
-              if (Math.abs(ra[k] - rb[k]) > tol) { match = false; break; }
-            }
+      const done = new Set();
+      for (const list of buckets.values()) {
+        if (list.length < 2) continue;
+        for (let i = 0; i < list.length; i++) {
+          for (let j = i + 1; j < list.length; j++) {
+            const a = list[i], b = list[j];
+            const key = a.idx < b.idx ? a.idx + ':' + b.idx : b.idx + ':' + a.idx;
+            if (done.has(key)) continue;
+            done.add(key);
+            if (a.parts.length !== b.parts.length) continue;
+            if (sameGeom(a, b)) dupPairs.push([a, b]);
           }
-          if (match) dupPairs.push([a, b]);
         }
       }
       outDiv.innerHTML = '<p style="color:' + (dupPairs.length > 0 ? 'var(--bad)' : 'var(--ok)') + '"><b>' + dupPairs.length + '</b> duplicate pair' + (dupPairs.length === 1 ? '' : 's') + ' found</p>' +
         '<p>of <b>' + feats.length + '</b> features checked</p>';
-      toast('Duplicate check complete');
+      toast(dupPairs.length + ' duplicate pair' + (dupPairs.length === 1 ? '' : 's') + ' found');
     };
   });
 }
@@ -5907,12 +6485,17 @@ function toolMultiPath() {
       if (!nSt.obj) await loadLayer(nSt);
       if (!pSt.obj) await loadLayer(pSt);
       closeModal();
-      const pts = [];
+      const raw = [];
       for (const f of pSt.obj.features) {
         if (f.hidden || f.type !== 'point') continue;
-        for (let i = 0; i < f.parts.length; i += 2) pts.push({ lon: f.parts[i], lat: f.parts[i + 1] });
+        for (let i = 0; i < f.parts.length; i += 2) raw.push({ lon: unX(f.parts[i]), lat: unY(f.parts[i + 1]) });
       }
-      if (pts.length < 2) { toast('Need at least 2 stops'); return; }
+      // A route through every one of 99,000 points is not a route: cap the tour at 12 stops.
+      const MAXSTOPS = 12;
+      const step = raw.length > MAXSTOPS ? raw.length / MAXSTOPS : 1;
+      const pts = raw.length > MAXSTOPS ? Array.from({ length: MAXSTOPS }, (_, i) => raw[Math.floor(i * step)]) : raw;
+      if (pts.length < 2) { toast(raw.length < 2 ? 'Need at least 2 stops' : 'Need at least 2 stops'); return; }
+      if (!lineLayers.length) toast('Route uses straight-line distances — no network layer is switched on');
       const order = [0];
       const visited = new Set([0]);
       let cur = 0;
@@ -5920,7 +6503,7 @@ function toolMultiPath() {
         let best = -1, bestD = 1e9;
         for (let i = 0; i < pts.length; i++) {
           if (visited.has(i)) continue;
-          const d = haversineKm([pts[cur].lat, pts[cur].lon], [pts[i].lat, pts[i].lon]);
+          const d = haversineKm([pts[cur].lon, pts[cur].lat], [pts[i].lon, pts[i].lat]);
           if (d < bestD) { bestD = d; best = i; }
         }
         order.push(best);
@@ -5929,15 +6512,23 @@ function toolMultiPath() {
       }
       let totalKm = 0;
       for (let i = 0; i < order.length - 1; i++) {
-        totalKm += haversineKm([pts[order[i]].lat, pts[order[i]].lon], [pts[order[i + 1]].lat, pts[order[i + 1]].lon]);
+        totalKm += haversineKm([pts[order[i]].lon, pts[order[i]].lat], [pts[order[i + 1]].lon, pts[order[i + 1]].lat]);
       }
-      const routeFeats = order.map((oi, i) => ({
-        type: 'point', parts: [[pts[oi].lon, pts[oi].lat]], fill: i === 0 ? '#0b6b45' : i === order.length - 1 ? '#d73027' : '#ffd400',
-        stroke: '#0b3d2e', bb: [pts[oi].lon - 0.002, pts[oi].lat - 0.002, pts[oi].lon + 0.002, pts[oi].lat + 0.002]
-      }));
+      // draw the ordered stops and the path between them (mercator coordinates)
+      const routeFeats = order.map((oi, i) => {
+        const x = mercX(pts[oi].lon), y = mercY(pts[oi].lat);
+        return { type: 'point', parts: new Float64Array([x, y]), fill: i === 0 ? '#0b6b45' : i === order.length - 1 ? '#d73027' : '#ffd400', stroke: '#0b3d2e', bb: [x, y, x, y] };
+      });
+      const linePts = [];
+      for (const oi of order) linePts.push(mercX(pts[oi].lon), mercY(pts[oi].lat));
+      if (linePts.length >= 4) {
+        const ring = new Float64Array(linePts);
+        routeFeats.push({ type: 'line', parts: [ring], fill: '#ffd400', stroke: '#ffd400', bb: clipBB([ring]) });
+      }
       addAnalysisLayer(routeFeats, 'point', 'Route Stops (order)', '#ffd400');
+      const sampled = raw.length > MAXSTOPS ? '<p class="hint">This point layer has ' + raw.length.toLocaleString() + ' features, so a sample of ' + pts.length + ' stops was ordered. Pick a smaller layer for an exact tour.</p>' : '';
       outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + order.length + '</b> stops ordered</p>' +
-        '<p>Estimated distance: ' + totalKm.toFixed(1) + ' km</p>' +
+        '<p>Estimated distance: ' + totalKm.toFixed(1) + ' km</p>' + sampled +
         '<p class="muted">Order: ' + order.map((o, i) => 'Stop #' + (o + 1)).join(' &rarr; ') + '</p>';
       toast('Route optimized');
     };
@@ -6107,10 +6698,8 @@ function toolFeatureBuffer() {
       let buffered = 0;
       for (const f of st.obj.features) {
         if (f.hidden) continue;
-        for (const poly of f.parts) for (const ring of poly) {
-          const bf = bufferFeature({ type: f.type, parts: [ring] }, distKm);
-          if (bf) { feats.push(bf); buffered++; }
-        }
+        const bf = bufferFeature(f, distKm * 1000);
+        if (bf && bf.parts && bf.parts.length) { feats.push(bf); buffered++; }
       }
       addAnalysisLayer(feats, 'polygon', 'Buffer (' + distKm + ' km)', '#0b6b45');
       outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + buffered + '</b> feature' + (buffered === 1 ? '' : 's') + ' buffered</p>' +
@@ -6344,21 +6933,26 @@ function toolDistanceMatrix() {
       const [id, st] = pointLayers.find(([i]) => i === layerSel.value) || pointLayers[0];
       if (!st.obj) await loadLayer(st);
       closeModal();
-      const pts = [];
+      const all = [];
       for (const f of st.obj.features) {
         if (f.hidden || f.type !== 'point') continue;
-        for (let i = 0; i < f.parts.length; i += 2) pts.push([f.parts[i], f.parts[i + 1]]);
+        for (let i = 0; i < f.parts.length; i += 2) all.push([unX(f.parts[i]), unY(f.parts[i + 1])]);
       }
-      if (pts.length < 2) { toast('Need at least 2 points'); return; }
-      if (pts.length > 200) { toast('Too many points for matrix (max 200)'); return; }
+      if (all.length < 2) { toast('Need at least 2 points'); return; }
+      // Very large layers would produce billions of pairs, so a deterministic evenly spaced
+      // subset of 200 points is measured and the panel says so.
+      const MAXP = 200;
+      const step = all.length > MAXP ? all.length / MAXP : 1;
+      const pts = all.length > MAXP ? Array.from({ length: MAXP }, (_, i) => all[Math.floor(i * step)]) : all;
       let minD = 1e9, maxD = 0, totalD = 0, count = 0;
       for (let i = 0; i < pts.length; i++) {
         for (let j = i + 1; j < pts.length; j++) {
-          const d = haversineKm([pts[i][1], pts[i][0]], [pts[j][1], pts[j][0]]);
+          const d = haversineKm(pts[i], pts[j]);
           minD = Math.min(minD, d); maxD = Math.max(maxD, d); totalD += d; count++;
         }
       }
-      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + pts.length + '</b> points, <b>' + count.toLocaleString() + '</b> pairs</p>' +
+      const sampleNote = all.length > MAXP ? '<p class="hint">This layer has ' + all.length.toLocaleString() + ' points, so an evenly spaced sample of ' + MAXP + ' was measured.</p>' : '';
+      outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + pts.length + '</b> points, <b>' + count.toLocaleString() + '</b> pairs</p>' + sampleNote +
         '<table class="mini"><tr><th>Min distance</th><td>' + minD.toFixed(2) + ' km</td></tr>' +
         '<tr><th>Max distance</th><td>' + maxD.toFixed(2) + ' km</td></tr>' +
         '<tr><th>Mean distance</th><td>' + (totalD / count).toFixed(2) + ' km</td></tr></table>';
@@ -6626,11 +7220,13 @@ function toolAreaPerim() {
         let areaKm2 = 0, perimKm = 0;
         for (const poly of f.parts) for (const ring of poly) {
           if (ring.length < 6) continue;
-          areaKm2 += Math.abs(ringAreaKm2(ring));
-          perimKm += ringPerimeterKm(ring);
+          const ll = [];
+          for (let i = 0; i < ring.length; i += 2) ll.push([unX(ring[i]), unY(ring[i + 1])]);
+          areaKm2 += Math.abs(ringAreaKm2(ll));
+          perimKm += ringPerimeterKm(ll);
         }
         totalArea += areaKm2; totalPerim += perimKm; count++;
-        rows.push({ label: f.label || 'Feature #' + count, area: areaKm2, perim: perimKm });
+        rows.push({ label: titleOf(st.obj, f), area: areaKm2, perim: perimKm });
       }
       const sorted = rows.slice().sort((a, b) => b.area - a.area);
       closeModal();
@@ -6672,7 +7268,7 @@ function toolLinePoints() {
           for (let i = 0; i < part.length - 2; i += 2) {
             const x1 = part[i], y1 = part[i + 1];
             const x2 = part[i + 2], y2 = part[i + 3];
-            const segLen = haversineKm([y1, x1], [y2, x2]);
+            const segLen = haversineKm([unX(x1), unY(y1)], [unX(x2), unY(y2)]);
             const n = Math.max(1, Math.ceil(segLen / intervalKm));
             for (let s = 0; s <= n; s++) {
               const t = s / n;
@@ -6912,12 +7508,11 @@ function toolCountByAttr() {
     };
     layerSel.onchange = () => {
       const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
-      const fields = (st.meta.fields || []).map((fld) => '<option value="' + esc(fld) + '">' + esc(fld) + '</option>').join('');
-      fieldSel.innerHTML = fields;
+      fieldSel.innerHTML = fieldOptions(st);
     };
     // trigger once
     const [id0, st0] = vecLayers[0];
-    const fields0 = (st0.meta.fields || []).map((fld) => '<option value="' + esc(fld) + '">' + esc(fld) + '</option>').join('');
+    const fields0 = fieldOptions(st0);
     fieldSel.innerHTML = fields0;
   });
 }
@@ -7064,15 +7659,11 @@ function toolPolyAdjacency() {
       if (!st.obj) await loadLayer(st);
       closeModal();
       const feats = st.obj.features.filter((f) => !f.hidden && f.type === 'poly');
-      let adjPairs = 0;
-      for (let i = 0; i < feats.length; i++) {
-        for (let j = i + 1; j < feats.length; j++) {
-          const touched = feats[i].parts.some((ri) => feats[j].parts.some((rj) => segmentsIntersect(ri[0], ri[1], ri[2], ri[3], rj[0], rj[1], rj[2], rj[3])));
-          if (touched) adjPairs++;
-        }
-      }
+      await working('Checking ' + feats.length + ' polygons');
+      const adjPairs = adjacentPairs(feats).length;
       outDiv.innerHTML = '<p style="color:' + (adjPairs > 0 ? 'var(--ok)' : 'var(--bad)') + '"><b>' + adjPairs + '</b> adjacent pair' + (adjPairs === 1 ? '' : 's') + ' found</p>' +
-        '<p>of <b>' + (feats.length * (feats.length - 1) / 2) + '</b> possible pairs</p>';
+        '<p>of <b>' + (feats.length * (feats.length - 1) / 2) + '</b> possible pairs</p>' +
+        '<p class="muted">Pairs are counted when polygon outlines cross; polygons that only share a single corner are not counted.</p>';
       toast('Adjacency check complete');
     };
   });
@@ -7187,7 +7778,7 @@ function toolLineLenStats() {
         for (const part of f.parts) {
           let len = 0;
           for (let i = 0; i < part.length - 2; i += 2) {
-            len += haversineKm([part[i + 1], part[i]], [part[i + 3], part[i + 2]]);
+            len += haversineKm([unX(part[i]), unY(part[i + 1])], [unX(part[i + 2]), unY(part[i + 3])]);
           }
           totalKm += len; minKm = Math.min(minKm, len); maxKm = Math.max(maxKm, len); count++;
         }
@@ -7261,6 +7852,7 @@ function toolFeatureWithinDist() {
       if (!stB.obj) await loadLayer(stB);
       closeModal();
       const distDeg = distKm / 111.0;
+      const degPad = distDeg * 2;   // generous mercator-space pad for the bbox reject
       let found = 0;
       for (const f of stA.obj.features) {
         if (f.hidden) continue;
@@ -7269,9 +7861,10 @@ function toolFeatureWithinDist() {
           for (let i = 0; i < ring.length; i += 2) {
             for (const g of stB.obj.features) {
               if (g.hidden || g === f) continue;
+              if (g.bb[2] < f.bb[0] - degPad || g.bb[0] > f.bb[2] + degPad || g.bb[3] < f.bb[1] - degPad || g.bb[1] > f.bb[3] + degPad) continue;
               for (const poly2 of g.parts) for (const ring2 of poly2) {
                 for (let j = 0; j < ring2.length; j += 2) {
-                  if (haversineKm([ring[i + 1], ring[i]], [ring2[j + 1], ring2[j]]) <= distKm) { within = true; break; }
+                  if (haversineKm([unX(ring[i]), unY(ring[i + 1])], [unX(ring2[j]), unY(ring2[j + 1])]) <= distKm) { within = true; break; }
                 }
                 if (within) break;
               }
@@ -7316,29 +7909,21 @@ function toolSpatialJoinCount() {
         for (let i = 0; i < f.parts.length; i += 2) pts.push([f.parts[i], f.parts[i + 1]]);
       }
       if (pts.length === 0) { toast('No points found'); return; }
+      await working('Counting ' + pts.length.toLocaleString() + ' points');
       const polys = pSt.obj.features.filter((f) => !f.hidden && f.type === 'poly');
-      const results = [];
+      // Count each point once, against only the polygons whose extent contains it.
+      const counts = new Map();
+      const index = bboxGrid(polys, (f) => f.bb, 64);
       let totalIn = 0;
-      for (const f of polys) {
-        let count = 0;
-        for (const [px, py] of pts) {
-          for (const poly of f.parts) for (const ring of poly) {
-            if (pip2(px, py, [ring])) { count++; break; }
-          }
-          if (count > 0 && f.hidden === false) { /* already counted per point, break outer too */ }
+      for (const [px, py] of pts) {
+        let hit = false;
+        for (const f of index.near(px, py)) {
+          if (px < f.bb[0] || px > f.bb[2] || py < f.bb[1] || py > f.bb[3]) continue;
+          if (pip2(px, py, f.parts)) { counts.set(f, (counts.get(f) || 0) + 1); hit = true; }
         }
-        // Actually count properly: each point can be in multiple polys
-        count = 0;
-        for (const [px, py] of pts) {
-          let inAny = false;
-          for (const poly of f.parts) for (const ring of poly) {
-            if (pip2(px, py, [ring])) { inAny = true; break; }
-          }
-          if (inAny) count++;
-        }
-        totalIn += count;
-        results.push({ label: f.label || 'Feature', count });
+        if (hit) totalIn++;
       }
+      const results = polys.map((f) => ({ label: titleOf(pSt.obj, f), count: counts.get(f) || 0 }));
       results.sort((a, b) => b.count - a.count);
       outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + pts.length + '</b> points across <b>' + results.length + '</b> polygons</p>' +
         '<p><b>' + totalIn + '</b> point-in-polygon matches</p>' +
@@ -7373,10 +7958,8 @@ function toolBufferDissolve() {
       const buffers = [];
       for (const f of st.obj.features) {
         if (f.hidden) continue;
-        for (const poly of f.parts) for (const ring of poly) {
-          const bf = bufferFeature({ type: f.type, parts: [ring] }, distKm);
-          if (bf) buffers.push(bf);
-        }
+        const bf = bufferFeature(f, distKm * 1000);
+        if (bf && bf.parts && bf.parts.length) buffers.push(bf);
       }
       addAnalysisLayer(buffers, 'polygon', 'Buffer Dissolve (' + distKm + ' km)', '#0b6b45');
       outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + buffers.length + '</b> buffer' + (buffers.length === 1 ? '' : 's') + ' created</p>' +
@@ -7439,7 +8022,7 @@ function toolFieldStatsByGroup() {
     const outDiv = body.querySelector('#fsg-out');
     function fillFields() {
       const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
-      const fields = (st.meta.fields || []).map((fld) => '<option value="' + esc(fld) + '">' + esc(fld) + '</option>').join('');
+      const fields = fieldOptions(st);
       groupSel.innerHTML = fields;
       valSel.innerHTML = fields;
     }
@@ -7533,7 +8116,7 @@ function toolJenksBreaks() {
     const outDiv = body.querySelector('#jb-out');
     function fillFields() {
       const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
-      const fields = (st.meta.fields || []).map((fld) => '<option value="' + esc(fld) + '">' + esc(fld) + '</option>').join('');
+      const fields = fieldOptions(st, (f) => f.type === 'number');
       fieldSel.innerHTML = fields;
     }
     layerSel.onchange = fillFields;
@@ -7583,7 +8166,7 @@ function toolQuantileClass() {
     const outDiv = body.querySelector('#qc-out');
     function fillFields() {
       const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
-      const fields = (st.meta.fields || []).map((fld) => '<option value="' + esc(fld) + '">' + esc(fld) + '</option>').join('');
+      const fields = fieldOptions(st, (f) => f.type === 'number');
       fieldSel.innerHTML = fields;
     }
     layerSel.onchange = fillFields;
@@ -7633,7 +8216,7 @@ function toolEqualIntervalClass() {
     const outDiv = body.querySelector('#ei-out');
     function fillFields() {
       const [id, st] = vecLayers.find(([i]) => i === layerSel.value) || vecLayers[0];
-      const fields = (st.meta.fields || []).map((fld) => '<option value="' + esc(fld) + '">' + esc(fld) + '</option>').join('');
+      const fields = fieldOptions(st, (f) => f.type === 'number');
       fieldSel.innerHTML = fields;
     }
     layerSel.onchange = fillFields;
@@ -7686,8 +8269,8 @@ function toolRemoveSmallPoly() {
       for (const f of st.obj.features) {
         if (f.hidden || f.type !== 'poly') continue;
         let areaKm2 = 0;
-        for (const poly of f.parts) for (const ring of poly) areaKm2 += Math.abs(ringAreaKm2(ring));
-        if (areaKm2 < minKm2) { f.hidden = true; removed++; } else kept++;
+        for (const poly of f.parts) for (const ring of poly) areaKm2 += flatRingAreaKm2(ring);
+        if (areaKm2 < minKm2) { f.hidden = true; removed++; } else { f.hidden = false; kept++; }
       }
       map.render();
       outDiv.innerHTML = '<p style="color:var(--ok)"><b>' + removed + '</b> polygon' + (removed === 1 ? '' : 's') + ' removed</p>' +
@@ -7711,6 +8294,7 @@ window.__nwg = {
   rasterClassAnchor, layerRank, showResults, openQuality,
   // focus / analysis surface (also handy for scripting the map from the console)
   get clip() { return clip; }, get draw() { return draw; }, get author() { return AUTHOR; },
+  get sel() { return selState; }, toolSelect, enterSelectMode, exitSelectMode, selClear, selItems, openSelectionList, selToggle,
   setFocus, stopFocus, focusFromLonLat, focusFromRect, focusFromFeature, focusAreaKm2, focusPerimeterKm,
   startDraw, endDraw, startPick, toolClip, toolAoi, toolQuery, runQuery, toolChart, resetView, toggleFullscreen,
   get viewHist() { return viewHist; }, goBack, onView,
@@ -7719,3 +8303,293 @@ window.__nwg = {
 };
 
 start();
+
+// ================================================================================
+// GUIDE  (built from TOOL_GROUPS, so every tool always has an entry)
+// ================================================================================
+const GUIDE_GROUP_NOTES = {
+  focus: 'Start here. These tools answer “what is inside this place?” — select it, clip to it, then analyse and export.',
+  analyse: 'Spatial analysis between layers. Results are drawn on the map and can be saved as a picture.',
+  navigate: 'Measuring, coordinates, bookmarks and the map itself. Nothing here changes your data.',
+  temporal: 'Filter and step through features that carry a date or a year.',
+  search: 'Find a place or a feature by name, or work with coordinates.',
+  data: 'Tables, statistics, filters and exports for the layer you are looking at.',
+  cartography: 'Colours, basemaps, print layouts and saved views — how the map looks and prints.',
+  project: 'The view itself: back to the start, or full screen.',
+  mobile: 'Comfort and access settings for phones, tablets, screen readers and colourblind users.',
+  sharing: 'Send a view to a colleague, or keep sessions and notes.',
+  raster: 'Tools for the gridded layers (elevation, rainfall, population, flood, temperature).',
+  geometry: 'Shape operations: centroids, hulls, buffers, simplification, measurement of shapes.',
+  topology: 'Data-quality checks: overlaps, gaps, invalid rings, duplicates.',
+  network: 'Tools that treat lines as a connected network (roads, rivers).',
+  generation: 'Create new shapes: grids, random points, hexagons. Visual only.',
+  classification: 'Turn a numeric field into classes (natural breaks, quantile, equal interval).',
+  author: 'Only visible with ?author=1. Changes what everyone sees, so treat it carefully.',
+};
+const GUIDE_GROUP_LABEL = {
+  focus: 'Focus & select', analyse: 'Spatial analysis', navigate: 'Navigation & measuring',
+  temporal: 'Time', search: 'Search & discovery', data: 'Data & tables',
+  cartography: 'Cartography & design', project: 'View', mobile: 'Mobile & accessibility',
+  sharing: 'Sharing & collaboration', raster: 'Raster tools', geometry: 'Geometry operations',
+  topology: 'Topology & data quality', network: 'Network & routing', generation: 'Generation',
+  classification: 'Classification', author: 'Author tools',
+};
+
+function guideHTML() {
+  const quick = `<div class="guide-quick">
+    <div><b>Look around</b><span>Drag to pan. Pinch (or the +/− buttons) to zoom. Tap a feature to read it.</span></div>
+    <div><b>Find a place</b><span>Search button (top right) or Tools → Go to coordinates.</span></div>
+    <div><b>Focus on a place</b><span>Tools → Clip to an area, or the Clip chip in Layers.</span></div>
+    <div><b>Select features</b><span>Tools → Select features, then tap them or drag a box.</span></div>
+    <div><b>Read the numbers</b><span>Tap a feature → Info panel. Tools → Layer statistics for whole layers.</span></div>
+    <div><b>Take it away</b><span>Tools → Save map picture (PNG) or Select features → Export (CSV).</span></div>
+  </div>`;
+  const sections = Object.entries(TOOL_GROUPS)
+    .filter(([g]) => g !== 'author' || AUTHOR)
+    .map(([g, list]) => `<section class="gsec" data-g="${g}">
+      <h4>${esc(GUIDE_GROUP_LABEL[g] || g)}</h4>
+      ${GUIDE_GROUP_NOTES[g] ? `<p class="hint">${esc(GUIDE_GROUP_NOTES[g])}</p>` : ''}
+      <div class="gtools">
+        ${list.map(([id, ic, label, desc]) => `<details class="gtool" data-tool-help="${id}">
+          <summary>${icon(ic)}<b>${esc(label)}</b><span>${esc(desc)}</span></summary>
+          <div class="gbody">${toolHelp(id, label, desc)}</div>
+        </details>`).join('')}
+      </div>
+    </section>`).join('');
+  return `<div class="guide">
+    <p class="hint">Everything the map can do, in the order you usually need it. Open a row for step-by-step instructions. Works the same on a phone and a desktop; where a gesture is different it is spelled out.</p>
+    ${quick}
+    ${sections}
+    <section class="gsec">
+      <h4>Gestures: phone, tablet and desktop</h4>
+      <table class="mini">
+        <tr><th>Action</th><th>Touch</th><th>Mouse / trackpad</th></tr>
+        <tr><td>Pan the map</td><td>Drag with one finger</td><td>Drag</td></tr>
+        <tr><td>Zoom</td><td>Pinch, or double-tap</td><td>Scroll wheel, +/− keys or buttons</td></tr>
+        <tr><td>Read a feature</td><td>Tap it</td><td>Click it, or hover to see its name</td></tr>
+        <tr><td>Select features</td><td>Select mode, then tap or drag a box</td><td>Same, with the mouse</td></tr>
+        <tr><td>Cancel a drawing</td><td>Cancel in the bar at the top</td><td>Esc, or Cancel</td></tr>
+        <tr><td>Leave select mode</td><td>Done in the selection bar</td><td>Done, or Esc</td></tr>
+      </table>
+    </section>
+    <section class="gsec">
+      <h4>If something does not respond</h4>
+      <ul class="steps">
+        <li><b>“Tap inside a polygon”</b> — the tool needs a feature of the boundary layer under your finger. Zoom in a little and tap well inside the shape.</li>
+        <li><b>Nothing selected</b> — the layer you are picking from may be filtered or hidden. Check the Layers panel, then try again.</li>
+        <li><b>Tool says no raster / no polygon layer</b> — switch the right kind of layer on first (Layers → open a group → tap the switch).</li>
+        <li><b>Blank map</b> — a focus area may be hiding everything. Tap Layers → Focused (or Tools → Clip to an area → Clear focus).</li>
+        <li><b>Basemap missing</b> — the tiles need internet. Your data layers still draw; try another basemap or “None”.</li>
+      </ul>
+    </section>
+  </div>`;
+}
+
+function toolHelp(id, label, desc) {
+  const steps = TOOL_HELP[id] || TOOL_HELP_DEFAULT(label, desc);
+  return `<p>${esc(steps.about || desc)}</p>` +
+    (steps.steps?.length ? `<ol class="steps">${steps.steps.map((x) => `<li>${x}</li>`).join('')}</ol>` : '') +
+    (steps.tip ? `<p class="hint"><b>Tip.</b> ${steps.tip}</p>` : '') +
+    (steps.needs ? `<p class="hint"><b>Needs.</b> ${steps.needs}</p>` : '');
+}
+const TOOL_HELP_DEFAULT = (label, desc) => ({
+  about: `${label}: ${desc}.`,
+  steps: ['Open <b>Tools</b> and tap the tool.', 'Choose the layer and the settings the panel asks for.', 'Press the main button at the bottom of the panel; the result appears on the map, in a panel, or as a download.'],
+  tip: 'Every tool can be closed without changing anything — nothing you do here edits the underlying data.',
+});
+
+const TOOL_HELP = {
+  select: {
+    about: 'Select one feature, several features, or everything inside a box you drag. This is the phone-friendly way to pick exactly what you want to see and export.',
+    steps: [
+      'Tools → <b>Select features</b>. Pick a layer (or “All switched-on layers”) and press <b>Start selecting</b>.',
+      'A bar appears at the bottom of the map (top on desktop) and the map stops panning while you select.',
+      '<b>Tap a feature</b> to select it; tap it again to remove it.',
+      '<b>Press and drag</b> to draw a box — everything inside the box is selected. Drag the same box again to deselect.',
+      '<b>All</b> takes everything on screen, <b>List</b> shows what you have, <b>Zoom</b> fits it, <b>Export</b> saves a CSV, <b>Clear</b> empties it.',
+      'Press <b>Done</b> to go back to normal map panning. Your selection stays highlighted until you clear it.',
+    ],
+    tip: 'The Info panel updates with the feature you last selected, so you can read attributes without leaving select mode.',
+    needs: 'At least one feature layer switched on (polygon, line or point).',
+  },
+  clip: {
+    about: 'Everything outside the shape you choose is removed from the map, so counts, tables and exports only cover that place.',
+    steps: ['Tools → <b>Clip to an area</b>.', 'Choose rectangle, square, circle, polygon (tap each corner, then Done), freehand, a layer boundary, or the current view.', 'The focus chip in Layers turns green and the area in km² is shown.', 'Use <b>Area summary</b> to count what is inside, or <b>Clear focus</b> to go back to the whole country.'],
+    tip: 'On a phone, “Multiple features” lets you tap several states or LGAs and clip to their combined area.',
+  },
+  aoi: { about: 'Counts every switched-on layer inside the focus area: features, summed polygon area, top raster classes.', steps: ['Set a focus area first (Clip to an area).', 'Tools → <b>Area summary</b>.', 'Read the chart and table, then export a CSV if you need it in a report.'], needs: 'A focus area, and at least one layer on.' },
+  filter: { about: 'Show only the rows that match a column — the rest of the layer is hidden until you clear it.', steps: ['Tools → <b>Filter features</b>, choose the layer.', 'Pick a field and a condition (equal, contains, between, in a list…).', 'Press <b>Apply filter</b>; the layer row gets a “Filtered” chip.', 'Clear it from the same panel, or Layers → Clear filters.'] },
+  reclass: { about: 'Groups a numeric field into classes and recolours the layer so patterns stand out.', steps: ['Tools → <b>Group into classes</b>.', 'Choose the layer, the numeric field, the number of classes and the method.', 'Apply — the legend follows the new classes. Remove classes to return to the original colours.'] },
+  buffer: { about: 'Draws a zone at a fixed distance around features of one layer, then counts features of another layer that fall inside it.', steps: ['Switch on the source layer and the layer you want to check.', 'Tools → <b>Buffer / Proximity</b>, pick both layers and the distance in km.', 'Run it: the buffer is drawn and the matches are counted.'], tip: 'Works with points (circles), lines (corridors) and polygons.' },
+  intersect: { about: 'Shows only the area where two polygon layers overlap.', steps: ['Switch on two polygon layers.', 'Tools → <b>Intersect / Overlay</b>, choose A and B.', 'Run; the overlap shapes are drawn on top.'], needs: 'Two polygon layers on.' },
+  nearest: { about: 'Matches each feature of one layer to its closest feature in another layer.', steps: ['Switch on both layers.', 'Tools → <b>Nearest Neighbor</b>, choose the source and target layers.', 'Run; distances are listed per feature.'] },
+  dissolve: { about: 'Merges polygons that share the same value in a field into one shape per group.', steps: ['Tools → <b>Dissolve / Merge</b>.', 'Choose the polygon layer and the grouping field.', 'Run; one merged outline per group is drawn.'], needs: 'A polygon layer on.' },
+  count: { about: 'Counts the points of one layer that fall inside each polygon of another.', steps: ['Switch on a polygon layer and a point layer.', 'Tools → <b>Count Points in Polygons</b>, choose both.', 'Run; each polygon gets a point count.'], needs: 'One polygon layer and one point layer on.' },
+  hull: { about: 'Draws the smallest convex boundary that encloses every point of a layer.', steps: ['Switch on a point layer.', 'Tools → <b>Convex Hull</b>, choose the layer, run.', 'The hull and its area in km² are shown.'], needs: 'A point layer with at least three points.' },
+  simplify: { about: 'Reduces the number of vertices while keeping the shape, which makes big layers quicker to draw.', steps: ['Tools → <b>Simplify Geometry</b>, choose the layer and a tolerance.', 'Run; the simplified version is drawn so you can compare.'], tip: 'Small tolerances keep detail; large ones make smoother, lighter shapes.' },
+  zonal: { about: 'Summarises raster values inside each polygon (mean, min, max and more).', steps: ['Switch on a raster layer and a polygon layer.', 'Tools → <b>Zonal Statistics</b>, choose both.', 'Run; the table lists the statistics per polygon.'], needs: 'One raster and one polygon layer on.' },
+  'measure-dist': { about: 'Measure a distance by tapping along the route.', steps: ['Tools → <b>Measure distance</b>.', 'Tap each point on the map; the running total appears in the bar.', 'Press <b>Done</b> to stop, or <b>Clear</b> to start again.'], tip: 'Save it with Navigate → Save Measurement, then reopen it later.' },
+  'measure-area': { about: 'Measure the area of a shape and the length of its edge.', steps: ['Tools → <b>Measure area</b>.', 'Tap each corner; the area in km² updates as you go.', 'Press <b>Done</b> when the shape is closed.'] },
+  goto: { about: 'Jump to any latitude and longitude.', steps: ['Tools → <b>Go to coordinates</b>.', 'Type latitude and longitude (or paste “lat, lon”) and choose a zoom.', 'Press <b>Zoom there</b>.'], tip: 'Neither a phone nor a desktop needs a decimal comma — paste what you copied.' },
+  bearing: { about: 'Distance and compass bearing between two coordinates.', steps: ['Tools → <b>Distance & bearing</b>.', 'Fill both points (or use the map centre as the start).', 'Press <b>Calculate</b>, then <b>Show both on the map</b>.'] },
+  grid: { about: 'Shows or hides the latitude/longitude graticule with labels.', steps: ['Tools → <b>Grid lines</b> (the Layers panel has the same switch).', 'Toggle it off the same way.'], tip: 'The grid also appears in exported pictures when you tick “Grid” in the export panel.' },
+  locate: { about: 'Centres the map on your current position.', steps: ['Allow location access when the browser asks.', 'Tools → <b>Locate Me</b>, or the target button at the top right.'], tip: 'On a phone this needs location permission for the site; without it the map says so and nothing breaks.' },
+  bookmarks: { about: 'Save the current view under a name and jump back to it later.', steps: ['Zoom to the view you want.', 'Tools → <b>View Bookmarks</b>, type a name and save.', 'Pick the bookmark at any time to return to it.'], tip: 'Bookmarks live on this device only.' },
+  rotate: { about: 'Rotates the map display and shows a north arrow so orientation is never ambiguous.', steps: ['Tools → <b>Rotate Map</b>, set an angle or use the slider.', 'Reset to 0° to go back to north-up.'], tip: 'Selecting, tapping and measuring all follow the rotation.' },
+  'meas-save': { about: 'Saves the measurement currently on the map.', steps: ['Draw a measurement first.', 'Tools → <b>Save Measurement</b>.', 'Find it again under Navigate → Saved Measurements.'] },
+  'meas-list': { about: 'Lists saved measurements and restores them to the map.', steps: ['Tools → <b>Saved Measurements</b>.', 'Pick one to draw it again, or clear them all.'] },
+  'draw-save': { about: 'Saves the current focus area / drawing.', steps: ['Set a focus area.', 'Tools → <b>Save Drawing</b>.'] },
+  'draw-list': { about: 'Restores saved drawings.', steps: ['Tools → <b>Saved Drawings</b>, pick one to restore it as the focus area.'] },
+  'draw-style': { about: 'Sets the colour and line width used for drawings and focus outlines.', steps: ['Tools → <b>Drawing Style</b>, choose colour and width.', 'New drawings use it straight away.'] },
+  timefilter: { about: 'Shows only features whose date or year field falls in a range.', steps: ['Switch on a layer that has a year/date column.', 'Tools → <b>Temporal Filter</b>, choose the field and the range.', 'Apply; clear it the same way.'], needs: 'A layer with a numeric date or year field.' },
+  timelayers: { about: 'Browses the layers that carry time coverage information.', steps: ['Tools → <b>Temporal Layers</b>.', 'Pick a layer to switch it on.'] },
+  timeslider: { about: 'Steps through years to watch features appear and disappear.', steps: ['Tools → <b>Time Slider</b>, choose the layer and field.', 'Drag the year slider or press Play.'] },
+  find: { about: 'Searches feature attributes across layers and jumps to the match.', steps: ['Tools → <b>Feature Finder</b>, type part of a name, code or number.', 'Pick a result: the map zooms there and the Info panel opens.'], tip: 'The search button at the top right does the same across places and layers.' },
+  coords: { about: 'Reads the coordinates of any point you tap, in decimal degrees and DMS.', steps: ['Tools → <b>Coordinate Inspector</b>.', 'Tap the map; the coordinates appear in the panel.'] },
+  convert: { about: 'Converts between decimal degrees, degrees-minutes-seconds and UTM.', steps: ['Tools → <b>Coordinate Converter</b>.', 'Type a value in any box; the others update.'] },
+  layerfind: { about: 'Searches the whole layer catalog by name, source or type.', steps: ['Tools → <b>Layer Discovery</b>, type what you are looking for.', 'Tap a result to zoom to it or switch it on.'] },
+  stats: { about: 'Totals, averages, extremes and a chart for any field of a layer.', steps: ['Tools → <b>Layer statistics</b>, choose the layer.', 'Read the summary and the chart; export the numbers if needed.'] },
+  chart: { about: 'Histogram of a numeric column, or a ranked count of a text column.', steps: ['Tools → <b>Compare fields</b>, pick layer and field.', 'The chart respects the focus area when one is active.'] },
+  table: { about: 'The full attribute table: sort, search, hide columns and export rows.', steps: ['Tools → <b>Attribute table</b>, pick the layer.', 'Use the filter box to search; tap a row to locate it.'] },
+  fieldcalc: { about: 'Creates a new attribute field from an expression.', steps: ['Tools → <b>Field Calculator</b>, choose the layer.', 'Name the field and write an expression using existing field names.', 'Apply; the new column appears in the table and can be charted.'], tip: 'This is author-mode work: it changes what you see, not the source data file.' },
+  selectattr: { about: 'Selects features by attribute value, without tapping the map.', steps: ['Tools → <b>Select by Attribute</b>, pick the layer and field.', 'Choose the condition and value, then Apply.', 'The matching features are highlighted and can be exported.'], tip: 'For a map-based selection (tap or box), use Tools → Select features instead.' },
+  colmanage: { about: 'Shows or hides columns in the attribute table.', steps: ['Tools → <b>Column Manager</b>, tick the columns you want.'] },
+  labels: { about: 'Writes a field’s value on the map for a selected layer.', steps: ['Tools → <b>Feature labels</b>, choose the layer and field.', 'Tune size, minimum zoom, colour and halo. Labels stay hidden below the minimum zoom so the map stays readable.'] },
+  zoomlayer: { about: 'Fits one whole layer on the screen.', steps: ['Tools → <b>Zoom to a layer</b>, pick the layer.'] },
+  shot: { about: 'Downloads the current map as a PNG picture.', steps: ['Arrange the map the way you want it.', 'Tools → <b>Save map picture</b>.', 'On desktop you can add a title, legend, scale, north arrow and grid first.'], tip: 'If a basemap refuses to export for licensing reasons, the picture is saved without it — your data is still there.' },
+  export: { about: 'Saves a map picture or attribute rows as CSV.', steps: ['Tools → <b>Export results</b>.', 'Choose the area (whole view, focus area or picked polygons), then picture or CSV.'] },
+  ramp: { about: 'Chooses a colour ramp for classified layers.', steps: ['Tools → <b>Color Ramps</b>, pick a ramp, then apply it to a layer.'] },
+  custombasemap: { about: 'Adds your own XYZ tile basemap by URL.', steps: ['Tools → <b>Custom Basemap</b>.', 'Give it a name and paste a tile URL containing {z}, {x} and {y}.', 'Save; it appears with the other basemaps.'], tip: 'Use a source whose licence allows it, and remember tiles need internet.' },
+  mappreset: { about: 'Saves a complete view (layers, colours, focus) under a name.', steps: ['Set the map up as you want it.', 'Tools → <b>Map Presets</b>, name it and save.', 'Restore it later in one tap.'] },
+  printlayout: { about: 'Turns the export into a page layout (A4, A3 or Letter) with a title block.', steps: ['Tools → <b>Print Layouts</b>, choose size, orientation and margin.', 'Then Tools → Save map picture; the PNG follows the layout.'] },
+  resetview: { about: 'Back to the opening extent with no filters or focus.', steps: ['Tools → <b>Reset the view</b>.'], tip: 'Your layer list and colours are kept; only the view and filters reset.' },
+  fullscreen: { about: 'Uses the whole screen with no browser chrome.', steps: ['Tools → <b>Full screen</b>, or the expand button at the top right.', 'Press Esc or the button again to come back.'] },
+  countbyattr: {
+    about: 'Counts how many features share each value of a column — a quick category tally for the layer you are looking at.',
+    steps: ['Tools → <b>Count by Attribute</b>, pick the layer.', 'Pick the column to count (a name, a class, a status).', 'Press <b>Count</b>; the totals appear as a table, largest group first.'],
+    tip: 'Works on text and numeric columns alike. Use it to check how a layer is distributed before you map it.',
+  },
+  fieldstatsbygroup: {
+    about: 'Summarises one numeric column separately for each group in another column (for example, mean borehole yield per state).',
+    steps: ['Tools → <b>Field Stats by Group</b>, pick the layer.', 'Choose the <b>group</b> column (text) and the <b>value</b> column (number).', 'Press <b>Compute</b>; each group gets a count, mean, minimum and maximum.'],
+    tip: 'Both columns must be in the same layer. For a single overall summary use Layer statistics instead.',
+  },
+  guide: {
+    about: 'Opens this guide — every tool in the app with what it does and how to use it, searchable.',
+    steps: ['Tools → <b>Guide</b>, or the <b>Guide</b> button in the About panel.', 'Type in the search box to jump to a tool (for example “drag a box”).', 'Open a row to read the steps and the tip.'],
+    tip: 'The guide is built from the same list as the Tools panel, so it can never go out of date.',
+  },
+  a11y: { about: 'High contrast, larger text and reduced motion.', steps: ['Tools → <b>Accessibility</b>.', 'Switch on what helps; the settings apply immediately and are remembered on this device.'] },
+  gestures: { about: 'A quick reference for touch gestures.', steps: ['Tools → <b>Gesture Guide</b>.'] },
+  screenreader: { about: 'Adds clearer labels and spoken announcements for screen readers.', steps: ['Tools → <b>Screen Reader</b> to turn the enhanced descriptions on.'] },
+  colorblind: { about: 'Switches to colourblind-safe palettes.', steps: ['Tools → <b>Colorblind Palettes</b>, pick a palette; classified layers and legends follow.'] },
+  shareview: { about: 'Copies a link that opens the exact same view.', steps: ['Set the map up as you want it.', 'Tools → <b>Share View</b>, then paste the link into a message.'], tip: 'The link carries the layers, basemap, centre, zoom and focus area.' },
+  session: { about: 'Saves and restores whole sessions with a short code.', steps: ['Tools → <b>Session Codes</b>.', 'Save to get a code, or type a code to restore someone else’s session.'] },
+  mapnotes: { about: 'Adds text notes and markers to the map for a discussion.', steps: ['Tools → <b>Map Notes</b>, type the note and add it at the centre.', 'Drag the note on the map to move it.'], tip: 'Notes are for the map only — they are not data and not exported as data.' },
+  rastercalc: { about: 'Map algebra on one raster: multiply, add, threshold, and so on.', steps: ['Switch on a raster layer.', 'Tools → <b>Raster Calculator</b>, write an expression using v (the cell value).', 'Run; the result is drawn as a new surface.'], needs: 'A raster layer on.' },
+  rasterreclass: { about: 'Reclassifies raster cell values into your own groups.', steps: ['Tools → <b>Raster Reclassify</b>, choose the layer and the breaks.'] },
+  rasterstats: { about: 'Min, max, mean and distribution of a raster.', steps: ['Tools → <b>Raster Statistics</b>, choose the raster.'] },
+  rasterclip: { about: 'Clips a raster to the focus area.', steps: ['Set a focus area first.', 'Tools → <b>Raster Clip / Mask</b>, choose the raster, run.'], needs: 'A focus area and a raster layer on.' },
+  rastercontour: { about: 'Derives contour lines from a raster surface.', steps: ['Tools → <b>Raster Contour</b>, choose the raster and interval.'] },
+  rasterslope: { about: 'Computes slope from an elevation raster.', steps: ['Switch on the elevation/DEM layer.', 'Tools → <b>Raster Slope</b>, run.'], needs: 'An elevation raster on.' },
+  rasterhist: { about: 'Histogram of raster values.', steps: ['Tools → <b>Raster Histogram</b>, choose the raster.'] },
+  rasterclipoly: { about: 'Clips a raster to a polygon boundary from a layer.', steps: ['Switch on a raster and a polygon layer.', 'Tools → <b>Raster Clip by Polygon</b>, choose both.'] },
+  rasteroverlay: { about: 'Cell-by-cell arithmetic between two rasters.', steps: ['Switch on two rasters with the same extent.', 'Tools → <b>Raster Overlay Math</b>, choose A, B and the operation.'], needs: 'Two rasters on.' },
+  rasterclasszonal: { about: 'How much of each raster class falls inside each polygon.', steps: ['Tools → <b>Raster Class Zonal</b>, choose the raster and the polygon layer.'] },
+  rasterdiff: { about: 'Subtracts raster B from raster A cell by cell.', steps: ['Tools → <b>Raster Difference</b>, choose A and B.'], needs: 'Two rasters on.' },
+  centroid: { about: 'Creates a point layer of feature centroids (or the centroid of the selection).', steps: ['Tools → <b>Feature Centroid</b>, choose the layer.'] },
+  densify: { about: 'Adds vertices along lines at a fixed interval.', steps: ['Tools → <b>Densify Lines</b>, choose the layer and spacing.'] },
+  splitpoly: { about: 'Splits polygons with a line you draw.', steps: ['Tools → <b>Split Polygon by Line</b>, choose the layer.'] },
+  concavehull: { about: 'A concave boundary (alpha shape) tighter than a convex hull.', steps: ['Tools → <b>Concave Hull</b>, choose the layer and tightness.'] },
+  affinetransform: { about: 'Moves, rotates or scales features.', steps: ['Tools → <b>Affine Transform</b>, choose the layer and values.'] },
+  linetopoly: { about: 'Closes line rings into polygons.', steps: ['Tools → <b>Lines to Polygons</b>, choose the line layer.'] },
+  polyoutline: { about: 'Extracts the boundary lines of polygons.', steps: ['Tools → <b>Polygon Outlines</b>, choose the layer.'] },
+  featuresmooth: { about: 'Smooths the vertices of lines and polygons.', steps: ['Tools → <b>Smooth Features</b>, choose the layer and number of passes.'] },
+  featurebuffer: { about: 'Buffers every feature of a layer by a distance.', steps: ['Tools → <b>Feature Buffer</b>, choose the layer and distance in km.', 'The buffered shapes are drawn on the map.'], tip: 'Points become circles, lines become corridors, polygons grow outward.' },
+  boundingbox: { about: 'Draws the rectangular envelope around each feature.', steps: ['Tools → <b>Bounding Box / Envelope</b>, choose the layer.'] },
+  vertexstopoints: { about: 'Turns every vertex into a point.', steps: ['Tools → <b>Vertices to Points</b>, choose the layer.'] },
+  areaperim: { about: 'Area in km² and perimeter in km for every polygon.', steps: ['Tools → <b>Area & Perimeter</b>, choose the polygon layer, run.'] },
+  linepoints: { about: 'Places points at intervals along lines.', steps: ['Tools → <b>Points Along Lines</b>, choose the layer and spacing.'] },
+  centroidpts: { about: 'Creates a point layer from polygon centroids.', steps: ['Tools → <b>Polygon Centroids → Points</b>, choose the layer.'] },
+  polyadjacency: { about: 'Finds pairs of polygons that touch.', steps: ['Tools → <b>Polygon Adjacency</b>, choose the layer.'] },
+  lineoffset: { about: 'Creates parallel lines at a fixed offset.', steps: ['Tools → <b>Line Offset</b>, choose the layer and distance.'] },
+  polyunion: { about: 'Merges every polygon of a layer into a single shape.', steps: ['Tools → <b>Polygon Union / Merge</b>, choose the layer.'] },
+  linelenstats: { about: 'Total, mean, minimum and maximum length of lines.', steps: ['Tools → <b>Line Length Statistics</b>, choose the layer.'] },
+  checkoverlap: { about: 'Finds polygons that overlap each other.', steps: ['Tools → <b>Check Overlaps</b>, choose the layer.'] },
+  checkgaps: { about: 'Finds gaps between adjacent polygons.', steps: ['Tools → <b>Check Gaps</b>, choose the layer.'] },
+  validate: { about: 'Checks geometry validity (rings, closure, minimum vertices).', steps: ['Tools → <b>Validate Geometry</b>, choose the layer.'] },
+  snap: { about: 'Snaps nearby vertices of two layers together.', steps: ['Tools → <b>Snap Features</b>, choose both layers and the tolerance.'] },
+  selfintersect: { about: 'Finds rings that cross themselves.', steps: ['Tools → <b>Check Self-Intersections</b>, choose the layer.'] },
+  duplicategeom: { about: 'Finds features with identical coordinates.', steps: ['Tools → <b>Duplicate Geometries</b>, choose the layer.'] },
+  snaptogrid: { about: 'Snaps vertices to a regular grid.', steps: ['Tools → <b>Snap to Grid</b>, choose the layer and grid size.'] },
+  erasefeatures: { about: 'Erases the area of one layer from another.', steps: ['Tools → <b>Feature Erase / Difference</b>, choose both layers.'] },
+  checknullgeom: { about: 'Finds features with no coordinates.', steps: ['Tools → <b>Check Null Geometries</b>, choose the layer.'] },
+  checkoutofbounds: { about: 'Finds coordinates outside valid longitude/latitude ranges.', steps: ['Tools → <b>Check Out of Bounds</b>, choose the layer.'] },
+  checkmultipart: { about: 'Finds features made of several separate pieces.', steps: ['Tools → <b>Check Multi-part Features</b>, choose the layer.'] },
+  ringdirection: { about: 'Checks whether rings run clockwise or anticlockwise (holes).', steps: ['Tools → <b>Ring Direction Check</b>, choose the layer.'] },
+  featurewithindist: { about: 'Lists features of one layer within a distance of another layer.', steps: ['Tools → <b>Feature Within Distance</b>, choose both layers and the distance.'] },
+  spatialjoincount: { about: 'Counts points inside polygons and adds the count as an attribute.', steps: ['Tools → <b>Spatial Join Count</b>, choose the polygon and point layers.'] },
+  bufferdissolve: { about: 'Buffers features, then merges the overlapping buffers.', steps: ['Tools → <b>Buffer Dissolve</b>, choose the layer and distance.'] },
+  removesmallpoly: { about: 'Hides polygons below a minimum area (cleans up slivers).', steps: ['Tools → <b>Remove Small Polygons</b>, choose the layer and minimum km².', 'Run; small slivers are hidden and can be brought back by removing the tool’s effect.'], tip: 'Use this to thin out tiny slivers at country scale, not to delete real data.' },
+  shortestpath: { about: 'Shortest path along a line network between two points.', steps: ['Tools → <b>Shortest Path</b>, choose the network layer and the two ends.'], needs: 'A line layer on.' },
+  servicearea: { about: 'The area reachable within a distance along the network (isochrone).', steps: ['Tools → <b>Service Area</b>, choose the network and the start point.'] },
+  tracenet: { about: 'Traces a network upstream or downstream from a point.', steps: ['Tools → <b>Trace Network</b>, choose the layer and the start point.'] },
+  networkbuffer: { about: 'A drive-time style buffer around points along the network.', steps: ['Tools → <b>Network Buffer</b>, choose the network and the points.'] },
+  networkconnect: { about: 'Checks whether the network is fully connected.', steps: ['Tools → <b>Network Connectivity</b>, choose the line layer.'] },
+  multipath: { about: 'Optimises a route through several stops.', steps: ['Tools → <b>Multi-Stop Route</b>, add the stops and run.'] },
+  distancematrix: { about: 'Pairwise distances between the points of a layer.', steps: ['Tools → <b>Distance Matrix</b>, choose the point layer.'] },
+  linemerge: { about: 'Merges lines that share endpoints.', steps: ['Tools → <b>Merge Connected Lines</b>, choose the line layer.'] },
+  linebearing: { about: 'Compass direction statistics for line segments.', steps: ['Tools → <b>Line Bearing Statistics</b>, choose the line layer.'] },
+  networkbetweenness: { about: 'Ranks network nodes by how many shortest paths pass through them.', steps: ['Tools → <b>Network Betweenness</b>, choose the line layer.'] },
+  fishnet: { about: 'Creates a rectangular grid over the view or focus area.', steps: ['Tools → <b>Fishnet / Grid</b>, set the cell size, run.'] },
+  randompts: { about: 'Places random points inside the view or focus area.', steps: ['Tools → <b>Random Points</b>, set how many, run.'] },
+  hexbin: { about: 'Bins points into hexagons so density is easy to see.', steps: ['Tools → <b>Hexagonal Binning</b>, choose the point layer and hexagon size.'] },
+  gridpoints: { about: 'Places points on a regular grid.', steps: ['Tools → <b>Regular Point Grid</b>, set the spacing.'] },
+  randomlines: { about: 'Generates random line features (for testing and illustration).', steps: ['Tools → <b>Random Lines</b>, set the count.'] },
+  randompolygons: { about: 'Generates random polygon features.', steps: ['Tools → <b>Random Polygons</b>, set the count.'] },
+  randomsample: { about: 'Takes a random subset of the features of a layer.', steps: ['Tools → <b>Random Sample</b>, choose the layer and how many.'] },
+  randomraster: { about: 'Creates a random raster surface.', steps: ['Tools → <b>Random Raster</b>, run.'] },
+  jenksbreaks: { about: 'Classifies a numeric field with Jenks natural breaks.', steps: ['Tools → <b>Natural Breaks (Jenks)</b>, choose the layer, field and classes.'] },
+  quantileclass: { about: 'Classifies a numeric field into equal-count classes.', steps: ['Tools → <b>Quantile Classification</b>, choose the layer, field and classes.'] },
+  equalintervalclass: { about: 'Classifies a numeric field into equal-width classes.', steps: ['Tools → <b>Equal Interval Classification</b>, choose the layer, field and classes.'] },
+  symbology: { about: 'Author mode: fill, stroke, size, shape and labels for one layer.', steps: ['Open the site with ?author=1, then Tools → <b>Symbology</b>.'] },
+  addlabel: { about: 'Author mode: place free text anywhere on the map.', steps: ['Author mode → Tools → <b>Add a label</b>, then type in the label editor.'] },
+  savelabels: { about: 'Author mode: manage the labels you placed.', steps: ['Author mode → Tools → <b>Label list</b>.'] },
+  import: { about: 'Author mode: brings your own GeoJSON onto the map.', steps: ['Author mode → Tools → <b>Import GeoJSON</b>, choose a file or paste the text.'] },
+  reset: { about: 'Author mode: forgets styles, filters, labels and focus.', steps: ['Author mode → Tools → <b>Reset the work</b> and confirm.'] },
+};
+// (quietly) make the “drop the extra name” form of a tool id work too
+// e.g. data-tool="measure-dist" → key "measure-dist"
+
+function openGuide(focusTool) {
+  openModal('Guide', (body) => {
+    body.innerHTML = `<div class="guidesearch"><input id="guide-q" type="search" placeholder="Search the guide — tool, task or keyword" autocomplete="off"></div>${guideHTML()}`;
+    const q = body.querySelector('#guide-q');
+    const run = () => {
+      const s = (q.value || '').trim().toLowerCase();
+      let shown = 0;
+      for (const sec of body.querySelectorAll('.gsec')) {
+        let secShown = 0;
+        for (const row of sec.querySelectorAll('details.gtool')) {
+          const text = row.textContent.toLowerCase();
+          const hit = !s || text.includes(s);
+          row.hidden = !hit;
+          if (hit) { secShown++; if (s) row.open = true; }
+        }
+        sec.hidden = !!s && !secShown;
+        shown += secShown;
+      }
+      let empty = body.querySelector('#guide-empty');
+      if (!empty) { empty = document.createElement('p'); empty.id = 'guide-empty'; empty.className = 'empty'; body.appendChild(empty); }
+      empty.textContent = shown ? '' : 'Nothing matched. Try a simpler word such as “select”, “clip” or “export”.';
+    };
+    q.oninput = run;
+    if (focusTool) {
+      const row = body.querySelector(`[data-tool-help="${focusTool}"]`);
+      if (row) { row.open = true; row.scrollIntoView({ block: 'center' }); }
+    }
+  });
+}
+$('#sheethelp').onclick = () => { if (mobileQ.matches) closeSheet(); openGuide(); };
+$('#guide-open').onclick = () => openGuide();
+window.__nwg && Object.assign(window.__nwg, { openGuide });
