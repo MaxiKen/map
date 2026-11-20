@@ -248,6 +248,16 @@ h3.quality-title{margin:0;color:var(--text);font-size:17px;letter-spacing:0;text
 .frow>label{min-width:96px;font-size:13px;color:var(--muted)}
 .frow.act{justify-content:flex-end;margin-top:18px}
 .frow.act .btn{flex:1}
+.flist{border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:0 0 10px}
+.fitem{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-top:1px solid var(--line);background:var(--panel)}
+.fitem:first-child{border-top:0}
+.fitem.on{background:rgba(11,107,69,.08)}
+.fitem .fn{width:22px;height:22px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:700;flex:none;margin-top:1px}
+.fitem .ft{flex:1;min-width:120px}
+.fitem .ft b{display:block;font-size:13px}
+.fitem .ft small{display:block;color:var(--muted);font-size:12px;line-height:1.35}
+.fitem .acts{display:flex;gap:6px;flex:none}
+.fitem .acts .btn{padding:6px 10px;font-size:12px}
 .chk{display:inline-flex;align-items:center;gap:6px;min-width:0;font-size:13px;color:var(--text)}
 .chk input{width:18px;height:18px;accent-color:var(--brand)}
 textarea{width:100%;min-height:120px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:10px;font:12.5px/1.4 ui-monospace,monospace}

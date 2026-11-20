@@ -82,7 +82,7 @@ selected features are highlighted, never edited.
   the focus area when one is active.
 - **Layer statistics** — totals, averages, biggest features, and min/mean/max for numeric columns.
 - **Group into classes** — reclassify a numeric field (quantile or equal interval) to see its pattern.
-- **Filter features** — show only the rows that match a column.
+- **Filter features** — stack filters on any layer that is switched on. They are numbered in one list; filters on the same layer are combined, and each can be edited or removed.
 - **Attribute table** — browse, sort and search every row.
 - **Measure distance / area, distance & bearing, grid lines** for quick ground-truthing.
 - Hovering the map names the feature under the pointer; tapping gives area, perimeter, compactness,
@@ -95,7 +95,7 @@ switched on last is on top and is drawn on top). Drag the ⠿ handle to reorder.
 show all, hide all, fit visible, **clip**, grid, labels, clear filters.
 
 **Legend** — the legend of everything that is on the map. Tap an entry to zoom to it, **focus on it**,
-show only that class, or (in author mode) add it as a label. Raster classes work the same way: the
+add it as a filter, or (in author mode) add it as a label. Raster classes work the same way: the
 extent of a class is read from the value grid, so zooming and focusing land on that class.
 
 **Info** — attributes and facts for whatever you tap, and a link back to the whole map when a focus

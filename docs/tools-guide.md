@@ -78,14 +78,16 @@ Counts every switched-on layer inside the focus area: features, summed polygon a
 
 ### Filter features
 
-`filter` — Show only the rows that match.
+`filter` — Stack filters on any layer that is on.
 
-Show only the rows that match a column — the rest of the layer is hidden until you clear it.
+Hide every row that does not match. Filters are numbered in one list. Several on the same layer are combined — a row must match all of them.
 
-1. Tools → **Filter features**, choose the layer.
-2. Pick a field and a condition (equal, contains, between, in a list…).
-3. Press **Apply filter**; the layer row gets a “Filtered” chip.
-4. Clear it from the same panel, or Layers → Clear filters.
+1. Switch on the layer you want to filter. Only layers that are on can be chosen.
+2. Tools → **Filter features**. The list is at the top — the first one you add is #1.
+3. Pick the layer, a field and a condition, then **Add filter**. Add another on the same layer or a different one; they stack.
+4. **Edit** changes one filter. **Remove** drops just that one. Layers → **Clear filters** drops them all.
+
+**Tip.** The same list sits at the top of the Layers panel, so you can edit or remove a filter without opening the tool again.
 
 ### Group into classes
 
