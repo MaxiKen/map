@@ -17,12 +17,27 @@ collected under **Unreleased** until `scripts/prepare_release.py` assigns a vers
   returns the map to normal panning. Documented and covered by desktop and phone tests.
 - `window.__nwg` exposes the selection API (`enterSelectMode`, `exitSelectMode`, `selItems`, `selClear`,
   `selToggle`, `openSelectionList`) for scripting and support.
+- Clip to an area did not work for the shapes it offers. Rectangle, Square, Circle
+  and Freehand now draw a live outline as you drag and produce a real focus area. **Square** is square
+  on the ground (equal kilometres a side, not equal pixels), **Circle** takes its radius in metres
+  from the centre to where you release, and the area and edge numbers agree with that radius.
+- **Clip → Pick features from a layer** is a real picker: it lists every polygon layer (with off layers
+  marked), keeps your ticks when you switch layers, searches the list, zooms to a row, and clips to the
+  union of everything picked — even across layers, as separate shapes rather than one broken polygon.
+  **Pick on the map** turns the same choice into taps: tap shapes to add or remove them, Done returns
+  to the ticked list, Cancel or Esc leaves everything as it was.
+- Picking several features used to cancel itself out: area and edge length summed signed ring areas
+  across shapes, so picks with opposite winding could total zero. Each picked shape now counts on its own
+  (outer ring minus holes). A focus area also survives a reload, a map preset, a session code and a share
+  link in every form — circle radius in metres included.
 
 ### Fixed
 
 - **Selection could not pick polygons** on either layer: the map kept panning during a box drag and the
   Info panel named the geometry kind instead of the layer. Select mode now owns the pointer while it is
   on, boxes select every feature inside them, and Info card headers name the layer the feature came from.
+- The clip drag handlers read the drawing state after it had already been cleared, so rectangle, square
+  and circle never produced a focus area at all. The shape is captured before the state is reset.
 - `polyOverlapsPoly` misread a polygon whose rings are typed arrays as one flat coordinate list, so
   polygon-inside-polygon tests (buffer, clip, erase, overlay) returned false everywhere.
 - Buffer zones carried a bounding box mixed from degrees and mercator units, making every buffer look
