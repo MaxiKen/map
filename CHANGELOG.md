@@ -31,6 +31,12 @@ collected under **Unreleased** until `scripts/prepare_release.py` assigns a vers
   (outer ring minus holes). A focus area also survives a reload, a map preset, a session code and a share
   link in every form — circle radius in metres included.
 
+- **No data export anywhere.** The only download left in the whole application is a PNG picture of the
+  map. Removed: the selection bar's **Export** button and its CSV writer, **Export CSV** in the selected
+  features list, **Export selection (CSV)** in Select-by-area results, and the **Download full JSON
+  register** link in the quality panel (the register id and SHA-256 are still shown as text). **Export
+  results** is now **Picture with title & frame** and offers only the PNG. Guide, README and docs say so.
+
 ### Fixed
 
 - **Rectangle** and **Current view** now actually clip the map. `focusFromRect`, **Current view** and the

@@ -65,8 +65,8 @@ map. It is the same on a phone and a desktop:
   unselect it;
 - **drag a box** across the map to select every feature of that layer inside it — you can pick one
   polygon, several, or a whole cluster;
-- **List** shows what is selected (removable row by row), **Zoom** fits the selection, **Export**
-  saves it as CSV, **Clear** empties it;
+- **List** shows what is selected (removable row by row), **Zoom** fits the selection, **Clear**
+  empties it;
 - the Select bar only exists in select mode. Press **Done** (or Esc) and the map pans and zooms
   normally again — nothing stays "stuck".
 
@@ -74,8 +74,8 @@ Selecting works on all switched-on layers at once, or on one layer you pick. It 
 selected features are highlighted, never edited.
 
 ### Analysis tools
-- **Select by area** — tap a polygon of any layer and every feature inside it is listed, counted by
-  layer, and exportable as CSV. It uses the real boundary, so a state or LGA outline works as a rubber band.
+- **Select by area** — tap a polygon of any layer and every feature inside it is listed and counted by
+  layer. It uses the real boundary, so a state or LGA outline works as a rubber band.
 - **Area summary** — for every layer on the map: how many features (or raster cells) lie inside the
   focus area, the share of the layer, the summed area of the polygons and the top raster classes.
 - **Chart a field** — histogram of any numeric column or a ranked count of any text column, limited to
@@ -83,7 +83,7 @@ selected features are highlighted, never edited.
 - **Layer statistics** — totals, averages, biggest features, and min/mean/max for numeric columns.
 - **Group into classes** — reclassify a numeric field (quantile or equal interval) to see its pattern.
 - **Filter features** — show only the rows that match a column.
-- **Attribute table** — browse, sort, search and export every row.
+- **Attribute table** — browse, sort and search every row.
 - **Measure distance / area, distance & bearing, grid lines** for quick ground-truthing.
 - Hovering the map names the feature under the pointer; tapping gives area, perimeter, compactness,
   rank ("54th largest of 1,485 polygons"), share of the layer and of Nigeria, centroid, UTM zone,

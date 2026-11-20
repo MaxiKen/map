@@ -52,14 +52,18 @@ class QualityTransparencyTests(unittest.TestCase):
             'data-x="json"', 'id="e-geo"', "download('feature.json'",
             "download('visible-layers.geojson'", 'function toGeoJSON(',
             'Download layers as GeoJSON / CSV', 'Download GeoJSON',
+            # the application has no data export at all: no CSV, no JSON, no GeoJSON files
+            'text/csv', '.csv', 'Download full JSON register', 'a[download]',
+            'href="${esc(registerFile)}" download',
         ):
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(forbidden, app + quality)
-        self.assertIn("['export', 'down', 'Export results'", app)
+        # the only download offered is the PNG map picture
+        self.assertIn("['export', 'camera', 'Picture with title &", app)
         self.assertIn('id="e-png"', app)
         self.assertNotIn('id="e-csv"', app)
+        self.assertNotIn('id="selcsv"', app)
         self.assertIn('Import GeoJSON', app)
-        self.assertIn('Download full JSON register', quality)
 
     @unittest.skipUnless(shutil.which('node'), 'Node.js is needed for JavaScript runtime tests')
     def test_quality_renderer_runtime_and_javascript_syntax(self):

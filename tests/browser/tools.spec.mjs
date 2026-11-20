@@ -110,7 +110,7 @@ test('select mode selects by tap, box drag and unselects on a second tap', async
 
   await page.locator('#seldone').click();
   await expect(page.locator('#selbar')).not.toHaveClass(/active/);
-  // the selection survives leaving select mode, so it can still be exported
+  // the selection survives leaving select mode, so it can still be listed
   expect(await page.evaluate(() => window.__nwg.sel.ids.size)).toBeGreaterThan(3);
   expect(await page.evaluate(() => window.__nwg.map.panLock)).toBe(false);
   expect(errors).toEqual([]);

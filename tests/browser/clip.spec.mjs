@@ -352,3 +352,77 @@ test('clipping: a saved circle keeps its ground radius', async ({ page }) => {
   expect(after.area).toBeCloseTo(before.area, 3);
   expect(errors).toEqual([]);
 });
+
+test('the only download in the app is a PNG picture', async ({ page }) => {
+  const errors = capturePageErrors(page);
+  await openMap(page);
+
+  // any download the page starts must be an image
+  const downloads = [];
+  page.on('download', (d) => downloads.push(d.suggestedFilename()));
+
+  const check = async (label, open, settleMs = 900) => {
+    await page.evaluate(() => {
+      document.querySelector('#sheet').classList.remove('closed');
+      document.querySelector('.tab[data-tab="tools"]')?.click();
+    });
+    await page.waitForTimeout(250);
+    await open();
+    await page.waitForTimeout(settleMs);
+    const found = await page.evaluate(() => {
+      const out = [];
+      for (const a of document.querySelectorAll('a[download]')) out.push(`${a.textContent.trim()} -> ${a.getAttribute('href')}`);
+      for (const b of document.querySelectorAll('[data-act],[data-x],button')) {
+        if (/\bcsv\b|geojson|\bkml\b|shapefile|\.zip\b/i.test(b.textContent)) out.push(`button: ${b.textContent.trim()}`);
+      }
+      for (const el of document.querySelectorAll('#panel-quality, #panel-layers, #info, #modal')) {
+        if (/export summary|download full json|export csv/i.test(el.textContent)) out.push(`text in ${el.id || el.className}`);
+      }
+      return out;
+    });
+    expect({ label, found }).toEqual({ label, found: [] });
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+  };
+
+  await check('quality panel', async () => {
+    await page.evaluate(() => {
+      document.querySelector('#sheet').classList.remove('closed');
+      document.querySelector('.tab[data-tab="quality"]').click();
+    });
+  });
+  await check('select bar + selection list', async () => {
+    await page.evaluate(() => window.__nwg.toolSelect());
+    await page.locator('[data-act="start"]').click();
+    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      window.__nwg.selToggle('admin_lgas_gadm_pg', window.__nwg.L.get('admin_lgas_gadm_pg').obj.features[0]);
+    });
+    await page.locator('#sellist').click();
+  });
+  // "Select by area" has no Tools button of its own; it is the map-tap query mode
+  await check('select by area result', async () => {
+    await page.evaluate(() => window.__nwg.toolQuery());
+  });
+  await check('picture panel', async () => {
+    await page.evaluate(() => document.querySelector('[data-tool="export"]').click());
+  });
+  await check('area summary', async () => {
+    await page.evaluate(() => window.__nwg.focusFromRect([7.5, 11], [9, 12]));
+    await page.evaluate(() => document.querySelector('[data-tool="aoi"]').click());
+  }, 1400);
+  await check('attribute table', async () => {
+    await page.evaluate(() => document.querySelector('[data-tool="table"]').click());
+  });
+
+  // the picture button itself is the one allowed download
+  await page.evaluate(() => document.querySelector('[data-tool="export"]').click());
+  await page.waitForTimeout(400);
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 30_000 }),
+    page.locator('#e-png').click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/^map-export-[\d-]+\.png$/);
+  expect(downloads).toEqual([download.suggestedFilename()]);
+  expect(errors).toEqual([]);
+});

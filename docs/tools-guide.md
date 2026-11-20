@@ -5,8 +5,8 @@ hand to a colleague. It is generated from the same tool list that builds the Too
 always matches the app: 125 tools, in the order you usually need them.
 
 - Every tool is read-only: nothing here edits the underlying data files.
-- Results are drawn on the map or shown in a panel; a PNG picture or a CSV export is how you
-  take them away.
+- Results are drawn on the map or shown in a panel. The only download is a PNG picture of the
+  map — no data is ever exported as CSV, GeoJSON or any other file.
 - The map behaves the same on a phone, a tablet and a desktop. Where a gesture differs, the
   guide says so.
 
@@ -31,13 +31,13 @@ always matches the app: 125 tools, in the order you usually need them.
 
 ## Focus & select
 
-_Start here. These tools answer “what is inside this place?” — select it, clip to it, then analyse and export._
+_Start here. These tools answer “what is inside this place?” — select it, clip to it, then analyse it._
 
 ### Clip to an area
 
 `clip` — Fade everything outside a shape you draw.
 
-Everything outside the shape you choose is removed from the map, so counts, tables and exports only cover that place.
+Everything outside the shape you choose is removed from the map, so counts and tables only cover that place.
 
 1. Tools → **Clip to an area**.
 2. Press and drag for a rectangle or a square (square on the ground, equal kilometres a side), or press at the centre and drag out for a circle with a real radius in metres.
@@ -51,13 +51,13 @@ Everything outside the shape you choose is removed from the map, so counts, tabl
 
 `select` — Tap or drag a box to select features.
 
-Select one feature, several features, or everything inside a box you drag. This is the phone-friendly way to pick exactly what you want to see and export.
+Select one feature, several features, or everything inside a box you drag. This is the phone-friendly way to pick exactly what you want to see.
 
 1. Tools → **Select features**. Pick a layer (or “All switched-on layers”) and press **Start selecting**.
 2. A bar appears at the bottom of the map (top on desktop) and the map stops panning while you select.
 3. **Tap a feature** to select it; tap it again to remove it.
 4. **Press and drag** to draw a box — everything inside the box is selected. Drag the same box again to deselect.
-5. **All** takes everything on screen, **List** shows what you have, **Zoom** fits it, **Export** saves a CSV, **Clear** empties it.
+5. **All** takes everything on screen, **List** shows what you have, **Zoom** fits it, **Clear** empties it.
 6. Press **Done** to go back to normal map panning. Your selection stays highlighted until you clear it.
 
 **Needs.** At least one feature layer switched on (polygon, line or point).
@@ -251,7 +251,7 @@ Shows or hides the latitude/longitude graticule with labels.
 1. Tools → **Grid lines** (the Layers panel has the same switch).
 2. Toggle it off the same way.
 
-**Tip.** The grid also appears in exported pictures when you tick “Grid” in the export panel.
+**Tip.** The grid also appears in saved pictures when you tick “Grid” in the picture panel.
 
 ### Locate Me
 
@@ -410,7 +410,7 @@ Searches the whole layer catalog by name, source or type.
 
 ## Data & tables
 
-_Tables, statistics, filters and exports for the layer you are looking at._
+_Tables, statistics and filters for the layer you are looking at._
 
 ### Layer statistics
 
@@ -419,7 +419,7 @@ _Tables, statistics, filters and exports for the layer you are looking at._
 Totals, averages, extremes and a chart for any field of a layer.
 
 1. Tools → **Layer statistics**, choose the layer.
-2. Read the summary and the chart; export the numbers if needed.
+2. Read the summary and the chart.
 
 ### Compare fields
 
@@ -434,7 +434,7 @@ Histogram of a numeric column, or a ranked count of a text column.
 
 `table` — Browse, sort and search rows.
 
-The full attribute table: sort, search, hide columns and export rows.
+The full attribute table: sort, search and hide columns.
 
 1. Tools → **Attribute table**, pick the layer.
 2. Use the filter box to search; tap a row to locate it.
@@ -459,7 +459,7 @@ Selects features by attribute value, without tapping the map.
 
 1. Tools → **Select by Attribute**, pick the layer and field.
 2. Choose the condition and value, then Apply.
-3. The matching features are highlighted and can be exported.
+3. The matching features are highlighted on the map.
 
 **Tip.** For a map-based selection (tap or box), use Tools → Select features instead.
 
@@ -498,16 +498,16 @@ Downloads the current map as a PNG picture.
 2. Tools → **Save map picture**.
 3. On desktop you can add a title, legend, scale, north arrow and grid first.
 
-**Tip.** If a basemap refuses to export for licensing reasons, the picture is saved without it — your data is still there.
+**Tip.** If a basemap refuses to be included for licensing reasons, the picture is saved without it — your data is still there.
 
-### Export results
+### Picture with title & frame
 
-`export` — Save a map picture or attribute rows as CSV.
+`export` — PNG with a title, legend, scale and grid.
 
-Saves a map picture or attribute rows as CSV.
+Saves the map as a PNG picture with a title, legend, scale bar, north arrow and grid — there is no data download.
 
-1. Tools → **Export results**.
-2. Choose the area (whole view, focus area or picked polygons), then picture or CSV.
+1. Tools → **Picture with title & frame**.
+2. Choose the area (whole view, focus area or picked polygons), tick what to draw around the map, then download the PNG.
 
 ### Count by Attribute
 
@@ -569,9 +569,9 @@ Saves a complete view (layers, colours, focus) under a name.
 
 ### Print Layouts
 
-`printlayout` — A4 / Letter page templates for export.
+`printlayout` — A4 / Letter page templates for pictures.
 
-Turns the export into a page layout (A4, A3 or Letter) with a title block.
+Turns the saved picture into a page layout (A4, A3 or Letter) with a title block.
 
 1. Tools → **Print Layouts**, choose size, orientation and margin.
 2. Then Tools → Save map picture; the PNG follows the layout.
@@ -681,7 +681,7 @@ Adds text notes and markers to the map for a discussion.
 1. Tools → **Map Notes**, type the note and add it at the centre.
 2. Drag the note on the map to move it.
 
-**Tip.** Notes are for the map only — they are not data and not exported as data.
+**Tip.** Notes are for the map only — they are drawn on the map, not saved as data.
 
 ## Raster tools
 

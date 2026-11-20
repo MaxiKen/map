@@ -33,6 +33,7 @@ const { GUIDE_GROUP_NOTES, GUIDE_GROUP_LABEL } = await asModule(
 const plain = (html) => html
   .replace(/<b>/g, '**').replace(/<\/b>/g, '**')
   .replace(/<[^>]+>/g, '')
+  .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
   .replace(/\s+/g, ' ')
   .trim();
 const anchor = (label) => label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -48,8 +49,8 @@ out.push('hand to a colleague. It is generated from the same tool list that buil
 out.push(`always matches the app: ${total} tools, in the order you usually need them.`);
 out.push('');
 out.push('- Every tool is read-only: nothing here edits the underlying data files.');
-out.push('- Results are drawn on the map or shown in a panel; a PNG picture or a CSV export is how you');
-out.push('  take them away.');
+out.push('- Results are drawn on the map or shown in a panel. The only download is a PNG picture of the');
+out.push('  map — no data is ever exported as CSV, GeoJSON or any other file.');
 out.push('- The map behaves the same on a phone, a tablet and a desktop. Where a gesture differs, the');
 out.push('  guide says so.');
 out.push('');
