@@ -1,6 +1,6 @@
-import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature, pip2, featureCentroid, convexHullFeature, convexHullPoints, simplifyFeature, bufferFeature, ringIntersection, intersectPolyPoly, segmentsIntersect, polyOverlapsPoly, ringsBBox, normalizeClip, clipBB, circleToPolygon, distToRingMerc, haversineMerc, ringSignedArea } from './engine.js?v=104c4dc72d';
-import { createLoadScheduler } from './loading.js?v=104c4dc72d';
-import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=104c4dc72d';
+import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature, pip2, featureCentroid, convexHullFeature, convexHullPoints, simplifyFeature, bufferFeature, ringIntersection, intersectPolyPoly, segmentsIntersect, polyOverlapsPoly, ringsBBox, normalizeClip, clipBB, circleToPolygon, circleMercRadiusForMetres, distToRingMerc, haversineMerc, ringSignedArea } from './engine.js?v=57c9124c52';
+import { createLoadScheduler } from './loading.js?v=57c9124c52';
+import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=57c9124c52';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -172,8 +172,15 @@ async function start() {
   bindDrawPointer();
   bindSelectPointer();
   wireSelBar();
-  $('#drawdone').onclick = () => { if (draw?.kind === 'poly') { const pts = draw.pts.slice(); endDraw(); focusFromLonLat(pts); } else endDraw(); };
-  $('#drawclear').onclick = () => { endDraw(); toast('Focus drawing cancelled'); };
+  $('#drawdone').onclick = () => {
+    if (clipPick) { endClipPick(true); return; }
+    if (draw?.kind === 'poly') { const pts = draw.pts.slice(); endDraw(); focusFromLonLat(pts); return; }
+    endDraw();
+  };
+  $('#drawclear').onclick = () => {
+    if (clipPick) { endClipPick(false); return; }
+    endDraw(); toast('Focus drawing cancelled');
+  };
   $('#btn-full').onclick = toggleFullscreen;
   $('#leave-author')?.addEventListener('click', () => {
     const u = new URL(location.href); u.searchParams.delete('author');
@@ -182,10 +189,13 @@ async function start() {
   $('#btn-back').onclick = goBack;
   addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (draw) { endDraw(); toast('Focus drawing cancelled'); }
+    if (clipPick) { endClipPick(false); }
+    else if (draw) { endDraw(); toast('Focus drawing cancelled'); }
     else if (selState.active) { exitSelectMode(false); toast('Select mode off'); }
   });
   if (saved && saved.clip) restoreFocus(saved.clip);
+  const sharedFocus = readSharedFocus();
+  if (sharedFocus) restoreFocus(sharedFocus);
   map.on('hover', (x, y) => { const [lo, la] = map.lonlatAt(x, y); $('#coords').textContent = fmtLL(la, lo); });
   map.on('tileerror', onTileError);
   onView();
@@ -934,6 +944,12 @@ function onClick(x, y) {
     return;
   }
   if (draw?.kind === 'pick') {
+    if (draw.mode === 'multi') {
+      const multiHit = map.identify(x, y).filter((r) => r.feature && r.layer.kind === 'polygon').pop();
+      if (!multiHit) { toast('Tap inside a polygon to add it'); return; }
+      const stM = L.get(multiHit.layer.id), idxM = stM?.obj?.features?.indexOf(multiHit.feature);
+      if (idxM != null && idxM >= 0) { toggleClipPick(multiHit.layer.id, idxM); return; }
+    }
     const res = map.identify(x, y);
     const hit = res.find((r) => r.feature && r.layer.kind === 'polygon');
     if (!hit) { toast('Tap inside a polygon'); return; }
@@ -945,6 +961,7 @@ function onClick(x, y) {
     return;
   }
   if (draw?.kind === 'poly') {
+    // Snapping to a polygon edge is nice but must never swallow the tap: keep the raw point.
     draw.pts.push([lo, la]);
     drawPreview();
     $('#drawtext').textContent = `${draw.pts.length} corner${draw.pts.length === 1 ? '' : 's'} — tap Done to close`;
@@ -1488,28 +1505,37 @@ function focusAreaKm2() {
     return ringAreaKm2([[unX(w), unY(yt)], [unX(e), unY(yt)], [unX(e), unY(yb)], [unX(w), unY(yb)]]);
   }
   if (clip.type === 'circle') {
-    // Approximate circle area using radius in degrees (rough, at equator)
-    const rDeg = clip.r / (256 * Math.pow(2, map.zoom)) * 360;
-    return Math.PI * rDeg * rDeg * 111.0 * 111.0 * Math.cos(clip.c[1] * Math.PI / 180);
+    // Radius measured on the ground when the circle was drawn.
+    return Math.PI * Math.pow((clip.metres || 0) / 1000, 2);
   }
-  const rings = clipRingsToLL(clip);
+  // Each polygon in the focus contributes its outer ring minus its holes;
+  // several selected features (multi) add up, they do not cancel each other out.
   let a = 0;
-  rings.forEach((r, i) => {
-    const v = ringAreaKm2(r);
-    a += i === 0 ? v : -v;
-  });
+  for (const poly of focusPolygons(clip)) {
+    poly.forEach((ring, i) => {
+      const v = ringAreaKm2(ring);
+      a += i === 0 ? v : -v;
+    });
+  }
   return Math.max(0, a);
+}
+// The focus polygons as [outer, ...holes] lists of [lon, lat] rings.
+function focusPolygons(c) {
+  if (!c) return [];
+  const src = c.polys && c.polys.length ? c.polys : [c.rings || []];
+  return src.map((poly) => poly.map((ring) => {
+    const o = [];
+    for (let k = 0; k + 1 < ring.length; k += 2) o.push([unX(ring[k]), unY(ring[k + 1])]);
+    return o;
+  })).filter((poly) => poly[0]?.length > 2);
 }
 function focusPerimeterKm() {
   if (!clip) return 0;
   if (clip.type === 'poly' || clip.type === 'freehand' || clip.type === 'multi') {
-    const rings = clipRingsToLL(clip);
-    if (rings.length) return ringPerimeterKm(rings[0]);
+    // Every selected shape counts: the outline you walk around, not only the first one.
+    return focusPolygons(clip).reduce((sum, poly) => sum + ringPerimeterKm(poly[0]), 0);
   }
-  if (clip.type === 'circle') {
-    const rDeg = clip.r / (256 * Math.pow(2, map.zoom)) * 360;
-    return 2 * Math.PI * rDeg * 111.0 * Math.cos(clip.c[1] * Math.PI / 180);
-  }
+  if (clip.type === 'circle') return 2 * Math.PI * ((clip.metres || 0) / 1000);
   if (clip.type === 'rect') {
     const [w, yb, e, yt] = clip.wb;
     return ringPerimeterKm([[unX(w), unY(yt)], [unX(e), unY(yt)], [unX(e), unY(yb)], [unX(w), unY(yb)]]);
@@ -1528,22 +1554,28 @@ function focusFromRect(a, b) {
   if (Math.abs(e - w) < 1e-7 || Math.abs(n - s_) < 1e-7) { toast('Drag a bigger box'); return; }
   setFocus({ type: 'rect', wb: [w, s_, e, n] });
 }
+// A square on the ground: both sides equal in metres, not equal in mercator units
+// (mercator stretches east-west as you move away from the equator).
 function focusFromSquare(a, b) {
-  const w = mercX(Math.min(a[0], b[0])), e = mercX(Math.max(a[0], b[0]));
-  const n = mercY(Math.max(a[1], b[1])), s_ = mercY(Math.min(a[1], b[1]));
-  const dx = e - w, dy = n - s_;
-  const side = Math.min(dx, dy);
-  if (side < 1e-7) { toast('Drag a bigger box'); return; }
-  const cx = (w + e) / 2, cy = (s_ + n) / 2;
-  const hw = side / 2, hh = side / 2;
-  setFocus({ type: 'rect', wb: [cx - hw, cy - hh, cx + hw, cy + hh] });
+  const lo0 = Math.min(a[0], b[0]), lo1 = Math.max(a[0], b[0]);
+  const la0 = Math.min(a[1], b[1]), la1 = Math.max(a[1], b[1]);
+  const midLat = (la0 + la1) / 2;
+  const widthKm = haversineKm([lo0, midLat], [lo1, midLat]);
+  const heightKm = haversineKm([lo0, la0], [lo0, la1]);
+  const sideKm = Math.min(widthKm, heightKm);
+  if (!(sideKm > 0.001)) { toast('Drag a bigger square'); return; }
+  const cx = (lo0 + lo1) / 2, cy = (la0 + la1) / 2;
+  const dLat = sideKm / 2 / 110.574;
+  const dLon = sideKm / 2 / (111.320 * Math.max(0.05, Math.cos(cy * Math.PI / 180)));
+  setFocus({ type: 'rect', wb: [mercX(cx - dLon), mercY(cy + dLat), mercX(cx + dLon), mercY(cy - dLat)] });
 }
+// A circle whose radius is the ground distance from the centre to where you released.
 function focusFromCircle(centre, edge) {
+  const metres = haversineKm(centre, edge) * 1000;
+  if (!(metres > 50)) { toast('Drag further from the centre to set the radius'); return; }
   const cx = mercX(centre[0]), cy = mercY(centre[1]);
-  const ex = mercX(edge[0]), ey = mercY(edge[1]);
-  const r = Math.hypot(ex - cx, ey - cy);
-  if (r < 1e-6) { toast('Drag a bigger circle'); return; }
-  setFocus({ type: 'circle', c: [cx, cy], r });
+  const r = circleMercRadiusForMetres(metres, centre[1]);
+  setFocus({ type: 'circle', c: [cx, cy], r, metres: Math.round(metres) });
 }
 function focusFromFreehand(pts) {
   if (pts.length < 3) { toast('Draw a bigger outline'); return; }
@@ -1579,16 +1611,17 @@ function updateFocusUI() {
 }
 
 // drawing a focus area ---------------------------------------------------
+let dragPreview = null;   // { kind, a, b | c, e | pts } while a shape is being dragged
 function startDraw(kind) {
   if (measure) { measure = null; $('#measurebar').hidden = true; }
   draw = { kind, pts: [], origin: null };
   map.cv.style.cursor = 'crosshair';
   const bar = $('#drawbar'); bar.hidden = false;
   const labels = {
-    rect: 'Drag a rectangle on the map',
-    square: 'Drag a square on the map',
-    circle: 'Click centre, then drag radius',
-    poly: 'Tap the corners of the area',
+    rect: 'Press and drag the two corners of the rectangle',
+    square: 'Press and drag the two corners of the square',
+    circle: 'Press at the centre and drag out to the edge',
+    poly: 'Tap the corners, then press Done',
     freehand: 'Drag to draw a freehand outline',
   };
   $('#drawtext').textContent = labels[kind] || 'Draw an area';
@@ -1599,22 +1632,64 @@ function startDraw(kind) {
 }
 function startPick(mode, extra = {}) {
   if (measure) { measure = null; $('#measurebar').hidden = true; }
-  if (mode === 'focus') setFocus(null, false);
+  // Picking replaces the focus, so clear it first — otherwise the map draws nothing
+  // outside the old focus and the polygons you want to pick are invisible.
+  if (mode === 'focus') { focusLabel = ''; setFocus(null, false); }
+  if (mode !== 'multi') clipPick = null;
   draw = { kind: 'pick', mode, ...extra };
   map.cv.style.cursor = 'crosshair';
   const bar = $('#drawbar'); bar.hidden = false;
-  $('#drawtext').textContent = mode === 'focus' ? 'Tap a polygon to use as the focus' : 'Tap a polygon to select inside it';
+  const labels = {
+    focus: 'Tap a polygon to use as the focus area',
+    multi: 'Tap polygons to add them · tap again to remove · Done to clip',
+  };
+  $('#drawtext').textContent = labels[mode] || 'Tap a polygon to select inside it';
   $('#drawdone').hidden = true;
   $('#drawclear').textContent = 'Cancel';
+  if (mode === 'multi') { $('#drawdone').hidden = false; $('#drawdone').textContent = 'Done'; }
   updateToolState();
 }
 function endDraw() {
   draw = null;
+  dragPreview = null;
+  if (!clipPick) map.selectionSet = [];
   map.cv.style.cursor = '';
   map.overlay = null;
   $('#drawbar').hidden = true;
   map.render();
   updateToolState();
+}
+// Live outline while a rectangle/square/circle/freehand is being dragged.
+// The overlay reads `dragPreview`, which bindDrawPointer keeps up to date.
+function drawPreviewDrag() {
+  map.overlay = (ctx, m) => {
+    if (!dragPreview) return;
+    const st = drawStyle || '#0b6b45';
+    ctx.save();
+    ctx.setLineDash([7, 5]);
+    ctx.lineWidth = drawStrokeWidth || 2.5;
+    ctx.strokeStyle = st;
+    ctx.fillStyle = st + '22';
+    ctx.beginPath();
+    if (dragPreview.kind === 'circle') {
+      const [cx, cy] = m.screenOf(dragPreview.c[0], dragPreview.c[1]);
+      const [ex, ey] = m.screenOf(dragPreview.e[0], dragPreview.e[1]);
+      ctx.arc(cx, cy, Math.max(1, Math.hypot(ex - cx, ey - cy)), 0, Math.PI * 2);
+    } else if (dragPreview.kind === 'freehand') {
+      dragPreview.pts.forEach(([lo, la], i) => { const [x, y] = m.screenOf(lo, la); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    } else {
+      const [x0, y0] = m.screenOf(dragPreview.a[0], dragPreview.a[1]);
+      const [x1, y1] = m.screenOf(dragPreview.b[0], dragPreview.b[1]);
+      if (dragPreview.kind === 'square') {
+        const side = Math.min(Math.abs(x1 - x0), Math.abs(y1 - y0));
+        const sx = x1 < x0 ? -side : side, sy = y1 < y0 ? -side : side;
+        ctx.rect(Math.min(x0, x0 + sx), Math.min(y0, y0 + sy), side, side);
+      } else ctx.rect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0));
+    }
+    ctx.fill(); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  };
 }
 function drawPreview() {
   map.overlay = (ctx, m) => {
@@ -1699,23 +1774,27 @@ function bindDrawPointer() {
     origin = rectAt(e); last = origin;
     if (draw.kind === 'freehand') freehandPts = [origin];
     cv.setPointerCapture?.(e.pointerId);
+    drawPreviewDrag();
     map.render();
     const move = (ev) => {
       last = rectAt(ev);
       if (draw.kind === 'freehand') freehandPts.push(last);
+      dragPreview = draw.kind === 'freehand'
+        ? { kind: 'freehand', pts: freehandPts }
+        : draw.kind === 'circle' ? { kind: 'circle', c: origin, e: last } : { kind: draw.kind, a: origin, b: last };
       map.render();
     };
     const up = (ev) => {
       cv.removeEventListener('pointermove', move);
       cv.removeEventListener('pointerup', up);
       cv.removeEventListener('pointercancel', up);
-      const b = rectAt(ev), a = origin; origin = null; last = null;
-      map.overlay = null;
-      endDraw();
-      if (draw.kind === 'rect') focusFromRect(a, b);
-      else if (draw.kind === 'square') focusFromSquare(a, b);
-      else if (draw.kind === 'circle') focusFromCircle(a, b);
-      else if (draw.kind === 'freehand') focusFromFreehand(freehandPts);
+      const b = rectAt(ev), a = origin, kind = draw?.kind, pts = freehandPts.slice();
+      origin = null; last = null; dragPreview = null;
+      endDraw();                       // clears the drawing state, so read the kind first
+      if (kind === 'rect') focusFromRect(a, b);
+      else if (kind === 'square') focusFromSquare(a, b);
+      else if (kind === 'circle') focusFromCircle(a, b);
+      else if (kind === 'freehand') focusFromFreehand(pts);
     };
     cv.addEventListener('pointermove', move);
     cv.addEventListener('pointerup', up);
@@ -1741,12 +1820,13 @@ function toolClip() {
         <button class="btn" data-act="rect">${icon('crop')} Rectangle</button>
         <button class="btn" data-act="square">${icon('crop')} Square</button>
         <button class="btn" data-act="circle">${icon('target')} Circle</button>
-        <button class="btn" data-act="poly">${icon('area')} Polygon</button>
+        <button class="btn" data-act="poly">${icon('area')} Draw a polygon</button>
         <button class="btn" data-act="freehand">${icon('point')} Freehand outline</button>
-        <button class="btn" data-act="multi">${icon('query')} Multiple features</button>
+        <button class="btn" data-act="multi">${icon('query')} Pick features from a layer</button>
         <button class="btn" data-act="view">${icon('expand')} Current view</button>
       </div>
-      <p class="hint" style="margin-top:10px">Esc cancels a drawing. The focus area is remembered with your view and in the share link.</p>
+      <p class="hint" style="margin-top:10px"><b>Rectangle</b> and <b>Square</b>: press and drag between two corners. <b>Circle</b>: press at the centre and drag out to the edge. <b>Polygon</b>: tap each corner, then <b>Done</b>. <b>Pick features from a layer</b> lets you choose a polygon layer and tick as many shapes as you like — even across layers.</p>
+      <p class="hint">Esc or <b>Cancel</b> stops a drawing. The focus area is remembered with your view and in the share link.</p>
       ${clip ? `<div class="aoi" style="margin-top:10px">
         <button class="btn" data-act="summary">${icon('hist')} Area summary</button>
         <button class="btn" data-act="zoom">${icon('zoom')} Zoom to it</button>
@@ -1755,6 +1835,7 @@ function toolClip() {
       const b = e.target.closest('[data-act]'); if (!b) return;
       const act = b.dataset.act; closeModal();
       if (act === 'rect') startDraw('rect');
+      else if (act === 'pickmulti') startPick('multi');
       else if (act === 'square') startDraw('square');
       else if (act === 'circle') startDraw('circle');
       else if (act === 'poly') startDraw('poly');
@@ -1771,77 +1852,196 @@ function toolClip() {
 }
 
 // pick multiple polygon features and clip to their union ---------------------
-function toolPickMulti() {
+// One picker for every polygon layer at once: choose the layer, tick the shapes (or tap
+// them on the map), and the clip is the union of everything ticked — across layers too.
+function toolPickMulti() { openClipMulti(null); }
+function openClipMulti(preselected) {
   const polyLayers = [];
   for (const id of stack) {
     const st = L.get(id);
     if (st?.obj?.features && st.meta.kind === 'polygon') polyLayers.push([id, st]);
   }
+  if (!polyLayers.length) {
+    for (const st of L.values()) {
+      if (st?.obj?.features && st.meta.kind === 'polygon') polyLayers.push([st.meta.id, st]);
+    }
+  }
   openModal('Clip to multiple features', (body) => {
     if (!polyLayers.length) {
-      body.innerHTML = '<p class="empty">No polygon layer is switched on.</p>';
+      body.innerHTML = '<p class="empty">No polygon layer is loaded. Switch one on in Layers, then come back.</p>';
       return;
     }
-    const picked = new Set();
-    function draw() {
-      body.innerHTML = `<p>Select two or more polygon features (tap on the map or pick from the list). The clip will be the union of everything you select — for example Kwara + Kogi + Benue.</p>
-        <div class="frow"><label>Boundary layer</label><select id="mp-layer">${polyLayers.map(([id, st]) => `<option value="${esc(id)}">${esc(st.meta.label)}</option>`).join('')}</select></div>
-        <div id="mp-search" style="margin:8px 0"><label>Search features</label><input id="mp-search-input" type="search" placeholder="Type a name…"></div>
-        <div id="mp-list" style="max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:8px"></div>
-        <div class="frow act"><button class="btn" id="mp-clear">Clear selection</button><button class="btn primary" id="mp-apply">Clip to ${picked.size} selected</button></div>
-        <div class="frow"><span id="mp-hint" class="hint">${picked.size} feature${picked.size === 1 ? '' : 's'} selected</span></div>`;
+    // coming back from "pick on the map": reopen with what was picked there
+    const picked = new Map();
+    for (const [lid, set] of (preselected || window.__clipPickCarry || new Map())) picked.set(lid, new Set(set));
+    window.__clipPickCarry = null;
+    const pickedOn = (lid) => { let set = picked.get(lid); if (!set) picked.set(lid, set = new Set()); return set; };
+    const totalPicked = () => [...picked.values()].reduce((n, set) => n + set.size, 0);
+    let filter = '';
+
+    function drawSheet() {
+      const lid = body.querySelector('#mp-layer')?.value || polyLayers[0][0];
+      const pickedHere = pickedOn(lid).size;
+      body.innerHTML = `<p>Pick the shapes to keep. Tick them in the list or tap them on the map — from one layer or several. The clip is the union of everything you pick, for example Kwara + Kogi + Benue.</p>
+        <div class="frow"><label>Polygon layer</label><select id="mp-layer">${polyLayers.map(([id, st]) => `<option value="${esc(id)}"${id === lid ? ' selected' : ''}>${esc(st.meta.label)}${st.on ? '' : ' (off)'}</option>`).join('')}</select></div>
+        <div class="frow"><label>Search</label><input id="mp-search-input" type="search" placeholder="Type a name…" value="${esc(filter)}"></div>
+        <div id="mp-list" style="max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:8px"></div>
+        <div class="frow act" style="flex-wrap:wrap">
+          <button class="btn" id="mp-tap">${icon('query')} Pick on the map</button>
+          <button class="btn" id="mp-all">Select all shown</button>
+          <button class="btn" id="mp-clear">Clear</button>
+          <button class="btn primary" id="mp-apply">Clip to ${totalPicked()} selected</button>
+        </div>
+        <p class="hint" id="mp-hint">${pickedHere} of ${L.get(lid)?.obj?.features.length ?? 0} in this layer · ${totalPicked()} in total</p>`;
       renderList();
+      body.querySelector('#mp-layer').onchange = (e) => { filter = ''; drawSheet(); paintPicked(); };
+      body.querySelector('#mp-search-input').oninput = (e) => { filter = e.target.value; renderList(); };
+      body.querySelector('#mp-all').onclick = () => { visibleFeatureIndexes().forEach((i) => pickedOn(body.querySelector('#mp-layer').value).add(i)); refresh(); };
+      body.querySelector('#mp-clear').onclick = () => { picked.clear(); refresh(); };
+      // leaving the panel must not leave highlight paint on the map
+      const clearHi = () => { if (!document.body.contains(body)) { map.selectionSet = []; map.render(); map.off('click', clearHi); } };
+      map.on('click', clearHi);
+      body.querySelector('#mp-tap').onclick = () => { closeModal(); beginClipPick(picked); };
+      body.querySelector('#mp-apply').onclick = applyClip;
+    }
+    function visibleFeatureIndexes() {
+      const lid = body.querySelector('#mp-layer').value;
+      const st = L.get(lid);
+      const q = (body.querySelector('#mp-search-input')?.value || '').trim().toLowerCase();
+      const out = [];
+      st.obj.features.forEach((f, i) => {
+        if (f.hidden || f.type !== 'poly') return;
+        if (q && !titleOf(st.obj, f).toLowerCase().includes(q)) return;
+        out.push(i);
+      });
+      return out;
     }
     function renderList() {
       const lid = body.querySelector('#mp-layer').value;
       const st = L.get(lid);
-      const q = body.querySelector('#mp-search-input').value.trim().toLowerCase();
       const list = body.querySelector('#mp-list');
-      const feats = st.obj.features.filter((f) => {
-        const v = titleOf(st.obj, f).toLowerCase();
-        return !q || v.includes(q);
-      });
-      list.innerHTML = feats.map((f, i) => {
-        const isPicked = picked.has(i);
-        return `<div style="padding:6px 10px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;${isPicked ? 'background:rgba(11,107,69,.12)' : ''}">
-          <input type="checkbox" data-i="${i}" ${isPicked ? 'checked' : ''}>
-          <span style="flex:1">${esc(titleOf(st.obj, f))}</span>
+      if (!list || !st?.obj) return;
+      const set = pickedOn(lid);
+      const idx = visibleFeatureIndexes();
+      list.innerHTML = idx.length ? idx.map((i) => {
+        const on = set.has(i);
+        return `<div style="padding:6px 10px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;${on ? 'background:rgba(11,107,69,.12)' : ''}">
+          <input type="checkbox" data-i="${i}" ${on ? 'checked' : ''}>
+          <span style="flex:1">${esc(titleOf(st.obj, st.obj.features[i]))}</span>
+          <button class="btn" data-zoom="${i}" title="Zoom to this feature">${icon('zoom')}</button>
         </div>`;
-      }).join('');
+      }).join('') : '<p class="empty" style="padding:10px">No feature matches that search.</p>';
       list.querySelectorAll('input[type=checkbox]').forEach((cb) => {
-        cb.onchange = (e) => {
+        cb.onchange = () => {
           const i = +cb.dataset.i;
-          if (cb.checked) picked.add(i); else picked.delete(i);
-          body.querySelector('#mp-apply').textContent = `Clip to ${picked.size} selected`;
-          body.querySelector('#mp-hint').textContent = `${picked.size} feature${picked.size === 1 ? '' : 's'} selected`;
-          renderList();
+          if (cb.checked) set.add(i); else set.delete(i);
+          refresh();
+        };
+      });
+      list.querySelectorAll('[data-zoom]').forEach((btn) => {
+        btn.onclick = () => {
+          const f = st.obj.features[+btn.dataset.zoom];
+          map.fitBounds([unX(f.bb[0]), unY(f.bb[3]), unX(f.bb[2]), unY(f.bb[1])], 60);
         };
       });
     }
-    body.querySelector('#mp-layer').onchange = () => { picked.clear(); draw(); };
-    body.querySelector('#mp-search-input').oninput = () => { renderList(); };
-    body.querySelector('#mp-clear').onclick = () => { picked.clear(); body.querySelector('#mp-apply').textContent = `Clip to ${picked.size} selected`; body.querySelector('#mp-hint').textContent = `${picked.size} feature${picked.size === 1 ? '' : 's'} selected`; renderList(); };
-    body.querySelector('#mp-apply').onclick = () => {
-      if (picked.size < 1) { toast('Pick at least one feature'); return; }
+    function refresh() {
+      const apply = body.querySelector('#mp-apply');
+      const hint = body.querySelector('#mp-hint');
       const lid = body.querySelector('#mp-layer').value;
-      const st = L.get(lid);
-      const rings = [];
-      let labelParts = [];
-      for (const i of picked) {
-        const f = st.obj.features[i];
-        for (const poly of f.parts) for (const ring of poly) rings.push(Array.from(ring));
-        labelParts.push(titleOf(st.obj, f));
+      if (apply) apply.textContent = `Clip to ${totalPicked()} selected`;
+      if (hint) hint.textContent = `${pickedOn(lid).size} of ${L.get(lid)?.obj?.features.length ?? 0} in this layer · ${totalPicked()} in total`;
+      renderList();
+      paintPicked();
+    }
+    // show the picks on the map while the panel is open
+    function paintPicked() {
+      const list = [];
+      for (const [lid, set] of picked) {
+        const st = L.get(lid);
+        if (!st?.obj?.features) continue;
+        for (const i of set) { const f = st.obj.features[i]; if (f) list.push({ layer: { id: lid }, feature: f }); }
       }
+      map.selectionSet = list.slice(0, 1500);
+      map.render();
+    }
+    function applyClip() {
+      const groups = [];
+      const names = [];
+      for (const [lid, set] of picked) {
+        const st = L.get(lid);
+        if (!st?.obj?.features) continue;
+        for (const i of [...set].sort((a, b) => a - b)) {
+          const f = st.obj.features[i];
+          if (!f || f.type !== 'poly') continue;
+          for (const poly of f.parts) groups.push(poly.map((ring) => Array.from(ring)));
+          names.push(titleOf(st.obj, f));
+        }
+      }
+      if (!groups.length) { toast('Pick at least one shape first'); return; }
       closeModal();
-      focusLabel = labelParts.join(' + ');
-      setFocus({ type: 'multi', polys: rings, bb: null, label: focusLabel });
-      map.setClip({ type: 'multi', polys: rings, bb: null, label: focusLabel });
-      toast(`Clipped to ${picked.size} feature${picked.size === 1 ? '' : 's'}: ${focusLabel}`);
-    };
-    draw();
+      map.selectionSet = [];
+      focusLabel = names.length > 3 ? `${names.slice(0, 3).join(' + ')} + ${names.length - 3} more` : names.join(' + ');
+      setFocus({ type: 'multi', polys: groups, label: focusLabel });
+      const bb = map.clipBounds();
+      if (bb) map.fitBounds(bb, 40);
+      toast(`Clipped to ${names.length} shape${names.length === 1 ? '' : 's'}: ${focusLabel}`, 5000);
+    }
+    drawSheet();
+    paintPicked();
   });
 }
 
+// Tap-to-pick state for "Clip to multiple features" -> Pick on the map.
+// Every tap on a polygon adds it; a tap on a picked polygon removes it again.
+let clipPick = null;        // { picked: Map(layerId -> Set(idx)) }
+function clipPickCount() {
+  if (!clipPick) return 0;
+  let n = 0;
+  for (const set of clipPick.picked.values()) n += set.size;
+  return n;
+}
+function clipPickPaint() {
+  const list = [];
+  if (clipPick) {
+    for (const [lid, set] of clipPick.picked) {
+      const st = L.get(lid);
+      if (!st?.obj?.features) continue;
+      for (const i of set) { const f = st.obj.features[i]; if (f) list.push({ layer: { id: lid }, feature: f }); }
+    }
+  }
+  map.selectionSet = list.slice(0, 1500);
+  map.render();
+  const n = clipPickCount();
+  $('#drawtext').textContent = `${n} shape${n === 1 ? '' : 's'} picked — tap more, or press Done`;
+}
+function toggleClipPick(layerId, idx) {
+  let set = clipPick.picked.get(layerId);
+  if (!set) clipPick.picked.set(layerId, set = new Set());
+  if (set.has(idx)) set.delete(idx); else set.add(idx);
+  clipPickPaint();
+}
+function endClipPick(apply) {
+  const picked = clipPick?.picked;
+  clipPick = null;
+  map.selectionSet = [];
+  endDraw();
+  window.__clipPickCarry = picked || null;
+  if (apply) {
+    openClipMulti(picked);
+  } else {
+    toast('Multi-feature picking closed');
+  }
+}
+
+// Enter tap-to-pick: keep whatever was already ticked and let the map do the work.
+function beginClipPick(existing) {
+  const picked = new Map();
+  for (const [lid, set] of (existing || new Map())) picked.set(lid, new Set(set));
+  clipPick = { picked };
+  startPick('multi');
+  clipPickPaint();
+}
 
 // what is inside the focus area ------------------------------------------
 function visibleLayerIds() { return stack.filter((id) => isOn(id) && L.get(id)?.obj); }
@@ -3639,7 +3839,7 @@ function toolMapPreset() {
       if (!name) { toast('Enter a preset name'); return; }
       const stackRec = stack.map((id) => { const st = L.get(id); return { id, on: st.on, opacity: st.opacity }; });
       const filters = {}; for (const [id, st] of L) if (st.filter) filters[id] = st.filter;
-      const clipRec = clip ? { type: clip.type, bb: clip.bb, label: focusLabel } : null;
+      const clipRec = clipRecord();
       presets[name] = {
         basemap: map.basemap,
         center: map.center(),
@@ -3670,8 +3870,7 @@ function applyMapPreset(name) {
   if (p.basemap && BASEMAPS[p.basemap]) map.setBasemap(p.basemap);
   if (p.center) map.setView(p.center[0], p.center[1], p.zoom);
   gridOn = p.grid || false; map.setGrid(gridOn);
-  if (p.clip) setFocus({ type: p.clip.type, wb: p.clip.wb, label: p.clip.label || '' });
-  else stopFocus();
+  if (p.clip) restoreFocus(p.clip); else stopFocus();
   // restore filters
   for (const [id, fl] of Object.entries(p.filters || {})) { const st = L.get(id); if (st) { st.filter = fl; applyFilter(st, false); } }
   renderLayerLists(); refreshLegend(); updateFocusUI(); updateToolState(); saveProject();
@@ -4909,7 +5108,7 @@ function saveProject() {
     layers[id] = rec;
   }
   try {
-    const f = clip ? (clip.type === 'rect' ? { type: 'rect', wb: clip.wb, label: focusLabel } : { type: 'poly', rings: clip.rings.map((r) => Array.from(r)), label: focusLabel }) : null;
+    const f = clipRecord();
     localStorage.setItem(PKEY, JSON.stringify({ v: 1, layers, stack, annotations, grid: gridOn, clip: f, notes: mapNotes }));
   } catch { }
 }
@@ -4929,10 +5128,31 @@ function restoreProject(p) {
     if (rec.reclass) st.reclass = rec.reclass;
   }
 }
+// One record shape for every kind of focus area, so that what is drawn is exactly what
+// comes back from the saved project, a map preset, a session code and the share link.
+function clipRecord(c = clip) {
+  if (!c) return null;
+  const label = focusLabel || '';
+  if (c.type === 'rect') return { type: 'rect', wb: c.wb, label };
+  if (c.type === 'circle') return { type: 'circle', c: c.c, r: c.r, metres: c.metres, label };
+  const polys = (c.polys && c.polys.length ? c.polys : [c.rings || []])
+    .map((poly) => poly.map((ring) => Array.from(ring)));
+  return { type: c.type === 'multi' ? 'multi' : 'poly', polys, label };
+}
+function readSharedFocus() {
+  try {
+    const raw = new URLSearchParams(location.search).get('f');
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
 function restoreFocus(f) {
-  if (!f || (f.type !== 'rect' && f.type !== 'poly')) return;
+  if (!f) return;
   focusLabel = f.label || '';
-  clip = f.type === 'rect' ? { type: 'rect', wb: f.wb } : { type: 'poly', rings: f.rings };
+  if (f.type === 'rect' && Array.isArray(f.wb)) clip = { type: 'rect', wb: f.wb };
+  else if (f.type === 'circle' && Array.isArray(f.c) && Number.isFinite(f.r)) clip = { type: 'circle', c: f.c, r: f.r, metres: f.metres };
+  else if (Array.isArray(f.polys) && f.polys.length) clip = { type: f.type === 'multi' ? 'multi' : f.type === 'freehand' ? 'freehand' : 'poly', polys: f.polys };
+  else if (Array.isArray(f.rings) && f.rings.length) clip = { type: f.type === 'multi' ? 'multi' : f.type === 'freehand' ? 'freehand' : 'poly', rings: f.rings };
+  else return;
   map.setClip(clip);
   updateFocusUI();
 }
@@ -5141,16 +5361,10 @@ function toolColorblindPalettes() {
 function buildShareUrl() {
   pushHash();
   const u = new URL(location.href);
-  // Include clip state if active
-  if (clip) {
-    if (clip.type === 'rect') {
-      u.searchParams.set('f', JSON.stringify({ type: 'rect', wb: clip.wb, label: focusLabel || '' }));
-    } else if (clip.type === 'poly') {
-      u.searchParams.set('f', JSON.stringify({ type: 'poly', rings: clip.rings.map((r) => Array.from(r)), label: focusLabel || '' }));
-    } else if (clip.type === 'circle') {
-      u.searchParams.set('f', JSON.stringify({ type: 'circle', c: clip.c, r: clip.r, label: focusLabel || '' }));
-    }
-  }
+  // Include clip state if active — every shape kind and every picked polygon
+  const clipRec = clipRecord();
+  if (clipRec) u.searchParams.set('f', JSON.stringify(clipRec));
+  else u.searchParams.delete('f');
   u.searchParams.set('g', gridOn ? '1' : '0');
   return u.href;
 }
@@ -5219,7 +5433,7 @@ function toolSessionCodes() {
         basemap: map.basemap,
         stack: [...stack],
         grid: gridOn,
-        clip: clip ? { type: clip.type, wb: clip.wb, c: clip.c, r: clip.r, rings: clip.rings, label: focusLabel || '' } : null,
+        clip: clipRecord(),
         annotations: annotations.map((a) => ({ text: a.text, lon: a.lon, lat: a.lat, size: a.size })),
       };
       sessions[code] = { name, state, ts: Date.now() };
@@ -5252,11 +5466,7 @@ function restoreSession(code) {
   // Set grid
   gridOn = st.grid || false; map.setGrid(gridOn);
   // Set focus
-  if (st.clip) {
-    if (st.clip.type === 'rect') setFocus({ type: 'rect', wb: st.clip.wb, label: st.clip.label || '' });
-    else if (st.clip.type === 'poly') setFocus({ type: 'poly', rings: st.clip.rings, label: st.clip.label || '' });
-    else if (st.clip.type === 'circle') setFocus({ type: 'circle', c: st.clip.c, r: st.clip.r, label: st.clip.label || '' });
-  } else stopFocus();
+  if (st.clip) restoreFocus(st.clip); else stopFocus();
   // Restore annotations
   annotations = (st.annotations || []).filter((a) => a && isFinite(a.lon) && isFinite(a.lat));
   renderLayerLists(); refreshLegend(); updateFocusUI(); updateToolState(); saveProject();
@@ -8296,6 +8506,7 @@ window.__nwg = {
   get clip() { return clip; }, get draw() { return draw; }, get author() { return AUTHOR; },
   get sel() { return selState; }, toolSelect, enterSelectMode, exitSelectMode, selClear, selItems, openSelectionList, selToggle,
   setFocus, stopFocus, focusFromLonLat, focusFromRect, focusFromFeature, focusAreaKm2, focusPerimeterKm,
+  buildShareUrl, saveProject,
   startDraw, endDraw, startPick, toolClip, toolAoi, toolQuery, runQuery, toolChart, resetView, toggleFullscreen,
   get viewHist() { return viewHist; }, goBack, onView,
   clearAnalysisLayers,
@@ -8414,8 +8625,8 @@ const TOOL_HELP = {
   },
   clip: {
     about: 'Everything outside the shape you choose is removed from the map, so counts, tables and exports only cover that place.',
-    steps: ['Tools → <b>Clip to an area</b>.', 'Choose rectangle, square, circle, polygon (tap each corner, then Done), freehand, a layer boundary, or the current view.', 'The focus chip in Layers turns green and the area in km² is shown.', 'Use <b>Area summary</b> to count what is inside, or <b>Clear focus</b> to go back to the whole country.'],
-    tip: 'On a phone, “Multiple features” lets you tap several states or LGAs and clip to their combined area.',
+    steps: ['Tools → <b>Clip to an area</b>.', 'Press and drag for a rectangle or a square (square on the ground, equal kilometres a side), or press at the centre and drag out for a circle with a real radius in metres.', 'For a polygon, tap each corner then <b>Done</b>; for <b>Pick features from a layer</b>, choose a polygon layer, tick the shapes (or press <b>Pick on the map</b> and tap them), then <b>Clip</b>.', 'The focus chip in Layers turns green and the area in km² is shown.', 'Use <b>Area summary</b> to count what is inside, or <b>Clear focus</b> to go back to the whole country.'],
+    tip: 'Picks can come from more than one layer, and each picked shape stays its own clip area. Esc or <b>Cancel</b> stops a drawing at any time.',
   },
   aoi: { about: 'Counts every switched-on layer inside the focus area: features, summed polygon area, top raster classes.', steps: ['Set a focus area first (Clip to an area).', 'Tools → <b>Area summary</b>.', 'Read the chart and table, then export a CSV if you need it in a report.'], needs: 'A focus area, and at least one layer on.' },
   filter: { about: 'Show only the rows that match a column — the rest of the layer is hidden until you clear it.', steps: ['Tools → <b>Filter features</b>, choose the layer.', 'Pick a field and a condition (equal, contains, between, in a list…).', 'Press <b>Apply filter</b>; the layer row gets a “Filtered” chip.', 'Clear it from the same panel, or Layers → Clear filters.'] },

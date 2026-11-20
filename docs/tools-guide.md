@@ -40,11 +40,12 @@ _Start here. These tools answer “what is inside this place?” — select it, 
 Everything outside the shape you choose is removed from the map, so counts, tables and exports only cover that place.
 
 1. Tools → **Clip to an area**.
-2. Choose rectangle, square, circle, polygon (tap each corner, then Done), freehand, a layer boundary, or the current view.
-3. The focus chip in Layers turns green and the area in km² is shown.
-4. Use **Area summary** to count what is inside, or **Clear focus** to go back to the whole country.
+2. Press and drag for a rectangle or a square (square on the ground, equal kilometres a side), or press at the centre and drag out for a circle with a real radius in metres.
+3. For a polygon, tap each corner then **Done**; for **Pick features from a layer**, choose a polygon layer, tick the shapes (or press **Pick on the map** and tap them), then **Clip**.
+4. The focus chip in Layers turns green and the area in km² is shown.
+5. Use **Area summary** to count what is inside, or **Clear focus** to go back to the whole country.
 
-**Tip.** On a phone, “Multiple features” lets you tap several states or LGAs and clip to their combined area.
+**Tip.** Picks can come from more than one layer, and each picked shape stays its own clip area. Esc or **Cancel** stops a drawing at any time.
 
 ### Select features
 

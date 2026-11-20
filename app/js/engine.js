@@ -1281,34 +1281,82 @@ export function polyOverlapsPoly(featureRings, clipRings) {
   return false;
 }
 
-// Normalize a clip object (rect/poly/circle/freehand/multi) into {type, polys, bb, label}.
+// Coerce a ring (typed array or plain list) to a plain number array.
+function asFlatRing(r) { return Array.from(r || []); }
+// Accept a ring, a list of rings, or a list of polygons and return every ring in it.
+function asRingList(v, out = []) {
+  if (!v || typeof v.length !== 'number') return out;
+  if (typeof v[0] === 'number') { if (v.length >= 6) out.push(Array.from(v)); }
+  else for (const x of v) asRingList(x, out);
+  return out;
+}
+
+// Distance (metres) from the middle of an edge to its chord, for a circle whose flat
+// radius is r and centre latitude lat. Used to turn a screen radius into a ground radius.
+export function circleMercRadiusForMetres(metres, lat, segments = 128) {
+  const dLat = metres / 110540;
+  const lon0 = 8.7;                                   // any longitude: mercator x is linear
+  const ring = [];
+  for (let i = 0; i <= segments; i++) {
+    const a = (i / segments) * Math.PI * 2;
+    ring.push(mercX(lon0 + Math.cos(a) * (dLat / Math.max(1e-6, Math.cos(lat * Math.PI / 180)))), mercY(lat + Math.sin(a) * dLat));
+  }
+  let best = 0;
+  for (let i = 0; i < segments; i++) {
+    const x1 = ring[i * 2], y1 = ring[i * 2 + 1], x2 = ring[i * 2 + 2], y2 = ring[i * 2 + 3];
+    best = Math.max(best, Math.hypot((x1 + x2) / 2 - mercX(lon0), (y1 + y2) / 2 - mercY(lat)));
+  }
+  return best;
+}
+
+// Normalize a clip object (rect/poly/circle/freehand/multi) into { type, polys, bb, label }.
 // polys: [[outerCW, ...holesCCW], ...] in Mercator world coords, for ctx.clip('nonzero').
+// Several separate shapes (multi-feature focus, or a polygon layer with holes) must stay
+// separate ring groups, otherwise the clip path loses every shape but the first.
 export function normalizeClip(obj) {
   if (!obj) return null;
   let polys, bb, type, label = obj.label || '';
   if (obj.type === 'rect') {
     const [w, s, e, n] = obj.wb;
+    if (![w, s, e, n].every(Number.isFinite) || w >= e || s >= n) return null;
     // CW outer ring on screen (y down): top-right -> bottom-right -> bottom-left -> top-left (flat)
     polys = [[[e, n, e, s, w, s, w, n]]];
     bb = [w, s, e, n]; type = 'rect';
   } else if (obj.type === 'circle') {
-    const ring = ensureCW(circleToPolygon(obj.c[0], obj.c[1], obj.r));
+    const { c, r } = obj;
+    if (!c || !Number.isFinite(r) || r <= 0) return null;
+    const ring = ensureCW(circleToPolygon(c[0], c[1], r));
     polys = [[ring]];
-    bb = [obj.c[0] - obj.r, obj.c[1] - obj.r, obj.c[0] + obj.r, obj.c[1] + obj.r];
+    bb = [c[0] - r, c[1] - r, c[0] + r, c[1] + r];
     type = 'circle';
   } else if (obj.type === 'poly' || obj.type === 'freehand' || obj.type === 'multi') {
-    const rings = obj.rings || obj.polys?.flatMap(p => p) || [];
-    const outer = ensureCW(rings[0]);
-    const holes = rings.slice(1).map(ensureCCW);
-    polys = [[outer, ...holes]];
-    bb = clipBB(rings);
+    // `rings`: a flat list of rings, each its own area.
+    // `polys`: an array of polygons, each [outer, ...holes] — holes are preserved.
+    let groups;
+    if (obj.polys && obj.polys.length) {
+      groups = typeof obj.polys[0]?.[0] === 'number'
+        ? obj.polys.map((ring) => [ring])                    // really a list of rings
+        : obj.polys.map((poly) => poly.map(asFlatRing));
+    } else {
+      groups = asRingList(obj.rings).map((ring) => [ring]);
+    }
+    groups = groups
+      .map((g) => g.filter((r) => r && r.length >= 6))
+      .filter((g) => g.length);
+    if (!groups.length) return null;
+    polys = groups.map(([outer, ...holes]) => [ensureCW(outer), ...holes.map(ensureCCW)]);
+    bb = clipBB(groups.flat());
+    if (!bb.every(Number.isFinite) || bb[0] >= bb[2] || bb[1] >= bb[3]) return null;
     type = obj.type;
   } else {
     return null;
   }
   // Flatten all rings (outer + holes) for pip2 testing; keep structured polys for ctx.clip('nonzero')
-  const allRings = polys.flatMap(p => p);
-  return { type, polys, bb, label, _allRings: allRings };
+  const allRings = polys.flatMap((p) => p);
+  // The circle radius is measured on the ground, so remember it: saved, shared and
+  // restored circles must report the same metres and km² they were drawn with.
+  const metres = type === 'circle' && Number.isFinite(obj.metres) && obj.metres > 0 ? obj.metres : undefined;
+  return { type, polys, bb, label, metres, _allRings: allRings };
 }
 
 // ------------------------------------------------------------------ end clip geometry helpers
