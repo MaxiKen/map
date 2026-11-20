@@ -790,7 +790,7 @@ async function legendEntryActions(layerId, kind, key, field) {
     body.querySelector('#le-focus')?.addEventListener('click', () => {
       if (!anchor) return;
       closeModal();
-      const bb = anchor.bbox;
+      const bb = anchor.bbox;   // [west, south, east, north]
       setFocus({ type: 'rect', wb: [mercX(bb[0]), mercY(bb[1]), mercX(bb[2]), mercY(bb[3])] });
       focusLabel = label;
       openSheet('layers');
@@ -1482,10 +1482,41 @@ const FOCUS_KINDS = { rect: 'Rectangle', square: 'Square', circle: 'Circle', pol
 
 function setFocus(obj, announce = true) {
   clip = obj || null;
+  // A rectangle may arrive as either pair of corners; keep it in top/bottom order so the
+  // area, edge and save/share records all agree with what the map actually clips to.
+  if (clip?.type === 'rect' && Array.isArray(clip.wb)) {
+    const [w, y0, e, y1] = clip.wb;
+    clip = { ...clip, wb: [Math.min(w, e), Math.min(y0, y1), Math.max(w, e), Math.max(y0, y1)] };
+  }
   map.setClip(clip);
+  // If the engine cannot use the shape there is no focus area at all — say so instead of
+  // reporting an area for something the map is still drawing in full.
+  if (clip && !map.clip) {
+    clip = null;
+    updateFocusUI();
+    toast('That area could not be used — try drawing it again');
+    return;
+  }
   updateFocusUI();
   saveProjectSoon();
   if (announce) toast(clip ? `Focused on ${fmtNum(focusAreaKm2())} km²` : 'Focus cleared — the whole map is shown');
+}
+
+// The lon/lat box of everything the canvas currently shows, rotation included.
+function viewBoundsLL() {
+  let w = Infinity, s = Infinity, e = -Infinity, n = -Infinity;
+  for (const [px, py] of [[0, 0], [map.W, 0], [map.W, map.H], [0, map.H]]) {
+    const [lo, la] = map.lonlatAt(px, py);
+    w = Math.min(w, lo); e = Math.max(e, lo);
+    s = Math.min(s, la); n = Math.max(n, la);
+  }
+  return [w, s, e, n];
+}
+function focusFromView() {
+  const [w, s, e, n] = viewBoundsLL();
+  const wb = [mercX(w), mercY(n), mercX(e), mercY(s)];
+  if (!wb.every(Number.isFinite) || wb[0] === wb[2] || wb[1] === wb[3]) { toast('The map is not showing anything to clip to'); return; }
+  setFocus({ type: 'rect', wb });
 }
 function stopFocus() { focusLabel = ''; setFocus(null); }
 function clipRingsToLL(clip) {
@@ -1841,10 +1872,8 @@ function toolClip() {
       else if (act === 'poly') startDraw('poly');
       else if (act === 'freehand') startDraw('freehand');
       else if (act === 'multi') toolPickMulti();
-      else if (act === 'view') {
-        const [x0, y0] = map.fromScreen(0, 0), [x1, y1] = map.fromScreen(map.W, map.H);
-        setFocus({ type: 'rect', wb: [x0, y1, x1, y0] });
-      } else if (act === 'clear') stopFocus();
+      else if (act === 'view') focusFromView();
+      else if (act === 'clear') stopFocus();
       else if (act === 'summary') toolAoi();
       else if (act === 'zoom') { const bb = map.clipBounds(); if (bb) map.fitBounds(bb, 24); }
     });
@@ -2107,7 +2136,7 @@ function toolAoi() {
             : r.kind === 'polygon' ? `Σ ${fmtNum(r.ar)} km²` : r.kind === 'point' ? 'points' : 'lines'}</td></tr>`).join('')}</table>
         ${rows.some((r) => r.kind === 'polygon') ? '<p class="hint">Area sums use the feature\'s own size, so polygons that straddle the edge of the focus count in full.</p>' : ''}
         <div class="aoi" style="margin-top:10px">${clip
-          ? '<button class="btn" data-act="clear">Clear focus</button><button class="btn" data-act="zoom">Zoom to area</button><button class="btn" data-act="csv">Export summary (CSV)</button>'
+          ? '<button class="btn" data-act="clear">Clear focus</button><button class="btn" data-act="zoom">Zoom to area</button>'
           : '<button class="btn primary" data-act="clip">Clip to an area</button>'}</div>`;
       body.addEventListener('click', (e) => {
         const b = e.target.closest('[data-act]'); if (!b) return;
@@ -2115,11 +2144,6 @@ function toolAoi() {
         if (act === 'clear') stopFocus();
         else if (act === 'zoom') { const bb = map.clipBounds(); if (bb) map.fitBounds(bb, 24); }
         else if (act === 'clip') toolClip();
-        else if (act === 'csv') {
-          const head = 'layer,inside,total,detail';
-          const lines = [head, ...rows.map((r) => [r.label, r.n, r.tot, r.classes ? r.classes.map(([v, c]) => `${v}=${c * r.weight}`).join(' ') : r.kind === 'polygon' ? `${Math.round(r.ar)} km2` : r.kind].map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))];
-          download('area-summary.csv', lines.join(String.fromCharCode(10)), 'text/csv');
-        }
       });
     }, 40);
   });
@@ -8628,7 +8652,7 @@ const TOOL_HELP = {
     steps: ['Tools → <b>Clip to an area</b>.', 'Press and drag for a rectangle or a square (square on the ground, equal kilometres a side), or press at the centre and drag out for a circle with a real radius in metres.', 'For a polygon, tap each corner then <b>Done</b>; for <b>Pick features from a layer</b>, choose a polygon layer, tick the shapes (or press <b>Pick on the map</b> and tap them), then <b>Clip</b>.', 'The focus chip in Layers turns green and the area in km² is shown.', 'Use <b>Area summary</b> to count what is inside, or <b>Clear focus</b> to go back to the whole country.'],
     tip: 'Picks can come from more than one layer, and each picked shape stays its own clip area. Esc or <b>Cancel</b> stops a drawing at any time.',
   },
-  aoi: { about: 'Counts every switched-on layer inside the focus area: features, summed polygon area, top raster classes.', steps: ['Set a focus area first (Clip to an area).', 'Tools → <b>Area summary</b>.', 'Read the chart and table, then export a CSV if you need it in a report.'], needs: 'A focus area, and at least one layer on.' },
+  aoi: { about: 'Counts every switched-on layer inside the focus area: features, summed polygon area, top raster classes.', steps: ['Set a focus area first (Clip to an area).', 'Tools → <b>Area summary</b>.', 'Read the chart and table; <b>Zoom to area</b> shows it on the map, <b>Clear focus</b> returns to the whole country.'], needs: 'A focus area, and at least one layer on.' },
   filter: { about: 'Show only the rows that match a column — the rest of the layer is hidden until you clear it.', steps: ['Tools → <b>Filter features</b>, choose the layer.', 'Pick a field and a condition (equal, contains, between, in a list…).', 'Press <b>Apply filter</b>; the layer row gets a “Filtered” chip.', 'Clear it from the same panel, or Layers → Clear filters.'] },
   reclass: { about: 'Groups a numeric field into classes and recolours the layer so patterns stand out.', steps: ['Tools → <b>Group into classes</b>.', 'Choose the layer, the numeric field, the number of classes and the method.', 'Apply — the legend follows the new classes. Remove classes to return to the original colours.'] },
   buffer: { about: 'Draws a zone at a fixed distance around features of one layer, then counts features of another layer that fall inside it.', steps: ['Switch on the source layer and the layer you want to check.', 'Tools → <b>Buffer / Proximity</b>, pick both layers and the distance in km.', 'Run it: the buffer is drawn and the matches are counted.'], tip: 'Works with points (circles), lines (corridors) and polygons.' },

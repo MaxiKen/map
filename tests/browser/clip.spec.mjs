@@ -45,6 +45,7 @@ const plainUrl = (page) => page.evaluate(() => {
 
 const clipState = (page) => page.evaluate(() => ({
   type: window.__nwg.clip?.type || null,
+  clipped: !!window.__nwg.map.clip,
   polys: window.__nwg.clip?.polys?.length || 0,
   area: Math.round(window.__nwg.focusAreaKm2()),
   bounds: window.__nwg.map.clipBounds(),
@@ -61,7 +62,55 @@ test('clipping: rectangle draws and clips', async ({ page }) => {
   await page.waitForTimeout(400);
   const s = await clipState(page);
   expect(s.type).toBe('rect');
+  // the toast is not enough: the map itself has to be clipped
+  expect(s.clipped).toBe(true);
   expect(s.area).toBeGreaterThan(1000);
+  // a rectangle used to be stored upside down, which the engine silently refused
+  const inside = await page.evaluate(() => {
+    const m = window.__nwg.map;
+    const [wx, wy] = m.fromScreen(610, 460);
+    return m.clipContainsPoint(wx, wy);
+  });
+  expect(inside).toBe(true);
+  expect(await page.evaluate(() => window.__nwg.map.identify(60, 120).length)).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('clipping: Current view clips to everything on screen', async ({ page }) => {
+  const errors = capturePageErrors(page);
+  await openMap(page);
+  await page.evaluate(() => document.querySelector('[data-tool="clip"]')?.click());
+  await page.click('[data-act="view"]');
+  await page.waitForTimeout(400);
+  const s = await clipState(page);
+  expect(s.type).toBe('rect');
+  expect(s.clipped).toBe(true);
+  expect(s.area).toBeGreaterThan(1000);
+  // all four corners of the map must be inside the focus, the world outside it must not
+  const corners = await page.evaluate(() => {
+    const m = window.__nwg.map;
+    return [[1, 1], [m.W - 2, 1], [m.W - 2, m.H - 2], [1, m.H - 2]]
+      .map(([x, y]) => { const [wx, wy] = m.fromScreen(x, y); return m.clipContainsPoint(wx, wy); });
+  });
+  expect(corners).toEqual([true, true, true, true]);
+  expect(await page.evaluate(() => {
+    const m = window.__nwg.map; const [wx, wy] = m.fromScreen(-200, -200);
+    return m.clipContainsPoint(wx, wy);
+  })).toBe(false);
+  expect(errors).toEqual([]);
+});
+
+test('clipping: the area summary has no CSV export', async ({ page }) => {
+  const errors = capturePageErrors(page);
+  await openMap(page);
+  await page.evaluate(() => window.__nwg.focusFromRect([7.5, 11], [9, 12]));
+  await page.evaluate(() => document.querySelector('[data-tool="aoi"]')?.click());
+  // the summary is counted after a tick, so wait for the finished panel
+  await expect(page.locator('#modal')).toContainText('Focus area:');
+  const acts = await page.evaluate(() => [...document.querySelectorAll('#modal [data-act]')].map((b) => b.textContent.trim()));
+  expect(acts).toContain('Clear focus');
+  expect(acts.some((t) => /csv/i.test(t))).toBe(false);
+  expect(await page.evaluate(() => /export summary/i.test(document.body.textContent))).toBe(false);
   expect(errors).toEqual([]);
 });
 

@@ -72,7 +72,7 @@ Counts every switched-on layer inside the focus area: features, summed polygon a
 
 1. Set a focus area first (Clip to an area).
 2. Tools → **Area summary**.
-3. Read the chart and table, then export a CSV if you need it in a report.
+3. Read the chart and table; **Zoom to area** shows it on the map, **Clear focus** returns to the whole country.
 
 **Needs.** A focus area, and at least one layer on.
 
