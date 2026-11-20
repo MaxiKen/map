@@ -1317,11 +1317,19 @@ export function normalizeClip(obj) {
   if (!obj) return null;
   let polys, bb, type, label = obj.label || '';
   if (obj.type === 'rect') {
-    const [w, s, e, n] = obj.wb;
-    if (![w, s, e, n].every(Number.isFinite) || w >= e || s >= n) return null;
+    let [w, y0, e, y1] = obj.wb || [];
+    if (![w, y0, e, y1].every(Number.isFinite)) return null;
+    // Callers may hand the two corners over in either order — mercator y grows downwards,
+    // so "south, north" and "north, south" are both natural. Sort them instead of refusing
+    // the rectangle, which used to make the whole shape silently do nothing.
+    const yt = Math.min(y0, y1), yb = Math.max(y0, y1);
+    const n = yt, s = yb;
+    if (w === e || yt === yb) return null;
+    if (w > e) { const t = w; w = e; e = t; }
     // CW outer ring on screen (y down): top-right -> bottom-right -> bottom-left -> top-left (flat)
     polys = [[[e, n, e, s, w, s, w, n]]];
-    bb = [w, s, e, n]; type = 'rect';
+    // Same order as clipBB and every other bbox here: [west, top, east, bottom] (y grows downwards).
+    bb = [w, yt, e, yb]; type = 'rect';
   } else if (obj.type === 'circle') {
     const { c, r } = obj;
     if (!c || !Number.isFinite(r) || r <= 0) return null;
@@ -1356,7 +1364,8 @@ export function normalizeClip(obj) {
   // The circle radius is measured on the ground, so remember it: saved, shared and
   // restored circles must report the same metres and km² they were drawn with.
   const metres = type === 'circle' && Number.isFinite(obj.metres) && obj.metres > 0 ? obj.metres : undefined;
-  return { type, polys, bb, label, metres, _allRings: allRings };
+  const wb = type === 'rect' ? [bb[0], bb[1], bb[2], bb[3]] : undefined;
+  return { type, polys, bb, wb, label, metres, _allRings: allRings };
 }
 
 // ------------------------------------------------------------------ end clip geometry helpers

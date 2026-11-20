@@ -33,6 +33,12 @@ collected under **Unreleased** until `scripts/prepare_release.py` assigns a vers
 
 ### Fixed
 
+- **Rectangle** and **Current view** now actually clip the map. `focusFromRect`, **Current view** and the
+  legend's **Focus on it** built the box with its top and bottom swapped, which the engine refused, so the
+  app reported a focus area in the toast while the map kept drawing everything. The engine now accepts the
+  two corners in either order, keeps the bbox in its own top/bottom order, and `setFocus` says so when a
+  shape cannot be used instead of announcing an area it never applied.
+- Area summary no longer offers **Export summary (CSV)**; **Zoom to area** and the other export tools remain.
 - **Selection could not pick polygons** on either layer: the map kept panning during a box drag and the
   Info panel named the geometry kind instead of the layer. Select mode now owns the pointer while it is
   on, boxes select every feature inside them, and Info card headers name the layer the feature came from.
