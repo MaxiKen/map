@@ -105,6 +105,11 @@ assert.equal(contains.length, 2, 'contains "Go" = 2 features');
 // ---------------------------------------------------------------- source checks
 
 const appSource = readFileSync('app/js/app.js', 'utf8');
+assert.ok(appSource.includes('function allFilters('), 'filters are kept in one numbered list');
+assert.ok(appSource.includes('function activeVectorLayers('), 'filter picker is limited to layers that are on');
+assert.ok(appSource.includes('data-fedit'), 'each filter can be edited from the list');
+assert.ok(appSource.includes('data-frm'), 'each filter can be removed from the list');
+assert.ok(appSource.includes('rules.every((rule) => ruleMatches(f, rule))'), 'filters on one layer are combined');
 assert.ok(appSource.includes('clipOverlapsFeature'), 'app.js uses clipOverlapsFeature for strict interior-overlap');
 assert.ok(appSource.includes('"in"') || appSource.includes("'in'"), 'app.js supports "in" operator');
 assert.ok(appSource.includes('"not_in"') || appSource.includes("'not_in'"), 'app.js supports "not_in" operator');

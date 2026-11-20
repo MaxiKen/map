@@ -1,6 +1,6 @@
-import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature, pip2, featureCentroid, convexHullFeature, convexHullPoints, simplifyFeature, bufferFeature, ringIntersection, intersectPolyPoly, segmentsIntersect, polyOverlapsPoly, ringsBBox, normalizeClip, clipBB, circleToPolygon, circleMercRadiusForMetres, distToRingMerc, haversineMerc, ringSignedArea } from './engine.js?v=73f184c731';
-import { createLoadScheduler } from './loading.js?v=73f184c731';
-import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=73f184c731';
+import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature, pip2, featureCentroid, convexHullFeature, convexHullPoints, simplifyFeature, bufferFeature, ringIntersection, intersectPolyPoly, segmentsIntersect, polyOverlapsPoly, ringsBBox, normalizeClip, clipBB, circleToPolygon, circleMercRadiusForMetres, distToRingMerc, haversineMerc, ringSignedArea } from './engine.js?v=3260331311';
+import { createLoadScheduler } from './loading.js?v=3260331311';
+import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=3260331311';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -413,7 +413,7 @@ function applyLayerState(st) {
   if (o.features) {
     for (const f of o.features) { f.fill = f.fill0; f.hidden = false; }
     if (st.reclass) applyReclass(st, false);
-    if (st.filter) applyFilter(st, false);
+    if (hasFilter(st)) applyFilter(st, false);
   }
   map.render();
 }
@@ -449,25 +449,199 @@ function applyReclass(st, rerender = true) {
   }
   if (rerender) { map.render(); refreshLegend(); }
 }
+// Filters are a numbered list, not one condition per layer. Several rules on the same
+// layer are combined (a feature must match every one). Rules on different layers are independent.
+let filterSeq = 1;
+function nextFilterId() { return filterSeq++; }
+function noteFilterSeq(id) {
+  const n = +id;
+  if (Number.isFinite(n) && n >= filterSeq) filterSeq = Math.floor(n) + 1;
+}
+function filterRules(st) {
+  const f = st?.filter;
+  if (!f) return [];
+  return (Array.isArray(f) ? f : [f]).filter(Boolean);
+}
+function hasFilter(st) { return filterRules(st).length > 0; }
+function ensureAllFilterIds() {
+  for (const st of L.values()) {
+    if (!st.filter) continue;
+    const list = (Array.isArray(st.filter) ? st.filter : [st.filter]).filter(Boolean);
+    for (const rule of list) {
+      if (rule.id == null) rule.id = nextFilterId();
+      else noteFilterSeq(rule.id);
+    }
+    st.filter = list.length ? list : null;
+  }
+}
+function allFilters() {
+  ensureAllFilterIds();
+  const rows = [];
+  for (const st of L.values()) for (const rule of filterRules(st)) rows.push({ st, rule });
+  rows.sort((a, b) => (+a.rule.id || 0) - (+b.rule.id || 0));
+  return rows;
+}
+function filterNumber(id) {
+  const i = allFilters().findIndex((row) => String(row.rule.id) === String(id));
+  return i < 0 ? allFilters().length : i + 1;
+}
+function findFilter(id) {
+  const key = String(id);
+  return allFilters().find((row) => String(row.rule.id) === key) || null;
+}
+function activeVectorLayers() {
+  const out = [];
+  for (const id of [...stack].reverse()) {
+    const st = L.get(id);
+    if (st?.on && ['polygon', 'line', 'point'].includes(st.meta.kind)) out.push(st);
+  }
+  return out;
+}
+function ruleMatches(feature, rule) {
+  const raw = feature.props ? feature.props[rule.field] : undefined;
+  const val = String(raw ?? '');
+  const num = +raw;
+  if (rule.op === '_temporal') {
+    if (!Number.isFinite(num)) return false;
+    const op = rule.temporalOp;
+    if (op === 'before') return rule.max == null || num <= +rule.max;
+    if (op === 'after') {
+      const bound = rule.min != null ? rule.min : rule.max;
+      return bound == null || num >= +bound;
+    }
+    if (op === 'exact') {
+      const bound = rule.min != null ? rule.min : rule.max;
+      return bound != null && num === +bound;
+    }
+    return (rule.min == null || num >= +rule.min) && (rule.max == null || num <= +rule.max);
+  }
+  if (rule.op === 'in') return (rule.values || []).map(String).includes(val);
+  if (rule.op === 'not_in') return !(rule.values || []).map(String).includes(val);
+  if (rule.op === 'contains') return val.toLowerCase().includes(String(rule.value ?? '').toLowerCase());
+  if (rule.op === 'neq') return val !== String(rule.value ?? '');
+  if (rule.op === 'gt') return Number.isFinite(num) && num > +rule.value;
+  if (rule.op === 'lt') return Number.isFinite(num) && num < +rule.value;
+  if (rule.op === 'gte') return Number.isFinite(num) && num >= +rule.value;
+  if (rule.op === 'lte') return Number.isFinite(num) && num <= +rule.value;
+  return val === String(rule.value ?? '');
+}
+function sameFilterRule(a, b) {
+  if (!a || !b || a.field !== b.field || a.op !== b.op) return false;
+  if (a.op === 'in' || a.op === 'not_in') {
+    const norm = (rule) => (rule.values || []).map(String).sort().join('\0');
+    return norm(a) === norm(b);
+  }
+  if (a.op === '_temporal') return a.temporalOp === b.temporalOp && a.min === b.min && a.max === b.max;
+  return String(a.value ?? '') === String(b.value ?? '');
+}
+const FILTER_OP_LABEL = {
+  eq: 'is exactly', neq: 'is not', gt: 'is more than', gte: 'is at least',
+  lt: 'is less than', lte: 'is at most', contains: 'contains',
+  in: 'include only', not_in: 'exclude',
+};
+function ruleText(st, rule) {
+  const fld = (st?.meta.fields || []).find((f) => f.name === rule.field);
+  const name = fld?.label || rule.field || 'Field';
+  if (rule.op === '_temporal') {
+    const op = rule.temporalOp || 'range';
+    if (op === 'before') return `${name} on or before ${rule.max}`;
+    if (op === 'after') return `${name} on or after ${rule.min ?? rule.max}`;
+    if (op === 'exact') return `${name} equals ${rule.min ?? rule.max}`;
+    return `${name} between ${rule.min} and ${rule.max}`;
+  }
+  if (rule.op === 'in' || rule.op === 'not_in') {
+    const vals = (rule.values || []).map(String);
+    const more = vals.length > 4 ? ` +${vals.length - 4}` : '';
+    return `${name} ${FILTER_OP_LABEL[rule.op]} ${vals.slice(0, 4).join(', ')}${more}`;
+  }
+  return `${name} ${FILTER_OP_LABEL[rule.op] || rule.op} ${rule.value ?? ''}`;
+}
+function filterListHTML(editingId = null) {
+  const rows = allFilters();
+  if (!rows.length) return '';
+  const counts = {};
+  for (const row of rows) counts[row.st.meta.id] = (counts[row.st.meta.id] || 0) + 1;
+  return `<div class="flist">${rows.map(({ st, rule }, i) => {
+    const combo = counts[st.meta.id] > 1 ? ' · combined with the others on this layer' : '';
+    const on = String(rule.id) === String(editingId) ? ' on' : '';
+    return `<div class="fitem${on}" data-fid="${esc(rule.id)}">
+      <span class="fn">${i + 1}</span>
+      <span class="ft"><b>${esc(st.meta.label)}</b><small>${esc(ruleText(st, rule))}${combo}</small></span>
+      <span class="acts"><button type="button" class="btn" data-fedit="${esc(rule.id)}">Edit</button><button type="button" class="btn" data-frm="${esc(rule.id)}">Remove</button></span>
+    </div>`;
+  }).join('')}</div>`;
+}
+function dropTemporalState(layerId, rules) {
+  if (!rules.some((r) => r.op === '_temporal' || r.source === 'temporal')) delete timeFilters[layerId];
+}
+function upsertFilterRule(layerId, rule) {
+  const st = L.get(layerId);
+  if (!st || !rule) return null;
+  ensureAllFilterIds();
+  if (rule.id == null) rule.id = nextFilterId();
+  else noteFilterSeq(rule.id);
+  const key = String(rule.id);
+  for (const other of L.values()) {
+    if (!other.filter || other.meta.id === layerId) continue;
+    const rules = filterRules(other);
+    if (!rules.some((r) => String(r.id) === key)) continue;
+    const next = rules.filter((r) => String(r.id) !== key);
+    other.filter = next.length ? next : null;
+    if (rule.op === '_temporal' || rule.source === 'temporal') dropTemporalState(other.meta.id, next);
+    if (other.obj) applyFilter(other, false);
+  }
+  const kept = filterRules(st).filter((r) => String(r.id) !== key);
+  kept.push(rule);
+  st.filter = kept;
+  if (rule.op === '_temporal' || rule.source === 'temporal') {
+    timeFilters[layerId] = { field: rule.field, op: rule.temporalOp || 'range', min: rule.min ?? null, max: rule.max ?? null };
+  }
+  applyFilter(st);
+  return { st, rule };
+}
+function removeFilterRule(id) {
+  ensureAllFilterIds();
+  const key = String(id);
+  for (const st of L.values()) {
+    const rules = filterRules(st);
+    const rule = rules.find((r) => String(r.id) === key);
+    if (!rule) continue;
+    const next = rules.filter((r) => String(r.id) !== key);
+    st.filter = next.length ? next : null;
+    if (rule.op === '_temporal' || rule.source === 'temporal') dropTemporalState(st.meta.id, next);
+    applyFilter(st);
+    return { st, rule };
+  }
+  return null;
+}
+function clearAllFilters() {
+  for (const id of Object.keys(timeFilters)) delete timeFilters[id];
+  let n = 0;
+  for (const st of L.values()) {
+    if (!hasFilter(st)) continue;
+    st.filter = null;
+    applyFilter(st, false);
+    n++;
+  }
+  map.render(); refreshLegend(); renderLayerLists();
+  return n;
+}
 function applyFilter(st, rerender = true) {
-  const fl = st.filter, o = st.obj; if (!o || !o.features) return;
+  const o = st?.obj;
+  if (!o?.features) {
+    if (st && !hasFilter(st)) st.filterCount = null;
+    return;
+  }
+  ensureAllFilterIds();
+  const rules = filterRules(st);
   let n = 0;
   for (const f of o.features) {
-    if (!fl) { f.hidden = false; n++; continue; }
-    const raw = f.props[fl.field], val = String(raw ?? ''), num = +raw;
-    let hit;
-    if (fl.op === 'in') hit = (fl.values || []).includes(val);
-    else if (fl.op === 'not_in') hit = !(fl.values || []).includes(val);
-    else if (fl.op === 'contains') hit = val.toLowerCase().includes(String(fl.value).toLowerCase());
-    else if (fl.op === 'neq') hit = val !== String(fl.value);
-    else if (fl.op === 'gt') hit = num > +fl.value;
-    else if (fl.op === 'lt') hit = num < +fl.value;
-    else if (fl.op === 'gte') hit = num >= +fl.value;
-    else if (fl.op === 'lte') hit = num <= +fl.value;
-    else hit = val === String(fl.value);
-    f.hidden = !hit; if (hit) n++;
+    const hit = !rules.length || rules.every((rule) => ruleMatches(f, rule));
+    f.hidden = !hit;
+    if (hit) n++;
   }
-  st.filterCount = fl ? n : null;
+  st.filterCount = rules.length ? n : null;
+  if (!rules.length) st.filter = null;
   if (rerender) { map.render(); refreshLegend(); renderLayerLists(); }
 }
 
@@ -530,7 +704,7 @@ function layerRow(id) {
   const sub = [KIND_LABEL[m.kind], countText(m)].filter(Boolean).join(' · ');
   const qualitySub = quality ? ` · <span class="quality-inline q-${quality.tone}" title="${esc(quality.label)}">${esc(quality.short)}</span>` : '';
   const flags = [
-    st.filter ? `<span class="chip on">${icon('filter')}Filtered</span>` : '',
+    hasFilter(st) ? `<span class="chip on" data-act="filter">${icon('filter')}${filterRules(st).length > 1 ? filterRules(st).length + ' filters' : 'Filtered'}</span>` : '',
     st.reclass ? `<span class="chip on">${icon('sliders')}Classified</span>` : '',
     st.labels?.field && st.labels.on !== false ? `<span class="chip on">${icon('tag')}${esc(st.labels.field)}</span>` : '',
   ].join('');
@@ -568,17 +742,48 @@ function layerRow(id) {
     else if (act === 'labels') toolLabels(id);
     else if (act === 'on') setLayer(id, true);
     else if (act === 'off') setLayer(id, false);
+    else if (act === 'filter') toolFilter(id);
   });
   return row;
+}
+function bindFilterList(root, onEdit) {
+  if (!root) return;
+  root.querySelectorAll('[data-fedit]').forEach((b) => {
+    b.onclick = (e) => {
+      e.stopPropagation();
+      const found = findFilter(b.dataset.fedit);
+      if (onEdit) onEdit(found);
+      else if (found) toolFilter(found.st.meta.id, found.rule.id);
+    };
+  });
+  root.querySelectorAll('[data-frm]').forEach((b) => {
+    b.onclick = (e) => {
+      e.stopPropagation();
+      const found = findFilter(b.dataset.frm);
+      removeFilterRule(b.dataset.frm);
+      saveProject();
+      toast(found ? `Removed a filter on ${found.st.meta.label}` : 'Filter removed');
+      if (onEdit) onEdit(null, true);
+    };
+  });
 }
 function renderLayerLists() {
   const q = ($('#layerfilter').value || '').trim().toLowerCase();
   // --- on the map (topmost first; the layer clicked last is on top)
   const act = $('#activelist');
   const vis = [...stack].reverse();
-  act.innerHTML = `<div class="sec">On the map <span class="n">${vis.length ? vis.length + ' layer' + (vis.length > 1 ? 's' : '') : ''}</span></div>` +
+  const filters = allFilters();
+  const filterBlock = filters.length
+    ? `<div class="sec">Filters <span class="n">${filters.length}</span></div>
+      <p class="hint">#1 is the first filter you added. Filters on the same layer are combined — a feature must match every one of them. Edit or remove one without touching the others.</p>
+      ${filterListHTML()}
+      <div class="frow act" style="margin-top:0"><button type="button" class="btn" data-fopen>Add filter</button></div>`
+    : '';
+  act.innerHTML = filterBlock + `<div class="sec">On the map <span class="n">${vis.length ? vis.length + ' layer' + (vis.length > 1 ? 's' : '') : ''}</span></div>` +
     (vis.length ? '<p class="hint">Drag ⠿ to restack — the top layer is drawn on top.</p><div class="group"><div class="lrows" id="active-rows"></div></div>'
       : '<p class="empty">Nothing on the map yet — turn a layer on below.</p>');
+  act.querySelector('[data-fopen]')?.addEventListener('click', () => toolFilter());
+  bindFilterList(act);
   const arows = $('#active-rows');
   if (arows) {
     for (const id of vis) {
@@ -668,7 +873,7 @@ async function refreshLegend() {
   if (!active.length) { box.innerHTML = '<p class="empty">Turn on a layer to see its legend.<br>Tap any legend entry to zoom to it, filter to it or add it to the map as a label.</p>'; return; }
   const out = [clip
     ? `<div class="lgnote">Focus area active (${fmtNum(focusAreaKm2())} km²). Counts below still describe whole layers. <button class="btn" data-x="unfocus">Show the whole map</button></div>`
-    : '<p class="hint">Tap a legend entry to zoom to it, focus on it, show only that class, or add it to the map as a label.</p>'];
+    : '<p class="hint">Tap a legend entry to zoom to it, focus on it, add it as a filter, or add it to the map as a label.</p>'];
   for (const st of active) {
     const m = st.meta;
     let rows = '';
@@ -703,7 +908,7 @@ async function refreshLegend() {
         rows = e.slice(0, 120).map(([k, c]) => legendRow(st, c, k, '', `data-kind="style" data-key="${esc(k)}" data-field="${esc(s.field)}"`)).join('');
       } else rows = legendRow(st, s.color || DEFAULT_VECTOR_COLOR, m.label, '');
     }
-    const n = st.filter ? `<span class="n">${st.filterCount}/${m.count} shown</span>` : '';
+    const n = hasFilter(st) ? `<span class="n">${st.filterCount}/${m.count} shown</span>` : '';
     out.push(`<div class="lg" data-layer="${m.id}"><button class="lghead">${icon('chev')}<span>${esc(m.label)}</span>${n}</button><div class="lgb">${rows}</div></div>`);
   }
   box.innerHTML = out.join('');
@@ -784,7 +989,7 @@ async function legendEntryActions(layerId, kind, key, field) {
         ${anchor ? `<button class="btn" id="le-focus">${icon('crop')} Focus on it</button>` : ''}
       </div>
       <div class="frow act" style="justify-content:stretch">
-        <button class="btn" id="le-filter">${icon('filter')} Show only this</button>
+        <button class="btn" id="le-filter">${icon('filter')} Add as filter</button>
         ${AUTHOR ? `<button class="btn" id="le-label">${icon('tag')} Add label to the map</button>` : ''}
       </div>`;
     body.querySelector('#le-focus')?.addEventListener('click', () => {
@@ -811,8 +1016,11 @@ async function legendEntryActions(layerId, kind, key, field) {
     };
     body.querySelector('#le-filter').onclick = () => {
       if (!anchor || !st.obj?.features) { toast('Raster classes cannot be filtered — the raster is drawn as one image'); return; }
-      st.filter = { field: useField, op: 'eq', value: kind === 'style' ? label : entry.key };
-      applyFilter(st); closeModal(); toast('Showing only ' + label); saveProject();
+      const rule = { field: useField, op: 'eq', value: String(kind === 'style' ? label : entry.key), source: 'legend' };
+      if (filterRules(st).some((r) => sameFilterRule(r, rule))) { toast('That filter is already on the list'); return; }
+      const saved = upsertFilterRule(st.meta.id, rule);
+      closeModal(); saveProject();
+      toast(saved ? `Filter ${filterNumber(saved.rule.id)} added — ${label}` : 'Could not add that filter');
     };
   });
 }
@@ -1138,7 +1346,7 @@ const TOOL_GROUPS = {
     ['clip', 'crop', 'Clip to an area', 'Fade everything outside a shape you draw'],
     ['select', 'target', 'Select features', 'Tap or drag a box to select features'],
     ['aoi', 'hist', 'Area summary', 'Counts, classes and area inside the focus'],
-    ['filter', 'filter', 'Filter features', 'Show only the rows that match'],
+    ['filter', 'filter', 'Filter features', 'Stack filters on any layer that is on'],
     ['reclass', 'sliders', 'Group into classes', 'Reclassify and recolour a numeric field'],
   ],
   analyse: [
@@ -2665,7 +2873,7 @@ $('#lyrtools').addEventListener('click', (e) => {
   else if (x === 'focus') toolClip();
   else if (x === 'grid') { gridOn = !gridOn; map.setGrid(gridOn); updateToolState(); saveProject(); }
   else if (x === 'labels') toolLabels(stack[stack.length - 1]);
-  else if (x === 'clearfilter') { let n = 0; for (const st of L.values()) if (st.filter) { st.filter = null; applyFilter(st); n++; } renderLayerLists(); toast(n ? 'Filters cleared' : 'No filters to clear'); saveProject(); }
+  else if (x === 'clearfilter') { const n = clearAllFilters(); saveProject(); toast(n ? 'Filters cleared' : 'No filters to clear'); }
   else if (x === 'basemap') {
     const order = BASEMAP_ORDER;
     const i = order.indexOf(map.basemap);
@@ -3116,69 +3324,274 @@ function toolReclass(preferred) {
 }
 
 // ------------------------------------------------ tool: filter
-function toolFilter(preferred) {
+function toolFilter(preferred, editId) {
   openModal('Filter features', (body) => {
-    const holder = document.createElement('div'); body.appendChild(holder);
-    layerPicker(body, () => draw(), (st) => ['polygon', 'line', 'point'].includes(st.meta.kind), preferred);
-    function draw() {
-      const st = L.get(body.querySelector('select').value); if (!st) return;
-      if (!st.obj) { holder.innerHTML = '<p class="empty">Loading…</p>'; loadLayer(st).then(draw); return; }
+    const session = {};
+    body._filterSession = session;
+    body.innerHTML = `<p class="muted">Pick any layer that is switched on. Each filter you add is numbered. Add more on other layers, or again on a layer that already has one — those are combined, so a feature is drawn only if it matches every filter on that layer.</p>
+      <h4>Filter list</h4>
+      <div id="f-list"></div>
+      <div class="frow act" id="f-clear-row" hidden><button class="btn" id="f-clear-all" type="button">Clear all filters</button></div>
+      <h4 id="f-form-title">Add a filter</h4>
+      <div id="f-layer-row"></div>
+      <div id="f-form"></div>
+      <div class="frow act" id="f-actions">
+        <button class="btn" id="f-cancel" type="button" hidden>Cancel edit</button>
+        <button class="btn primary" id="f-apply" type="button">Add filter</button>
+      </div>
+      <p class="hint" id="f-hint"></p>`;
+    const listBox = body.querySelector('#f-list');
+    const formBox = body.querySelector('#f-form');
+    const layerRow = body.querySelector('#f-layer-row');
+    const title = body.querySelector('#f-form-title');
+    const applyBtn = body.querySelector('#f-apply');
+    const cancelBtn = body.querySelector('#f-cancel');
+    const clearRow = body.querySelector('#f-clear-row');
+    const hint = body.querySelector('#f-hint');
+    const numOps = [['eq', 'is exactly'], ['neq', 'is not'], ['gt', 'is more than'], ['gte', 'is at least'], ['lt', 'is less than'], ['lte', 'is at most']];
+    const txtOps = [['contains', 'contains'], ['eq', 'is exactly'], ['neq', 'is not']];
+    const multiOps = [['in', 'include only'], ['not_in', 'exclude']];
+    let editingId = editId != null ? editId : null;
+    let layerId = preferred || null;
+    let formToken = 0;
+    const alive = () => body.isConnected && body._filterSession === session && !$('#modal').hidden && $('#modal-title').textContent === 'Filter features';
+
+    function fieldValues(st, field) {
+      if (!st.obj?.features) return [];
+      const seen = new Set();
+      const out = [];
+      for (const f of st.obj.features) {
+        const v = f.props[field];
+        if (v == null || v === '') continue;
+        const s = String(v);
+        if (seen.has(s)) continue;
+        seen.add(s);
+        out.push(s);
+        if (out.length >= 500) break;
+      }
+      return out;
+    }
+    function pickerLayers() {
+      const layers = activeVectorLayers();
+      if (editingId) {
+        const found = findFilter(editingId);
+        if (found && !layers.some((st) => st.meta.id === found.st.meta.id)) layers.push(found.st);
+      }
+      return layers;
+    }
+    function renderList() {
+      const rows = allFilters();
+      clearRow.hidden = !rows.length;
+      listBox.innerHTML = rows.length
+        ? filterListHTML(editingId)
+        : '<p class="empty">No filters yet. The first one you add becomes #1.</p>';
+      bindFilterList(listBox, (found, removed) => {
+        if (!alive()) return;
+        if (removed) {
+          if (editingId && !findFilter(editingId)) editingId = null;
+          renderAll();
+          return;
+        }
+        if (!found) return;
+        editingId = found.rule.id;
+        layerId = found.st.meta.id;
+        renderAll();
+      });
+    }
+    function renderLayerSelect() {
+      const layers = pickerLayers();
+      if (!layers.length) {
+        layerRow.innerHTML = '<p class="empty">Switch a layer on first. You can filter any layer that is on the map.</p>';
+        applyBtn.hidden = true;
+        return;
+      }
+      applyBtn.hidden = false;
+      if (!layerId || !layers.some((st) => st.meta.id === layerId)) layerId = layers[0].meta.id;
+      layerRow.innerHTML = `<div class="frow"><label>Layer</label><select id="f-layer">${layers.map((st) => `<option value="${esc(st.meta.id)}"${st.meta.id === layerId ? ' selected' : ''}>${esc(st.meta.label)}${st.on ? '' : ' (off)'}</option>`).join('')}</select></div>`;
+      layerRow.querySelector('#f-layer').onchange = () => {
+        layerId = layerRow.querySelector('#f-layer').value;
+        renderForm();
+      };
+    }
+    function renderAttributeForm(st, rule) {
       const fields = st.meta.fields || [];
-      const cur = st.filter || { field: fields[0]?.name, op: 'eq', value: '', values: [] };
-      const fld = fields.find((f) => f.name === cur.field) || fields[0];
-      const isNum = fld && fld.type === 'number';
-      const values = [...new Set(st.obj.features.map((f) => f.props[cur.field]))].filter((v) => v != null && v !== '').slice(0, 500);
-      const isMulti = cur.op === 'in' || cur.op === 'not_in';
-      const numOps = [['eq', 'is exactly'], ['neq', 'is not'], ['gt', 'is more than'], ['gte', 'is at least'], ['lt', 'is less than'], ['lte', 'is at most']];
-      const txtOps = [['contains', 'contains'], ['eq', 'is exactly'], ['neq', 'is not']];
-      const multiOps = [['in', 'include only'], ['not_in', 'exclude']];
-      const opOptions = (isMulti ? multiOps : (isNum ? numOps : txtOps)).concat(isMulti ? [] : multiOps);
-      holder.innerHTML = `<p class="muted">Only matching rows are drawn, identified and labelled. Other layers stay in full — clear the filter to bring them back.</p>
-        <div class="frow"><label>Layer</label><span>${esc(st.meta.label)}</span></div>
-        <div class="frow"><label>Field</label><select id="f-field">${fields.map((f) => `<option value="${esc(f.name)}"${cur.field === f.name ? ' selected' : ''}>${esc(f.label || f.name)}</option>`).join('')}</select></div>
-        <div class="frow"><label>Condition</label><select id="f-op">${opOptions.map(([k, t]) => `<option value="${k}"${cur.op === k ? ' selected' : ''}>${t}</option>`).join('')}</select></div>
-        <div id="f-val-single" style="display:${isMulti ? 'none' : 'flex'}" class="frow"><label>Value</label><input id="f-value" type="text" value="${esc(cur.value ?? '')}" list="f-values"><datalist id="f-values">${values.map((v) => `<option value="${esc(v)}">`).join('')}</datalist></div>
-        <div id="f-val-multi" style="display:${isMulti ? 'flex' : 'none'}" class="frow"><label>Values</label><div id="f-taglist" style="flex:1;display:flex;flex-wrap:wrap;gap:6px;align-items:center"></div><button class="btn" id="f-add" style="flex:none">Add value</button><datalist id="f-valopts">${values.map((v) => `<option value="${esc(v)}">`).join('')}</datalist></div>
-        <div class="frow act"><button class="btn" id="f-clear">Clear filter</button><button class="btn primary" id="f-apply">Apply filter</button></div>
-        <div class="frow"><span id="f-hint" class="hint">${isMulti ? 'Pick values from the list, then Apply.' : 'Choose a value or type one, then Apply.'}</span></div>`;
-      const q = (s) => holder.querySelector(s);
-      const tagList = q('#f-taglist'), valInput = q('#f-value'), addBtn = q('#f-add'), opSel = q('#f-op'), fieldSel = q('#f-field');
-      const singleDiv = q('#f-val-single'), multiDiv = q('#f-val-multi');
-      let tags = (cur.values || []).slice();
+      const curField = (rule && fields.some((f) => f.name === rule.field) ? rule.field : fields[0]?.name) || '';
+      const fld = fields.find((f) => f.name === curField);
+      const isNum = fld?.type === 'number';
+      const curOp = rule?.op && rule.op !== '_temporal' ? rule.op : (isNum ? 'eq' : 'contains');
+      const opOptions = (isNum ? numOps : txtOps).concat(multiOps);
+      const values = fieldValues(st, curField);
+      const isMulti = curOp === 'in' || curOp === 'not_in';
+      const tags = (isMulti && rule?.values ? rule.values.map(String) : []).slice();
+      formBox.innerHTML = `<div class="frow"><label>Field</label><select id="f-field">${fields.map((f) => `<option value="${esc(f.name)}"${f.name === curField ? ' selected' : ''}>${esc(f.label || f.name)}</option>`).join('') || '<option value="">(no fields)</option>'}</select></div>
+        <div class="frow"><label>Condition</label><select id="f-op">${opOptions.map(([k, t]) => `<option value="${k}"${curOp === k ? ' selected' : ''}>${t}</option>`).join('')}</select></div>
+        <div id="f-val-single" class="frow" style="display:${isMulti ? 'none' : 'flex'}"><label>Value</label><input id="f-value" type="text" value="${esc(isMulti ? '' : (rule?.value ?? ''))}" list="f-values" autocomplete="off"><datalist id="f-values">${values.map((v) => `<option value="${esc(v)}">`).join('')}</datalist></div>
+        <div id="f-val-multi" style="display:${isMulti ? 'block' : 'none'}">
+          <div class="frow"><label>Values</label><div id="f-taglist" style="flex:1;display:flex;flex-wrap:wrap;gap:6px;align-items:center"></div></div>
+          <div class="frow"><label></label><input id="f-multi" type="text" list="f-valopts" placeholder="Type or pick a value" autocomplete="off"><button class="btn" id="f-add-val" type="button">Add value</button><datalist id="f-valopts">${values.map((v) => `<option value="${esc(v)}">`).join('')}</datalist></div>
+        </div>`;
+      const tagList = formBox.querySelector('#f-taglist');
       function renderTags() {
-        tagList.innerHTML = tags.map((v, i) => `<span style="border:1px solid var(--brand);background:rgba(11,107,69,.12);color:var(--brand);border-radius:12px;padding:2px 10px;font-size:12px;display:flex;align-items:center;gap:6px">${esc(v)}<button style="background:none;border:0;color:var(--brand);font-weight:700;cursor:pointer;padding:0 4px" data-rm="${i}">&times;</button></span>`).join('');
-        tagList.querySelectorAll('[data-rm]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); tags.splice(+b.dataset.rm, 1); renderTags(); });
+        tagList.innerHTML = tags.map((v, i) => `<span class="chip">${esc(v)}<button type="button" data-rmtag="${i}" aria-label="Remove value" style="background:none;border:0;color:inherit;font-weight:700;cursor:pointer;padding:0 0 0 4px">&times;</button></span>`).join('');
+        tagList.querySelectorAll('[data-rmtag]').forEach((b) => {
+          b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); tags.splice(+b.dataset.rmtag, 1); renderTags(); };
+        });
       }
       renderTags();
-      fieldSel.onchange = () => { draw(); };
-      opSel.onchange = (e) => {
-        const multi = e.target.value === 'in' || e.target.value === 'not_in';
-        singleDiv.style.display = multi ? 'none' : 'flex';
-        multiDiv.style.display = multi ? 'flex' : 'none';
-        q('#f-hint').textContent = multi ? 'Pick values from the list, then Apply.' : 'Choose a value or type one, then Apply.';
+      formBox.querySelector('#f-field').onchange = () => {
+        const name = formBox.querySelector('#f-field').value;
+        const keepOp = formBox.querySelector('#f-op').value;
+        renderAttributeForm(st, { field: name, op: keepOp, value: '', values: [], source: rule?.source });
       };
-      addBtn.onclick = () => {
-        const v = q('#f-valopts').value.trim();
+      formBox.querySelector('#f-op').onchange = (e) => {
+        const multi = e.target.value === 'in' || e.target.value === 'not_in';
+        formBox.querySelector('#f-val-single').style.display = multi ? 'none' : 'flex';
+        formBox.querySelector('#f-val-multi').style.display = multi ? 'block' : 'none';
+      };
+      const addVal = () => {
+        const input = formBox.querySelector('#f-multi');
+        const v = input.value.trim();
         if (!v) return;
         if (!tags.includes(v)) tags.push(v);
-        q('#f-valopts').value = '';
+        input.value = '';
         renderTags();
       };
-      q('#f-apply').onclick = () => {
-        const field = fieldSel.value;
-        const op = opSel.value;
+      formBox.querySelector('#f-add-val').onclick = addVal;
+      formBox.querySelector('#f-multi').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); addVal(); }
+      });
+      formBox.querySelector('#f-value').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); applyBtn.click(); }
+      });
+      formBox._read = () => {
+        const field = formBox.querySelector('#f-field').value;
+        const op = formBox.querySelector('#f-op').value;
+        if (!field) { toast('Pick a field'); return null; }
         if (op === 'in' || op === 'not_in') {
-          if (!tags.length) { toast('Pick at least one value'); return; }
-          st.filter = { field, op, values: tags };
-        } else {
-          st.filter = { field, op, value: valInput ? valInput.value : '', values: [] };
+          if (!tags.length) { toast('Add at least one value'); return null; }
+          return { field, op, values: tags.slice(), source: rule?.source || 'filter' };
         }
-        applyFilter(st); closeModal(); renderLayerLists(); saveProject();
-        toast(`${st.filterCount} of ${st.meta.count ?? '?'} shown`);
+        const value = formBox.querySelector('#f-value').value.trim();
+        if (!value) { toast('Enter a value'); return null; }
+        if (['gt', 'gte', 'lt', 'lte'].includes(op) && !Number.isFinite(+value)) { toast('Enter a number'); return null; }
+        return { field, op, value, source: rule?.source || 'filter' };
       };
-      q('#f-clear').onclick = () => { st.filter = null; applyFilter(st); closeModal(); renderLayerLists(); saveProject(); toast('Filter cleared'); };
     }
-    draw();
+    function renderTemporalForm(st, rule) {
+      const fields = (st.meta.fields || []).filter((f) => f.type === 'number' || f.type === 'date' || /year|date|time/i.test(f.name));
+      const use = fields.length ? fields : (st.meta.fields || []);
+      const op = rule.temporalOp || 'range';
+      const single = op === 'before' ? rule.max : (rule.min ?? rule.max);
+      formBox.innerHTML = `<div class="frow"><label>Field</label><select id="f-field">${use.map((f) => `<option value="${esc(f.name)}"${f.name === rule.field ? ' selected' : ''}>${esc(f.label || f.name)}</option>`).join('') || '<option value="">(no fields)</option>'}</select></div>
+        <div class="frow"><label>Condition</label><select id="f-top">
+          <option value="range"${op === 'range' ? ' selected' : ''}>Between</option>
+          <option value="before"${op === 'before' ? ' selected' : ''}>On or before</option>
+          <option value="after"${op === 'after' ? ' selected' : ''}>On or after</option>
+          <option value="exact"${op === 'exact' ? ' selected' : ''}>Equals</option>
+        </select></div>
+        <div id="f-trange" class="frow" style="display:${op === 'range' ? 'flex' : 'none'}"><label>From</label><input id="f-tmin" type="number" value="${rule.min ?? ''}"><label>To</label><input id="f-tmax" type="number" value="${rule.max ?? ''}"></div>
+        <div id="f-tsingle" class="frow" style="display:${op === 'range' ? 'none' : 'flex'}"><label>Value</label><input id="f-tsingle" type="number" value="${single ?? ''}"></div>`;
+      const top = formBox.querySelector('#f-top');
+      top.onchange = () => {
+        const range = top.value === 'range';
+        formBox.querySelector('#f-trange').style.display = range ? 'flex' : 'none';
+        formBox.querySelector('#f-tsingle').style.display = range ? 'none' : 'flex';
+      };
+      formBox._read = () => {
+        const field = formBox.querySelector('#f-field').value;
+        const topv = top.value;
+        if (!field) { toast('Pick a field'); return null; }
+        if (topv === 'range') {
+          const min = formBox.querySelector('#f-tmin').value;
+          const max = formBox.querySelector('#f-tmax').value;
+          if (min === '' || max === '') { toast('Enter both values'); return null; }
+          return { field, op: '_temporal', temporalOp: 'range', min: +min, max: +max, source: 'temporal' };
+        }
+        const singleV = formBox.querySelector('#f-tsingle').value;
+        if (singleV === '') { toast('Enter a value'); return null; }
+        const n = +singleV;
+        return { field, op: '_temporal', temporalOp: topv, min: n, max: n, source: 'temporal' };
+      };
+    }
+    function renderForm() {
+      const n = editingId ? filterNumber(editingId) : allFilters().length + 1;
+      title.textContent = editingId ? `Edit filter ${n}` : 'Add a filter';
+      cancelBtn.hidden = !editingId;
+      applyBtn.textContent = editingId ? 'Save changes' : 'Add filter';
+      hint.textContent = editingId
+        ? 'Saving keeps this filter’s place in the list. Remove it from the list if you no longer want it.'
+        : `This will be filter #${n}. On a layer that already has a filter, the new one is combined with it.`;
+      const st = L.get(layerId);
+      if (!st) { formBox.innerHTML = ''; formBox._read = null; return; }
+      const rule = editingId ? findFilter(editingId)?.rule : null;
+      if (!st.obj) {
+        formBox.innerHTML = '<p class="empty">Loading…</p>';
+        formBox._read = null;
+        const token = ++formToken;
+        loadLayer(st).then(() => {
+          if (!alive() || token !== formToken || layerId !== st.meta.id) return;
+          renderForm();
+        }).catch(() => {
+          if (alive() && token === formToken) formBox.innerHTML = '<p class="empty">Could not load this layer.</p>';
+        });
+        return;
+      }
+      if (rule && (rule.op === '_temporal' || rule.source === 'temporal') && rule.field && (!st.meta.fields || st.meta.fields.some((f) => f.name === rule.field) || st.meta.id === findFilter(editingId)?.st.meta.id)) {
+        renderTemporalForm(st, rule);
+        return;
+      }
+      renderAttributeForm(st, rule && rule.op !== '_temporal' ? rule : null);
+    }
+    function renderAll() {
+      if (!alive()) return;
+      renderList();
+      renderLayerSelect();
+      renderForm();
+    }
+    async function commitFilter() {
+      try {
+        const st = L.get(layerId);
+        if (!st) { toast('Switch a layer on first'); return; }
+        if (!editingId && !st.on) { toast('Switch that layer on first'); return; }
+        if (!st.obj) {
+          await loadLayer(st);
+          if (!alive()) return;
+          renderForm();
+        }
+        if (!formBox._read) { toast('Still loading that layer'); return; }
+        const rule = formBox._read();
+        if (!rule) return;
+        if (editingId) rule.id = isFinite(+editingId) ? +editingId : editingId;
+        if (filterRules(st).some((r) => String(r.id) !== String(rule.id) && sameFilterRule(r, rule))) {
+          toast('That filter is already on this layer');
+          return;
+        }
+        const wasEdit = editingId != null;
+        const saved = upsertFilterRule(st.meta.id, rule);
+        if (!saved) { toast('Could not apply that filter'); return; }
+        editingId = null;
+        saveProject();
+        const nOnLayer = filterRules(saved.st).length;
+        const num = filterNumber(saved.rule.id);
+        const combo = nOnLayer > 1 ? ` · ${nOnLayer} filters combined on this layer` : '';
+        const total = saved.st.meta.count ?? saved.st.obj?.features.length ?? '?';
+        toast(`Filter ${num} ${wasEdit ? 'updated' : 'added'} — ${saved.st.filterCount} of ${total} shown${combo}`);
+        renderAll();
+      } catch (err) {
+        console.error(err);
+        toast('Could not apply that filter');
+      }
+    }
+    applyBtn.onclick = () => { commitFilter(); };
+    cancelBtn.onclick = () => { editingId = null; renderAll(); };
+    body.querySelector('#f-clear-all').onclick = () => {
+      const n = clearAllFilters();
+      editingId = null;
+      saveProject();
+      toast(n ? 'Filters cleared' : 'No filters to clear');
+      renderAll();
+    };
+    renderAll();
   });
 }
 
@@ -3837,7 +4250,8 @@ function toolMapPreset() {
       const name = body.querySelector('#mp-name').value.trim();
       if (!name) { toast('Enter a preset name'); return; }
       const stackRec = stack.map((id) => { const st = L.get(id); return { id, on: st.on, opacity: st.opacity }; });
-      const filters = {}; for (const [id, st] of L) if (st.filter) filters[id] = st.filter;
+      ensureAllFilterIds();
+      const filters = {}; for (const [id, st] of L) if (hasFilter(st)) filters[id] = st.filter;
       const clipRec = clipRecord();
       presets[name] = {
         basemap: map.basemap,
@@ -4066,7 +4480,7 @@ function toolLayerDiscovery() {
 // ------------------------------------------------ view: reset, full screen, back
 function resetView() {
   stopFocus();
-  for (const st of L.values()) if (st.filter) { st.filter = null; applyFilter(st, false); }
+  clearAllFilters();
   map.selection = null;
   home();
   renderLayerLists(); refreshLegend(); map.render();
@@ -4560,13 +4974,16 @@ function toolTemporalFilter() {
       timeFilters[id] = { field, op, min: op === 'range' ? minV : (op === 'before' ? singleV : null), max: op === 'range' ? maxV : (op === 'after' ? singleV : singleV) };
       applyTemporalFilter(st);
       infoDiv.innerHTML = '<p style="color:var(--ok)">Temporal filter applied to ' + esc(st.meta.label) + '</p>';
-      toast('Temporal filter applied');
     };
     body.querySelector('#tf-clear').onclick = () => {
       const id = layerSel.value;
       delete timeFilters[id];
       const [, st] = layers.find(([i]) => i === id) || [];
-      if (st) { st.filter = null; applyFilter(st); }
+      if (st) {
+        const prev = filterRules(st).find((r) => r.op === '_temporal' || r.source === 'temporal');
+        if (prev) removeFilterRule(prev.id);
+        else applyFilter(st);
+      }
       infoDiv.innerHTML = '';
       toast('Temporal filter cleared');
     };
@@ -4575,26 +4992,24 @@ function toolTemporalFilter() {
 
 function applyTemporalFilter(st) {
   const tf = timeFilters[st.meta.id];
-  if (!tf) { st.filter = null; applyFilter(st); return; }
-  const { field, op, min, max } = tf;
-  let count = 0;
-  for (const f of st.obj.features) {
-    const v = f.props[field];
-    let hit = false;
-    const nv = +v;
-    if (op === 'range') hit = nv >= min && nv <= max;
-    else if (op === 'before') hit = nv <= max;
-    else if (op === 'after') hit = nv >= min;
-    else if (op === 'exact') hit = nv === min;
-    f.hidden = !hit;
-    if (hit) count++;
+  const prev = filterRules(st).find((r) => r.op === '_temporal' || r.source === 'temporal');
+  if (!tf) {
+    if (prev) removeFilterRule(prev.id);
+    else applyFilter(st);
+    return;
   }
-  st.filter = { field, op: '_temporal', min, max };
-  st.filterCount = count;
-  map.render();
-  refreshLegend();
-  renderLayerLists();
-  toast(tf.op + ' filter: ' + count + ' of ' + st.obj.features.length + ' features');
+  const saved = upsertFilterRule(st.meta.id, {
+    id: prev?.id,
+    field: tf.field,
+    op: '_temporal',
+    temporalOp: tf.op,
+    min: tf.min,
+    max: tf.max,
+    source: 'temporal',
+  });
+  const count = saved?.st.filterCount ?? 0;
+  const extra = filterRules(st).length > 1 ? ' (combined with other filters)' : '';
+  toast(tf.op + ' filter: ' + count + ' of ' + st.obj.features.length + ' features' + extra);
 }
 
 function toolTemporalLayers() {
@@ -4850,17 +5265,17 @@ async function openTable(id) {
     const mpon = $('#tm-mapon'); if (mpon) mpon.onclick = () => {
       const li = cols.indexOf(labelField);
       const vals = [...new Set(filt.map((r) => li >= 0 ? r[li] : r[0]))].filter((v) => v != null && v !== '');
-      st.filter = { field: labelField, op: 'in', values: vals };
-      applyFilter(st);
+      const prev = filterRules(st).find((r) => r.source === 'table');
+      upsertFilterRule(st.meta.id, { id: prev?.id, field: labelField, op: 'in', values: vals.map(String), source: 'table' });
       mapFilterActive = true;
-      toast('Showing only ' + vals.length + ' matching ' + labelField + ' value' + (vals.length === 1 ? '' : 's') + ' on map');
+      toast('Filter added — ' + vals.length + ' matching ' + labelField + ' value' + (vals.length === 1 ? '' : 's') + ' on the map');
       draw();
     };
     const tmpoff = $('#tm-mapoff'); if (tmpoff) tmpoff.onclick = () => {
-      st.filter = null;
-      applyFilter(st);
+      const prev = filterRules(st).find((r) => r.source === 'table');
+      if (prev) removeFilterRule(prev.id);
       mapFilterActive = false;
-      toast('Map filter cleared');
+      toast(hasFilter(st) ? 'Table filter removed — other filters still apply' : 'Map filter cleared');
       draw();
     };
   };
@@ -5097,12 +5512,13 @@ function pushHash() {
 function readProject() { try { return JSON.parse(localStorage.getItem(PKEY) || 'null'); } catch { return null; } }
 function saveProject() {
   if (booting) return;
+  ensureAllFilterIds();
   const layers = {};
   for (const [id, st] of L) {
     const rec = { on: st.on, opacity: st.opacity };
     if (st.sym) rec.sym = st.sym;
     if (st.labels) rec.labels = st.labels;
-    if (st.filter) rec.filter = st.filter;
+    if (hasFilter(st)) rec.filter = st.filter;
     if (st.reclass) rec.reclass = st.reclass;
     layers[id] = rec;
   }
@@ -5449,7 +5865,7 @@ function restoreSession(code) {
   if (!s) { toast('Session code not found'); return; }
   const st = s.state;
   // Clear current filters
-  for (const [id, ls] of L) { ls.filter = null; applyFilter(ls, false); }
+  clearAllFilters();
   // Set basemap
   if (st.basemap && BASEMAPS[st.basemap]) map.setBasemap(st.basemap);
   // Set layers
@@ -8498,7 +8914,7 @@ window.__nwg = {
   rasterClassAnchor, layerRank, showResults, openQuality,
   // focus / analysis surface (also handy for scripting the map from the console)
   get clip() { return clip; }, get draw() { return draw; }, get author() { return AUTHOR; },
-  get sel() { return selState; }, toolSelect, enterSelectMode, exitSelectMode, selClear, selItems, openSelectionList, selToggle,
+  get sel() { return selState; }, toolSelect, enterSelectMode, exitSelectMode, selClear, selItems, openSelectionList, selToggle, toolFilter,
   setFocus, stopFocus, focusFromLonLat, focusFromRect, focusFromFeature, focusAreaKm2, focusPerimeterKm,
   buildShareUrl, saveProject,
   startDraw, endDraw, startPick, toolClip, toolAoi, toolQuery, runQuery, toolChart, resetView, toggleFullscreen,
@@ -8623,7 +9039,7 @@ const TOOL_HELP = {
     tip: 'Picks can come from more than one layer, and each picked shape stays its own clip area. Esc or <b>Cancel</b> stops a drawing at any time.',
   },
   aoi: { about: 'Counts every switched-on layer inside the focus area: features, summed polygon area, top raster classes.', steps: ['Set a focus area first (Clip to an area).', 'Tools → <b>Area summary</b>.', 'Read the chart and table; <b>Zoom to area</b> shows it on the map, <b>Clear focus</b> returns to the whole country.'], needs: 'A focus area, and at least one layer on.' },
-  filter: { about: 'Show only the rows that match a column — the rest of the layer is hidden until you clear it.', steps: ['Tools → <b>Filter features</b>, choose the layer.', 'Pick a field and a condition (equal, contains, between, in a list…).', 'Press <b>Apply filter</b>; the layer row gets a “Filtered” chip.', 'Clear it from the same panel, or Layers → Clear filters.'] },
+  filter: { about: 'Hide every row that does not match. Filters are numbered in one list. Several on the same layer are combined — a row must match all of them.', steps: ['Switch on the layer you want to filter. Only layers that are on can be chosen.', 'Tools → <b>Filter features</b>. The list is at the top — the first one you add is #1.', 'Pick the layer, a field and a condition, then <b>Add filter</b>. Add another on the same layer or a different one; they stack.', '<b>Edit</b> changes one filter. <b>Remove</b> drops just that one. Layers → <b>Clear filters</b> drops them all.'], tip: 'The same list sits at the top of the Layers panel, so you can edit or remove a filter without opening the tool again.' },
   reclass: { about: 'Groups a numeric field into classes and recolours the layer so patterns stand out.', steps: ['Tools → <b>Group into classes</b>.', 'Choose the layer, the numeric field, the number of classes and the method.', 'Apply — the legend follows the new classes. Remove classes to return to the original colours.'] },
   buffer: { about: 'Draws a zone at a fixed distance around features of one layer, then counts features of another layer that fall inside it.', steps: ['Switch on the source layer and the layer you want to check.', 'Tools → <b>Buffer / Proximity</b>, pick both layers and the distance in km.', 'Run it: the buffer is drawn and the matches are counted.'], tip: 'Works with points (circles), lines (corridors) and polygons.' },
   intersect: { about: 'Shows only the area where two polygon layers overlap.', steps: ['Switch on two polygon layers.', 'Tools → <b>Intersect / Overlay</b>, choose A and B.', 'Run; the overlap shapes are drawn on top.'], needs: 'Two polygon layers on.' },
