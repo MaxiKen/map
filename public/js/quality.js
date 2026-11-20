@@ -134,7 +134,6 @@ function overviewHTML(catalog, published) {
   const review = published.filter((meta) => meta.quality.qualityUseClass === 'review_required');
   const counts = summary.quality_use_class_counts || {};
   const structural = summary.structural_status_counts || {};
-  const registerFile = register.registerFile || 'quality-register.json';
   return `<section class="quality-overview">
     <div class="quality-intro"><b>Evidence, not a score</b>
       <p>Checks, source completeness, publication state and narrative caveats are shown separately. Structural passes do not certify survey accuracy, and metadata completeness does not grant reuse rights.</p>
@@ -155,10 +154,9 @@ function overviewHTML(catalog, published) {
     ${review.length ? review.map((meta) => `<button class="quality-review-row q-review" data-quality-layer="${esc(meta.id)}"><span><b>${esc(meta.label)}</b><small>${esc((meta.quality.limitations || [])[0] || 'Open review required')}</small></span><span>Inspect</span></button>`).join('') : '<p class="quality-note">No published layer is currently classified as review required.</p>'}
     <div class="quality-register">
       <b>Complete source register</b>
-      <p>The download covers all <b>${summary.layer_count ?? 0}</b> sources: ${summary.visible_layer_count ?? published.length} visible and ${summary.hidden_layer_count ?? 0} hidden. Across those sources, ${structural.structural_pass ?? 0} pass applicable structural checks and ${structural.historical_defects_retained ?? 0} hidden originals retain historical defects as provenance.</p>
+      <p>The register covers all <b>${summary.layer_count ?? 0}</b> sources: ${summary.visible_layer_count ?? published.length} visible and ${summary.hidden_layer_count ?? 0} hidden. Across those sources, ${structural.structural_pass ?? 0} pass applicable structural checks and ${structural.historical_defects_retained ?? 0} hidden originals retain historical defects as provenance.</p>
       <p><code>${esc(register.registerId)}</code> · generated ${esc((register.generatedUtc || '').slice(0, 10) || 'date not recorded')}</p>
       <p class="quality-hash-label">Register SHA-256<br><code class="quality-hash">${esc(register.registerSha256 || 'not recorded')}</code></p>
-      <a class="btn primary" href="${esc(registerFile)}" download>Download full JSON register</a>
     </div>
   </section>`;
 }

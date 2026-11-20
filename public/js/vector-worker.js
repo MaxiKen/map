@@ -1,4 +1,4 @@
-import { prepareFeature } from './engine.js?v=0e4720ac47';
+import { prepareFeature } from './engine.js?v=73f184c731';
 
 // GeoJSON parsing, Mercator conversion and typed-array allocation happen away from the UI thread.
 // Coordinate buffers are transferred, not copied, in the result message.

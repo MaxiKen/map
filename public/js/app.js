@@ -1,6 +1,6 @@
-import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature, pip2, featureCentroid, convexHullFeature, convexHullPoints, simplifyFeature, bufferFeature, ringIntersection, intersectPolyPoly, segmentsIntersect, polyOverlapsPoly, ringsBBox, normalizeClip, clipBB, circleToPolygon, circleMercRadiusForMetres, distToRingMerc, haversineMerc, ringSignedArea } from './engine.js?v=0e4720ac47';
-import { createLoadScheduler } from './loading.js?v=0e4720ac47';
-import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=0e4720ac47';
+import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature, pip2, featureCentroid, convexHullFeature, convexHullPoints, simplifyFeature, bufferFeature, ringIntersection, intersectPolyPoly, segmentsIntersect, polyOverlapsPoly, ringsBBox, normalizeClip, clipBB, circleToPolygon, circleMercRadiusForMetres, distToRingMerc, haversineMerc, ringSignedArea } from './engine.js?v=73f184c731';
+import { createLoadScheduler } from './loading.js?v=73f184c731';
+import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=73f184c731';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1187,7 +1187,7 @@ const TOOL_GROUPS = {
     ['labels', 'tag', 'Feature labels', 'Write a field on the map'],
     ['zoomlayer', 'zoom', 'Zoom to a layer', 'Fit a whole layer on screen'],
     ['shot', 'camera', 'Save map picture', 'Download the screen as a PNG'],
-    ['export', 'down', 'Export results', 'Save a map picture or attribute rows as CSV'],
+    ['export', 'camera', 'Picture with title & frame', 'PNG with a title, legend, scale and grid'],
   ],
   author: [
     ['symbology', 'palette', 'Symbology', 'Fill, stroke, size and labels'],
@@ -1200,7 +1200,7 @@ const TOOL_GROUPS = {
     ['ramp', 'palette', 'Color Ramps', 'Choose perceptual color ramps for layers'],
     ['custombasemap', 'layers', 'Custom Basemap', 'Add your own XYZ tile basemap URL'],
     ['mappreset', 'pin', 'Map Presets', 'Save and restore map view states'],
-    ['printlayout', 'camera', 'Print Layouts', 'A4 / Letter page templates for export'],
+    ['printlayout', 'camera', 'Print Layouts', 'A4 / Letter page templates for pictures'],
   ],
   project: [
     ['resetview', 'refresh', 'Reset the view', 'Back to the opening extent and no filters'],
@@ -1301,7 +1301,7 @@ const TOOL_GROUPS = {
     ['labels', 'tag', 'Feature labels', 'Write a field on the map'],
     ['zoomlayer', 'zoom', 'Zoom to a layer', 'Fit a whole layer on screen'],
     ['shot', 'camera', 'Save map picture', 'Download the screen as a PNG'],
-    ['export', 'down', 'Export results', 'Save a map picture or attribute rows as CSV'],
+    ['export', 'camera', 'Picture with title & frame', 'PNG with a title, legend, scale and grid'],
     ['countbyattr', 'chart', 'Count by Attribute', 'Tally features by field value'],
     ['fieldstatsbygroup', 'chart', 'Field Stats by Group', 'Grouped statistics by field'],
   ],
@@ -1846,7 +1846,7 @@ function toolClip() {
     : 'No focus area — the whole map is shown.';
   openModal('Clip to an area', (body) => {
     body.innerHTML = `<p class="hint">${cur}</p>
-      <p>Everything outside the shape is completely removed — only what lies inside is drawn, searched, identified, tabulated and exported. Use it to study one state, one LGA, one basin or one site.</p>
+      <p>Everything outside the shape is completely removed — only what lies inside is drawn, searched, identified and tabulated. Use it to study one state, one LGA, one basin or one site.</p>
       <div class="aoi">
         <button class="btn" data-act="rect">${icon('crop')} Rectangle</button>
         <button class="btn" data-act="square">${icon('crop')} Square</button>
@@ -2438,7 +2438,6 @@ function wireSelBar() {
   $('#selclearall').onclick = () => selClear(true);
   $('#sellist').onclick = () => openSelectionList();
   $('#selzoom').onclick = () => selZoom();
-  $('#selcsv').onclick = () => selExportCsv();
   $('#selall').onclick = () => {
     const [x0, y1] = map.fromScreen(0, 0), [x1, y0] = map.fromScreen(map.W, map.H);
     const found = map.featuresInRect([x0, y0, x1, y1], { mode: 'intersect', layers: selState.filter ? [selState.filter] : null, limit: 2000 });
@@ -2518,7 +2517,6 @@ function openSelectionList() {
         <button class="btn" data-act="zoom">${icon('zoom')} Zoom to selection</button>
         <button class="btn" data-act="focus">${icon('crop')} Focus on selection</button>
         <button class="btn" data-act="attrs">${icon('info')} Feature details</button>
-        <button class="btn" data-act="csv">${icon('down')} Export CSV</button>
         <button class="btn" data-act="clear">Clear selection</button>
       </div>
       <p class="hint">Leave this panel open and keep tapping the map — the list updates as you select.</p>`;
@@ -2536,7 +2534,6 @@ function openSelectionList() {
       if (act === 'zoom') { const bb = selBounds(true); if (bb) map.fitBounds(bb, 40); closeModal(); }
       else if (act === 'focus') { selFocus(); closeModal(); }
       else if (act === 'attrs') { closeModal(); selShowAttrs(); }
-      else if (act === 'csv') selExportCsv();
       else if (act === 'clear') { selClear(true); closeModal(); }
     });
   });
@@ -2565,19 +2562,6 @@ function selFocus() {
     toast('Focused on the selection');
   }
 }
-function selExportCsv() {
-  const items = selItems(); if (!items.length) { toast('Nothing is selected'); return; }
-  const keys = [];
-  for (const r of items) for (const k of Object.keys(r.f.props || {})) if (!keys.includes(k)) keys.push(k);
-  const lines = ['layer,' + keys.map((k) => `"${String(k).replace(/"/g, '""')}"`).join(',') + ',lat,lon'];
-  for (const r of items) {
-    const [wx, wy] = labelAnchor(r.f);
-    lines.push([r.st.meta.label, ...keys.map((k) => r.f.props?.[k] ?? ''), unY(wy).toFixed(5), unX(wx).toFixed(5)]
-      .map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','));
-  }
-  download('selection.csv', lines.join(String.fromCharCode(10)), 'text/csv');
-  toast('Selection exported');
-}
 function selShowAttrs() {
   const items = selItems();
   if (!items.length) { toast('Nothing is selected'); return; }
@@ -2603,7 +2587,7 @@ function toolQuery() {
       body.innerHTML = `<p class="hint">No polygon layer is switched on, so there is no boundary to select against.${clip ? ' Your focus area still works — use <b>Area summary</b> to count inside it.' : ''}</p>`;
       return;
     }
-    body.innerHTML = `<p>Tap a polygon on the map, then everything inside it is listed, counted and can be exported. Uses the polygon's own boundary, so a state or LGA border works as a rubber band.</p>
+    body.innerHTML = `<p>Tap a polygon on the map, then everything inside it is listed and counted. Uses the polygon's own boundary, so a state or LGA border works as a rubber band.</p>
       <label>Boundary layer<select id="qpoly">${polys.map(([id, st]) => `<option value="${esc(id)}">${esc(st.meta.label)}</option>`).join('')}</select></label>
       <label>List features from<select id="qlayer"><option value="">all switched-on layers</option>${visibleLayerIds().map((id) => `<option value="${esc(id)}">${esc(L.get(id).meta.label)}</option>`).join('')}</select></label>
       <div class="frow act"><button class="btn primary" data-act="run">Next: tap a polygon</button></div>
@@ -2647,21 +2631,12 @@ function runQuery(poly, onlyLayer) {
       <div class="aoi" style="margin-top:10px">
         <button class="btn" data-act="focus">${icon('crop')} Focus on this polygon</button>
         <button class="btn" data-act="zoom">${icon('zoom')} Zoom to it</button>
-        ${out.length ? '<button class="btn" data-act="csv">Export selection (CSV)</button>' : ''}
       </div>`;
     body.addEventListener('click', (e) => {
       const b = e.target.closest('[data-act]'); if (!b) return;
       const act = b.dataset.act; closeModal();
       if (act === 'focus') focusFromFeature(poly.f, label);
       else if (act === 'zoom') focusThenZoom(poly.f);
-      else if (act === 'csv') {
-        const lines = ['layer,name,value,lat,lon'];
-        for (const r of out) {
-          const [wx, wy] = labelAnchor(r.f);
-          lines.push([r.st.meta.label, titleOf(r.st.obj, r.f), valueFor(r.st, r.f), unY(wy).toFixed(5), unX(wx).toFixed(5)].map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','));
-        }
-        download('selection.csv', lines.join(String.fromCharCode(10)), 'text/csv');
-      }
     });
   });
 }
@@ -2971,7 +2946,7 @@ async function exportMapImage(opts = {}) {
     const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
     const a = document.createElement('a'); a.href = url; a.download = `map-export-${ts}.png`;
     a.click(); setTimeout(() => URL.revokeObjectURL(url), 4000);
-    toast('Map picture exported', 5000);
+    toast('Map picture saved', 5000);
   }, 'image/png');
 
   // Restore state
@@ -3904,7 +3879,7 @@ function applyMapPreset(name) {
 // ---- Print Layouts tool ----
 function toolPrintLayout() {
   openModal('Print Layouts', (body) => {
-    body.innerHTML = '<p>Choose a page template for PNG export. Adds margins, title block, and scale bar area around the map.</p>' +
+    body.innerHTML = '<p>Choose a page template for saved pictures. Adds margins, a title block and a scale bar area around the map.</p>' +
       '<div class="frow"><label>Page size</label><select id="pl-size">' +
         '<option value="a4">A4 (210 × 297 mm)</option>' +
         '<option value="letter">Letter (8.5 × 11 in)</option>' +
@@ -3915,8 +3890,8 @@ function toolPrintLayout() {
         '<option value="landscape">Landscape</option>' +
       '</select></div>' +
       '<div class="frow"><label>Margin (mm)</label><input id="pl-margin" type="number" min="5" max="50" value="15"></div>' +
-      '<div class="frow act"><button class="btn primary" id="pl-set">' + icon('camera') + ' Use for Next Export</button></div>' +
-      '<p class="muted">The chosen layout applies when you download a PNG from Export results.</p>';
+      '<div class="frow act"><button class="btn primary" id="pl-set">' + icon('camera') + ' Use for next picture</button></div>' +
+      '<p class="muted">The chosen layout applies when you save a picture with a title and frame.</p>';
     body.querySelector('#pl-set').onclick = () => {
       localStorage.setItem('nwg.print_layout', JSON.stringify({
         size: body.querySelector('#pl-size').value,
@@ -3939,7 +3914,7 @@ function toolFeatureFinder() {
   for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.fields) vecLayers.push(st); }
   if (!vecLayers.length) { toast('No vector layer with attributes loaded'); return; }
   openModal('Feature Finder', (body) => {
-    body.innerHTML = '<p>Search feature attributes across all active layers. Results are highlighted on the map — no data is exported.</p>' +
+    body.innerHTML = '<p>Search feature attributes across all active layers. Results are highlighted on the map — nothing is downloaded.</p>' +
       '<div class="frow"><label>Search text</label><input id="ff-q" type="search" placeholder="Type a name, ID, code…"></div>' +
       '<div class="frow"><label>Limit</label><select id="ff-limit"><option value="20">20 results</option><option value="50">50 results</option><option value="100">100 results</option></select></div>' +
       '<div class="frow act"><button class="btn primary" id="ff-run">' + icon('search') + ' Search</button></div>' +
@@ -4062,7 +4037,7 @@ function toolLayerDiscovery() {
     body.innerHTML = '<p>Search and browse the layer catalog. Click a layer to add it to the map.</p>' +
       '<div class="frow"><label>Search</label><input id="ld-q" type="search" placeholder="Search layer names, types, sources…"></div>' +
       '<div id="ld-list" style="max-height:320px;overflow-y:auto;border:1px solid var(--line);border-radius:6px"></div>' +
-      '<p class="muted" style="margin-top:6px">Layers are added to the map but not exported.</p>';
+      '<p class="muted" style="margin-top:6px">Layers are added to the map for this session only.</p>';
     const qSel = body.querySelector('#ld-q');
     const listDiv = body.querySelector('#ld-list');
     function render() {
@@ -4146,7 +4121,7 @@ function toolZoomLayer() {
 // ------------------------------------------------ tool: import
 function toolImport() {
   openModal('Import GeoJSON', (body) => {
-    body.innerHTML = `<p class="muted">Bring a GeoJSON file (points, lines or polygons) onto the map. It is added as a layer for this session and can be styled and labelled; its attribute rows can be exported as CSV.</p>
+    body.innerHTML = `<p class="muted">Bring a GeoJSON file (points, lines or polygons) onto the map. It is added as a layer for this session and can be styled and labelled; the rows stay on the map only.</p>
       <div class="frow"><label>File</label><input id="i-file" type="file" accept=".geojson,.json,application/geo+json,application/json"></div>
       <div class="frow"><label>or paste</label><textarea id="i-text" placeholder='{"type":"FeatureCollection","features":[…]}'></textarea></div>
       <div class="frow act"><button class="btn primary" id="i-add">Add to the map</button></div>`;
@@ -4187,7 +4162,7 @@ function toolImport() {
 
 // ------------------------------------------------ tool: export
 function toolExport() {
-  openModal('Export results', (body) => {
+  openModal('Picture with title & frame', (body) => {
     const hasClip = !!clip;
     const drawnShape = draw && (draw.kind === 'rect' || draw.kind === 'square' || draw.kind === 'circle' || draw.kind === 'poly' || draw.kind === 'freehand') && draw.pts.length > 0;
     body.innerHTML = '<p class="muted">Download a high-quality PNG map image. Cartographic elements are drawn around the map area.</p>' +
@@ -4389,7 +4364,7 @@ function toolMeasSave() {
 function toolMeasList() {
   const arr = getMeas();
   openModal('Saved Measurements', (body) => {
-    body.innerHTML = '<p>Saved measurements can be restored to the map. Visual only — no data is exported.</p>' +
+    body.innerHTML = '<p>Saved measurements can be restored to the map. Visual only — nothing is downloaded.</p>' +
       '<div id="meas-list" style="max-height:300px;overflow-y:auto;border:1px solid var(--line);border-radius:6px;padding:6px"></div>' +
       '<div class="frow act" style="margin-top:8px"><button class="btn" id="meas-clear-all">' + icon('trash') + ' Clear All</button></div>';
     function render() {
@@ -4432,7 +4407,7 @@ function toolDrawSave() {
 function toolDrawList() {
   const arr = getDraws();
   openModal('Saved Drawings', (body) => {
-    body.innerHTML = '<p>Saved focus areas can be restored to the map. Visual only — no data is exported.</p>' +
+    body.innerHTML = '<p>Saved focus areas can be restored to the map. Visual only — nothing is downloaded.</p>' +
       '<div id="draw-list" style="max-height:300px;overflow-y:auto;border:1px solid var(--line);border-radius:6px;padding:6px"></div>' +
       '<div class="frow act" style="margin-top:8px"><button class="btn" id="draw-clear-all">' + icon('trash') + ' Clear All</button></div>';
     function render() {
@@ -4521,7 +4496,7 @@ function toolTemporalFilter() {
   const layers = getTemporalLayers();
   if (!layers.length) { toast('No layer with a date/year field is active'); return; }
   openModal('Temporal Filter', (body) => {
-    body.innerHTML = '<p>Filter features by date or year field. Only matching features are shown on the map — no data is exported.</p>' +
+    body.innerHTML = '<p>Filter features by date or year field. Only matching features are shown on the map — nothing is downloaded.</p>' +
       '<div class="frow"><label>Layer</label><select id="tf-layer">' + layers.map(([id, st, dfs]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
       '<div class="frow"><label>Field</label><select id="tf-field"></select></div>' +
       '<div class="frow"><label>Operator</label><select id="tf-op">' +
@@ -4945,7 +4920,7 @@ function toolSelectAttr() {
   for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.fields) vecLayers.push([id, st]); }
   if (!vecLayers.length) { toast('No vector layer with attributes loaded'); return; }
   openModal('Select by Attribute', (body) => {
-    body.innerHTML = '<p>Select features by matching attribute values. Results are highlighted on the map only — no data is exported.</p>' +
+    body.innerHTML = '<p>Select features by matching attribute values. Results are highlighted on the map only — nothing is downloaded.</p>' +
       '<div class="frow"><label>Layer</label><select id="sa-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
       '<div class="frow"><label>Field</label><select id="sa-field"></select></div>' +
       '<div class="frow"><label>Operator</label><select id="sa-op">' +
@@ -5020,7 +4995,7 @@ function toolFieldCalc() {
   for (const id of stack) { const st = L.get(id); if (st?.obj?.features && st.meta.fields) vecLayers.push([id, st]); }
   if (!vecLayers.length) { toast('No vector layer with attributes loaded'); return; }
   openModal('Field Calculator', (body) => {
-    body.innerHTML = '<p>Calculate a new attribute field from existing fields. Stored in memory only — shown on map and PNG, never exported as data.</p>' +
+    body.innerHTML = '<p>Calculate a new attribute field from existing fields. Stored in memory only — shown on the map and in PNG pictures.</p>' +
       '<div class="frow"><label>Layer</label><select id="fc-layer">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
       '<div class="frow"><label>New field name</label><input id="fc-name" type="text" placeholder="e.g. area_km2"></div>' +
       '<div class="frow"><label>Expression</label><input id="fc-expr" type="text" placeholder="e.g. POP * 1000 / AREA"></div>' +
@@ -5185,11 +5160,6 @@ function resetWork() {
   if (!confirm('Reset colours, filters, labels and panel state? The data itself is not touched.')) return;
   try { localStorage.removeItem(PKEY); } catch { }
   location.hash = ''; location.reload();
-}
-function download(name, text, type = 'application/octet-stream') {
-  const url = URL.createObjectURL(new Blob([text], { type }));
-  const a = document.createElement('a'); a.href = url; a.download = name; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
 // ---------------------------------------------------------------- buttons
@@ -5501,7 +5471,7 @@ let mapNotes = [];
 
 function toolMapNotes() {
   openModal('Map Notes', (body) => {
-    body.innerHTML = '<p>Add text notes and markers to the map for collaboration. Notes are drawn on the map only — not exported as data.</p>' +
+    body.innerHTML = '<p>Add text notes and markers to the map for collaboration. Notes are drawn on the map only.</p>' +
       '<div class="frow"><label>Note text</label><input id="mn-text" type="text" placeholder="e.g. Check this area"></div>' +
       '<div class="frow act"><button class="btn primary" id="mn-add">' + icon('note') + ' Add Note at Map Center</button></div>' +
       '<div id="mn-list" style="margin-top:10px;max-height:240px;overflow-y:auto;border:1px solid var(--line);border-radius:6px;padding:6px"></div>' +
@@ -8543,12 +8513,12 @@ start();
 // GUIDE  (built from TOOL_GROUPS, so every tool always has an entry)
 // ================================================================================
 const GUIDE_GROUP_NOTES = {
-  focus: 'Start here. These tools answer “what is inside this place?” — select it, clip to it, then analyse and export.',
+  focus: 'Start here. These tools answer “what is inside this place?” — select it, clip to it, then analyse it.',
   analyse: 'Spatial analysis between layers. Results are drawn on the map and can be saved as a picture.',
   navigate: 'Measuring, coordinates, bookmarks and the map itself. Nothing here changes your data.',
   temporal: 'Filter and step through features that carry a date or a year.',
   search: 'Find a place or a feature by name, or work with coordinates.',
-  data: 'Tables, statistics, filters and exports for the layer you are looking at.',
+  data: 'Tables, statistics and filters for the layer you are looking at.',
   cartography: 'Colours, basemaps, print layouts and saved views — how the map looks and prints.',
   project: 'The view itself: back to the start, or full screen.',
   mobile: 'Comfort and access settings for phones, tablets, screen readers and colourblind users.',
@@ -8577,7 +8547,7 @@ function guideHTML() {
     <div><b>Focus on a place</b><span>Tools → Clip to an area, or the Clip chip in Layers.</span></div>
     <div><b>Select features</b><span>Tools → Select features, then tap them or drag a box.</span></div>
     <div><b>Read the numbers</b><span>Tap a feature → Info panel. Tools → Layer statistics for whole layers.</span></div>
-    <div><b>Take it away</b><span>Tools → Save map picture (PNG) or Select features → Export (CSV).</span></div>
+    <div><b>Take it away</b><span>Tools → Save map picture — the only download is a PNG picture.</span></div>
   </div>`;
   const sections = Object.entries(TOOL_GROUPS)
     .filter(([g]) => g !== 'author' || AUTHOR)
@@ -8635,20 +8605,20 @@ const TOOL_HELP_DEFAULT = (label, desc) => ({
 
 const TOOL_HELP = {
   select: {
-    about: 'Select one feature, several features, or everything inside a box you drag. This is the phone-friendly way to pick exactly what you want to see and export.',
+    about: 'Select one feature, several features, or everything inside a box you drag. This is the phone-friendly way to pick exactly what you want to see.',
     steps: [
       'Tools → <b>Select features</b>. Pick a layer (or “All switched-on layers”) and press <b>Start selecting</b>.',
       'A bar appears at the bottom of the map (top on desktop) and the map stops panning while you select.',
       '<b>Tap a feature</b> to select it; tap it again to remove it.',
       '<b>Press and drag</b> to draw a box — everything inside the box is selected. Drag the same box again to deselect.',
-      '<b>All</b> takes everything on screen, <b>List</b> shows what you have, <b>Zoom</b> fits it, <b>Export</b> saves a CSV, <b>Clear</b> empties it.',
+      '<b>All</b> takes everything on screen, <b>List</b> shows what you have, <b>Zoom</b> fits it, <b>Clear</b> empties it.',
       'Press <b>Done</b> to go back to normal map panning. Your selection stays highlighted until you clear it.',
     ],
     tip: 'The Info panel updates with the feature you last selected, so you can read attributes without leaving select mode.',
     needs: 'At least one feature layer switched on (polygon, line or point).',
   },
   clip: {
-    about: 'Everything outside the shape you choose is removed from the map, so counts, tables and exports only cover that place.',
+    about: 'Everything outside the shape you choose is removed from the map, so counts and tables only cover that place.',
     steps: ['Tools → <b>Clip to an area</b>.', 'Press and drag for a rectangle or a square (square on the ground, equal kilometres a side), or press at the centre and drag out for a circle with a real radius in metres.', 'For a polygon, tap each corner then <b>Done</b>; for <b>Pick features from a layer</b>, choose a polygon layer, tick the shapes (or press <b>Pick on the map</b> and tap them), then <b>Clip</b>.', 'The focus chip in Layers turns green and the area in km² is shown.', 'Use <b>Area summary</b> to count what is inside, or <b>Clear focus</b> to go back to the whole country.'],
     tip: 'Picks can come from more than one layer, and each picked shape stays its own clip area. Esc or <b>Cancel</b> stops a drawing at any time.',
   },
@@ -8667,7 +8637,7 @@ const TOOL_HELP = {
   'measure-area': { about: 'Measure the area of a shape and the length of its edge.', steps: ['Tools → <b>Measure area</b>.', 'Tap each corner; the area in km² updates as you go.', 'Press <b>Done</b> when the shape is closed.'] },
   goto: { about: 'Jump to any latitude and longitude.', steps: ['Tools → <b>Go to coordinates</b>.', 'Type latitude and longitude (or paste “lat, lon”) and choose a zoom.', 'Press <b>Zoom there</b>.'], tip: 'Neither a phone nor a desktop needs a decimal comma — paste what you copied.' },
   bearing: { about: 'Distance and compass bearing between two coordinates.', steps: ['Tools → <b>Distance & bearing</b>.', 'Fill both points (or use the map centre as the start).', 'Press <b>Calculate</b>, then <b>Show both on the map</b>.'] },
-  grid: { about: 'Shows or hides the latitude/longitude graticule with labels.', steps: ['Tools → <b>Grid lines</b> (the Layers panel has the same switch).', 'Toggle it off the same way.'], tip: 'The grid also appears in exported pictures when you tick “Grid” in the export panel.' },
+  grid: { about: 'Shows or hides the latitude/longitude graticule with labels.', steps: ['Tools → <b>Grid lines</b> (the Layers panel has the same switch).', 'Toggle it off the same way.'], tip: 'The grid also appears in saved pictures when you tick “Grid” in the picture panel.' },
   locate: { about: 'Centres the map on your current position.', steps: ['Allow location access when the browser asks.', 'Tools → <b>Locate Me</b>, or the target button at the top right.'], tip: 'On a phone this needs location permission for the site; without it the map says so and nothing breaks.' },
   bookmarks: { about: 'Save the current view under a name and jump back to it later.', steps: ['Zoom to the view you want.', 'Tools → <b>View Bookmarks</b>, type a name and save.', 'Pick the bookmark at any time to return to it.'], tip: 'Bookmarks live on this device only.' },
   rotate: { about: 'Rotates the map display and shows a north arrow so orientation is never ambiguous.', steps: ['Tools → <b>Rotate Map</b>, set an angle or use the slider.', 'Reset to 0° to go back to north-up.'], tip: 'Selecting, tapping and measuring all follow the rotation.' },
@@ -8683,20 +8653,20 @@ const TOOL_HELP = {
   coords: { about: 'Reads the coordinates of any point you tap, in decimal degrees and DMS.', steps: ['Tools → <b>Coordinate Inspector</b>.', 'Tap the map; the coordinates appear in the panel.'] },
   convert: { about: 'Converts between decimal degrees, degrees-minutes-seconds and UTM.', steps: ['Tools → <b>Coordinate Converter</b>.', 'Type a value in any box; the others update.'] },
   layerfind: { about: 'Searches the whole layer catalog by name, source or type.', steps: ['Tools → <b>Layer Discovery</b>, type what you are looking for.', 'Tap a result to zoom to it or switch it on.'] },
-  stats: { about: 'Totals, averages, extremes and a chart for any field of a layer.', steps: ['Tools → <b>Layer statistics</b>, choose the layer.', 'Read the summary and the chart; export the numbers if needed.'] },
+  stats: { about: 'Totals, averages, extremes and a chart for any field of a layer.', steps: ['Tools → <b>Layer statistics</b>, choose the layer.', 'Read the summary and the chart.'] },
   chart: { about: 'Histogram of a numeric column, or a ranked count of a text column.', steps: ['Tools → <b>Compare fields</b>, pick layer and field.', 'The chart respects the focus area when one is active.'] },
-  table: { about: 'The full attribute table: sort, search, hide columns and export rows.', steps: ['Tools → <b>Attribute table</b>, pick the layer.', 'Use the filter box to search; tap a row to locate it.'] },
+  table: { about: 'The full attribute table: sort, search and hide columns.', steps: ['Tools → <b>Attribute table</b>, pick the layer.', 'Use the filter box to search; tap a row to locate it.'] },
   fieldcalc: { about: 'Creates a new attribute field from an expression.', steps: ['Tools → <b>Field Calculator</b>, choose the layer.', 'Name the field and write an expression using existing field names.', 'Apply; the new column appears in the table and can be charted.'], tip: 'This is author-mode work: it changes what you see, not the source data file.' },
-  selectattr: { about: 'Selects features by attribute value, without tapping the map.', steps: ['Tools → <b>Select by Attribute</b>, pick the layer and field.', 'Choose the condition and value, then Apply.', 'The matching features are highlighted and can be exported.'], tip: 'For a map-based selection (tap or box), use Tools → Select features instead.' },
+  selectattr: { about: 'Selects features by attribute value, without tapping the map.', steps: ['Tools → <b>Select by Attribute</b>, pick the layer and field.', 'Choose the condition and value, then Apply.', 'The matching features are highlighted on the map.'], tip: 'For a map-based selection (tap or box), use Tools → Select features instead.' },
   colmanage: { about: 'Shows or hides columns in the attribute table.', steps: ['Tools → <b>Column Manager</b>, tick the columns you want.'] },
   labels: { about: 'Writes a field’s value on the map for a selected layer.', steps: ['Tools → <b>Feature labels</b>, choose the layer and field.', 'Tune size, minimum zoom, colour and halo. Labels stay hidden below the minimum zoom so the map stays readable.'] },
   zoomlayer: { about: 'Fits one whole layer on the screen.', steps: ['Tools → <b>Zoom to a layer</b>, pick the layer.'] },
-  shot: { about: 'Downloads the current map as a PNG picture.', steps: ['Arrange the map the way you want it.', 'Tools → <b>Save map picture</b>.', 'On desktop you can add a title, legend, scale, north arrow and grid first.'], tip: 'If a basemap refuses to export for licensing reasons, the picture is saved without it — your data is still there.' },
-  export: { about: 'Saves a map picture or attribute rows as CSV.', steps: ['Tools → <b>Export results</b>.', 'Choose the area (whole view, focus area or picked polygons), then picture or CSV.'] },
+  shot: { about: 'Downloads the current map as a PNG picture.', steps: ['Arrange the map the way you want it.', 'Tools → <b>Save map picture</b>.', 'On desktop you can add a title, legend, scale, north arrow and grid first.'], tip: 'If a basemap refuses to be included for licensing reasons, the picture is saved without it — your data is still there.' },
+  export: { about: 'Saves the map as a PNG picture with a title, legend, scale bar, north arrow and grid — there is no data download.', steps: ['Tools → <b>Picture with title &amp; frame</b>.', 'Choose the area (whole view, focus area or picked polygons), tick what to draw around the map, then download the PNG.'] },
   ramp: { about: 'Chooses a colour ramp for classified layers.', steps: ['Tools → <b>Color Ramps</b>, pick a ramp, then apply it to a layer.'] },
   custombasemap: { about: 'Adds your own XYZ tile basemap by URL.', steps: ['Tools → <b>Custom Basemap</b>.', 'Give it a name and paste a tile URL containing {z}, {x} and {y}.', 'Save; it appears with the other basemaps.'], tip: 'Use a source whose licence allows it, and remember tiles need internet.' },
   mappreset: { about: 'Saves a complete view (layers, colours, focus) under a name.', steps: ['Set the map up as you want it.', 'Tools → <b>Map Presets</b>, name it and save.', 'Restore it later in one tap.'] },
-  printlayout: { about: 'Turns the export into a page layout (A4, A3 or Letter) with a title block.', steps: ['Tools → <b>Print Layouts</b>, choose size, orientation and margin.', 'Then Tools → Save map picture; the PNG follows the layout.'] },
+  printlayout: { about: 'Turns the saved picture into a page layout (A4, A3 or Letter) with a title block.', steps: ['Tools → <b>Print Layouts</b>, choose size, orientation and margin.', 'Then Tools → Save map picture; the PNG follows the layout.'] },
   resetview: { about: 'Back to the opening extent with no filters or focus.', steps: ['Tools → <b>Reset the view</b>.'], tip: 'Your layer list and colours are kept; only the view and filters reset.' },
   fullscreen: { about: 'Uses the whole screen with no browser chrome.', steps: ['Tools → <b>Full screen</b>, or the expand button at the top right.', 'Press Esc or the button again to come back.'] },
   countbyattr: {
@@ -8720,7 +8690,7 @@ const TOOL_HELP = {
   colorblind: { about: 'Switches to colourblind-safe palettes.', steps: ['Tools → <b>Colorblind Palettes</b>, pick a palette; classified layers and legends follow.'] },
   shareview: { about: 'Copies a link that opens the exact same view.', steps: ['Set the map up as you want it.', 'Tools → <b>Share View</b>, then paste the link into a message.'], tip: 'The link carries the layers, basemap, centre, zoom and focus area.' },
   session: { about: 'Saves and restores whole sessions with a short code.', steps: ['Tools → <b>Session Codes</b>.', 'Save to get a code, or type a code to restore someone else’s session.'] },
-  mapnotes: { about: 'Adds text notes and markers to the map for a discussion.', steps: ['Tools → <b>Map Notes</b>, type the note and add it at the centre.', 'Drag the note on the map to move it.'], tip: 'Notes are for the map only — they are not data and not exported as data.' },
+  mapnotes: { about: 'Adds text notes and markers to the map for a discussion.', steps: ['Tools → <b>Map Notes</b>, type the note and add it at the centre.', 'Drag the note on the map to move it.'], tip: 'Notes are for the map only — they are drawn on the map, not saved as data.' },
   rastercalc: { about: 'Map algebra on one raster: multiply, add, threshold, and so on.', steps: ['Switch on a raster layer.', 'Tools → <b>Raster Calculator</b>, write an expression using v (the cell value).', 'Run; the result is drawn as a new surface.'], needs: 'A raster layer on.' },
   rasterreclass: { about: 'Reclassifies raster cell values into your own groups.', steps: ['Tools → <b>Raster Reclassify</b>, choose the layer and the breaks.'] },
   rasterstats: { about: 'Min, max, mean and distribution of a raster.', steps: ['Tools → <b>Raster Statistics</b>, choose the raster.'] },

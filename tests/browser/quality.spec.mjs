@@ -29,7 +29,8 @@ test('visual: desktop quality overview, evidence detail and source links', async
   await expect(detail.locator('a[href="https://data.humdata.org/dataset/wpdx_nga"]')).toHaveAttribute('rel', 'noopener noreferrer');
   await expect(detail.locator('a[download][href$=".geojson"]')).toHaveCount(0);
   await expect(detail).not.toContainText('Download GeoJSON');
-  await expect(page.locator('a[download][href="quality-register.json"]')).toHaveCount(1);
+  // no data download anywhere: the register is described, never handed out
+  await expect(page.locator('a[download]')).toHaveCount(0);
   await resetPanelScroll(page);
   await expect(page.locator('#sheet')).toHaveScreenshot('quality-review-desktop.png');
 

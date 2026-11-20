@@ -35,11 +35,12 @@ test('browser loads a gzip vector in its worker and renders a single-style legen
   await page.locator('.tab[data-tab="tools"]').click();
   await page.locator('[data-tool="export"]').click();
   await expect(page.locator('#modal')).toBeVisible();
-  await expect(page.locator('#modal-title')).toHaveText('Export results');
+  await expect(page.locator('#modal-title')).toHaveText('Picture with title & frame');
   await expect(page.locator('#e-geo')).toHaveCount(0);
   await expect(page.locator('#modal-body')).not.toContainText('GeoJSON');
   await expect(page.locator('#e-png')).toBeVisible();
   await expect(page.locator('#e-csv')).toHaveCount(0);
+  await expect(page.locator('#modal-body')).not.toContainText('CSV');
   await page.locator('#modal-close').click();
 
   await page.locator('.tab[data-tab="legend"]').click();
