@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b3d2e">
 <meta name="description" content="Interactive map of Nigeria: geology, minerals and more.">
-<meta name="build" content="d991be72a1">
+<meta name="build" content="0c026c7420">
 <title>Nigeria WebGIS</title>
-<link rel="manifest" href="manifest.webmanifest?v=d991be72a1">
+<link rel="manifest" href="manifest.webmanifest?v=0c026c7420">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="css/app.css?v=d991be72a1">
+<link rel="stylesheet" href="css/app.css?v=0c026c7420">
 </head>
 <body>
 <canvas id="map" aria-label="Map"></canvas>
@@ -32,6 +32,25 @@
 <div id="mapinfo"><span id="coords"></span><span id="scalebar"><i></i><b></b></span></div>
 <div id="attrib"></div>
 <div id="measurebar" hidden><span id="measuretext">Tap the map to measure</span><button id="measureexport" title="Save the measurement — coordinates are never included">Export</button><button id="measureclear">Clear</button><button id="measuredone">Done</button></div>
+<div id="bufferbar" hidden><span id="buffertext">Tap a point, line or polygon</span><button type="button" id="buffercancel">Cancel</button></div>
+<div id="bufferpanel" hidden>
+  <div class="bufferhead"><b>Buffer / Proximity</b><button type="button" id="bufferclose" aria-label="Close">×</button></div>
+  <div id="bufferchoose" hidden></div>
+  <div id="buffersetup" hidden>
+    <p id="bufferpicked"></p>
+    <div class="shapepick" id="bf-shape">
+      <button type="button" data-shape="circle" class="on"><i class="shape-circle"></i>Circle</button>
+      <button type="button" data-shape="square"><i class="shape-square"></i>Square</button>
+      <button type="button" data-shape="diamond"><i class="shape-diamond"></i>Diamond</button>
+      <button type="button" data-shape="hexagon"><i class="shape-hex"></i>Hexagon</button>
+    </div>
+    <p class="hint">The zone reaches at least this far from the feature. A circle is the same distance all round; a square also covers the corners.</p>
+    <div class="frow"><label>Distance</label><input id="bf-dist" type="number" min="0.05" step="0.1" value="5"><select id="bf-unit"><option value="1">km</option><option value="0.001">m</option></select></div>
+    <div class="frow"><label>Look in</label><select id="bf-scope"><option value="all">this layer and every other switched-on layer</option><option value="others">other layers only</option><option value="same">this layer only</option></select></div>
+    <div class="frow"><label>Inside when</label><select id="bf-mode"><option value="overlap">any part enters the zone</option><option value="inside">it lies wholly inside</option><option value="centroid">its centre falls inside</option></select></div>
+    <div class="frow act"><button type="button" class="btn" id="bf-retap">Tap a different feature</button><button type="button" class="btn primary" id="bf-run">Analyse</button></div>
+  </div>
+</div>
 <div id="drawbar" hidden><span id="drawtext">Draw an area</span><button id="drawclear">Clear</button><button id="drawdone">Done</button></div>
 <div id="selbar" hidden role="toolbar" aria-label="Selection">
   <span id="seltext">Select mode: tap a feature, or drag a box</span>
@@ -129,6 +148,6 @@
 </div>
 
 <div id="toast" role="status"></div>
-<script type="module" src="js/app.js?v=d991be72a1"></script>
+<script type="module" src="js/app.js?v=0c026c7420"></script>
 </body>
 </html>

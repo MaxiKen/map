@@ -1,4 +1,4 @@
-import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature, pip2, featureCentroid, convexHullFeature, convexHullPoints, simplifyFeature, simplifyRing, bufferFeature, ringIntersection, intersectPolyPoly, polygonBoolean, featureDistanceKm, featureClosestKm, scrubForExport, exportHasCoordinates, isCoordinateKey, partsBBox, segmentsIntersect, polyOverlapsPoly, ringsBBox, normalizeClip, clipBB, circleToPolygon, circleMercRadiusForMetres, distToRingMerc, haversineMerc, ringSignedArea, lonlatRing } from './engine.js';
+import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature, pip2, featureCentroid, convexHullFeature, convexHullPoints, simplifyFeature, simplifyRing, bufferFeature, bufferZone, ringIntersection, intersectPolyPoly, polygonBoolean, featureDistanceKm, featureClosestKm, scrubForExport, exportHasCoordinates, isCoordinateKey, partsBBox, segmentsIntersect, polyOverlapsPoly, ringsBBox, normalizeClip, clipBB, circleToPolygon, circleMercRadiusForMetres, distToRingMerc, haversineMerc, ringSignedArea, lonlatRing } from './engine.js';
 import { createLoadScheduler } from './loading.js';
 import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js';
 
@@ -88,6 +88,7 @@ let baseOrder = [];           // every layer id in list order
 const expanded = new Set();
 let annotations = [];         // labels placed on the map
 let activeTab = 'layers', measure = null, userLoc = null, gridOn = false, editing = null, booting = true;
+let bufferPick = null, bufferPreview = null;
 // Viewers get the read-only map: analysis and viewing only. Content/styling work lives behind ?author=1.
 let AUTHOR = new URLSearchParams(location.search).get('author') === '1';
 let draw = null;              // {kind:'rect'|'poly'|'pick', pts:[]} while the user is drawing a focus area
@@ -189,7 +190,8 @@ async function start() {
   $('#btn-back').onclick = goBack;
   addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (clipPick) { endClipPick(false); }
+    if (bufferPick?.active) { stopBufferPick(); toast('Buffer cancelled'); }
+    else if (clipPick) { endClipPick(false); }
     else if (draw) { endDraw(); toast('Focus drawing cancelled'); }
     else if (selState.active) { exitSelectMode(false); toast('Select mode off'); }
   });
@@ -1137,6 +1139,7 @@ async function showResults(res, lonlat) {
 }
 function onClick(x, y) {
   const [lo, la] = map.lonlatAt(x, y);
+  if (bufferPick?.active) { pickBufferFeature(x, y); return; }
   // ---- selection mode: tapping a feature toggles it, a drag box selects everything inside
   if (selState.active) {
     const res = map.identify(x, y).filter((r) => r.feature && (!selState.filter || r.layer.id === selState.filter));
@@ -1367,7 +1370,7 @@ const TOOL_GROUPS = {
     ['reclass', 'sliders', 'Group into classes', 'Reclassify and recolour a numeric field'],
   ],
   analyse: [
-    ['buffer', 'target', 'Buffer / Proximity', 'Find features within a distance of another layer'],
+    ['buffer', 'target', 'Buffer / Proximity', 'Tap a feature, then choose the zone shape'],
     ['intersect', 'query', 'Intersect / Overlay', 'Find where two polygon layers overlap'],
     ['nearest', 'compass', 'Nearest Neighbor', 'Match each feature to its closest feature in another layer'],
     ['dissolve', 'merge', 'Dissolve / Merge', 'Merge polygons sharing the same attribute'],
@@ -1557,13 +1560,15 @@ function updateToolState() {
     const t = b.dataset.tool;
     b.classList.toggle('on', (t === 'grid' && gridOn)
       || (t === 'measure-dist' && measure?.mode === 'line') || (t === 'measure-area' && measure?.mode === 'area')
-      || (t === 'clip' && !!clip) || (t === 'select' && selState.active));
+      || (t === 'clip' && !!clip) || (t === 'select' && selState.active)
+      || (t === 'buffer' && bufferPick?.active));
   }
   const g = $('#lyrtools [data-x="grid"]'); if (g) g.classList.toggle('on', gridOn);
 }
 const AUTHOR_ONLY = new Set(['symbology', 'addlabel', 'savelabels', 'import', 'reset']);
 function runTool(t) {
   if (AUTHOR_ONLY.has(t) && !AUTHOR) return;
+  if (t !== 'buffer') stopBufferPick();
   switch (t) {
     case 'addlabel': {
       const [lo, la] = map.center();
@@ -2823,6 +2828,25 @@ function exitSelectMode(keepSelection) {
 }
 // live feedback for the drag box (drawn above the layers, inside the map render loop)
 map.extra.push((ctx, m) => {
+  if (bufferPreview) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(11,107,69,.28)';
+    ctx.strokeStyle = '#0b6b45';
+    ctx.lineWidth = 2;
+    for (const poly of bufferPreview) {
+      poly.forEach((ring, r) => {
+        ctx.beginPath();
+        for (let i = 0; i < ring.length; i += 2) {
+          const [x, y] = m.toScreen(ring[i], ring[i + 1]);
+          i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+        }
+        ctx.closePath();
+        if (r === 0) ctx.fill();
+        ctx.stroke();
+      });
+    }
+    ctx.restore();
+  }
   if (selState.box) {
     const { x0, y0, x1, y1 } = selState.box;
     ctx.save();
@@ -3965,54 +3989,165 @@ function analysisResultModal(title, html, rows, extra) {
 }
 
 // ---- Buffer / Proximity -------------------------------------------------------
-// One feature at a time. Pick a point, a line or a polygon, give it a distance,
-// and the tool names, lists and summarises everything that falls inside that
-// one zone — from its own layer and from every other layer that is switched on.
+// The feature is tapped on the map. A list of identical names (five "Gold"s)
+// is never how you choose. After the tap, set the distance and the zone shape.
+const BUFFER_SHAPES = { circle: 'Circle', square: 'Square', diamond: 'Diamond', hexagon: 'Hexagon' };
+function stopBufferPick(keepHighlight) {
+  bufferPick = null;
+  bufferPreview = null;
+  const bar = $('#bufferbar'), panel = $('#bufferpanel');
+  if (bar) bar.hidden = true;
+  if (panel) panel.hidden = true;
+  if (map) {
+    map.cv.style.cursor = '';
+    if (!keepHighlight) { map.selection = null; map.selectionSet = []; }
+    map.render();
+  }
+  updateToolState();
+}
+function bufferVectorReady() {
+  for (const id of stack) {
+    const st = L.get(id);
+    if (st?.obj?.features && ['polygon', 'line', 'point'].includes(st.meta.kind)) return true;
+  }
+  return false;
+}
 function toolBuffer() {
-  const vecLayers = [];
-  for (const id of stack) { const st = L.get(id); if (st?.obj?.features && ['polygon', 'line', 'point'].includes(st.meta.kind)) vecLayers.push([id, st]); }
-  openModal('Buffer / Proximity', (body) => {
-    if (!vecLayers.length) { body.innerHTML = '<p class="empty">Switch on a point, line or polygon layer first.</p>'; return; }
-    body.innerHTML = '<p>Pick <b>one</b> feature and a distance. The zone around it is drawn, then everything inside it — from the same layer and from every other layer that is switched on — is named and summarised.</p>' +
-      '<div class="frow"><label>Feature’s layer</label><select id="bf-src">' + vecLayers.map(([id, st]) => '<option value="' + esc(id) + '">' + esc(st.meta.label) + '</option>').join('') + '</select></div>' +
-      '<div class="frow"><label>Feature</label><select id="bf-feat"></select></div>' +
-      '<div class="frow"><label>Distance</label><input id="bf-dist" type="number" min="0.05" step="0.1" value="5"><select id="bf-unit"><option value="1">km</option><option value="0.001">m</option></select></div>' +
-      '<div class="frow"><label>Look in</label><select id="bf-scope"><option value="all">this layer and every other switched-on layer</option><option value="others">other layers only</option><option value="same">this layer only</option></select></div>' +
-      '<div class="frow"><label>Count a feature as inside when</label><select id="bf-mode"><option value="overlap">any part of it enters the zone</option><option value="inside">it lies wholly inside the zone</option><option value="centroid">its centre falls inside the zone</option></select></div>' +
-      '<p class="hint" id="bf-note"></p>' +
-      '<div class="frow act"><button class="btn primary" id="bf-run">' + icon('target') + ' Analyse this feature</button></div>';
-    const srcSel = body.querySelector('#bf-src'), featSel = body.querySelector('#bf-feat');
-    const fillFeatures = () => {
-      const st = L.get(srcSel.value);
-      const feats = analysisFeatures(st);
-      const picked = feats.find((f) => map.selection?.feature === f);
-      featSel.innerHTML = feats.slice(0, 800).map((f) => '<option value="' + f.idx + '"' + (f === picked ? ' selected' : '') + '>' + esc(titleOf(st.obj, f)) + '</option>').join('')
-        || '<option value="">Nothing visible in this layer</option>';
-      body.querySelector('#bf-note').textContent = selCount()
-        ? 'The list is narrowed to your current selection.'
-        : (clip ? 'The list is narrowed to the focus area.' : 'Showing the features of this layer. Select one on the map first if you prefer.');
-    };
-    srcSel.onchange = fillFeatures;
-    fillFeatures();
-    body.querySelector('#bf-run').onclick = () => runBufferAnalysis(body);
+  if (!bufferVectorReady()) {
+    openModal('Buffer / Proximity', (body) => {
+      body.innerHTML = '<p class="empty">Switch on a point, line or polygon layer first, then tap the feature on the map.</p>';
+    });
+    return;
+  }
+  if (measure) { measure = null; $('#measurebar').hidden = true; }
+  if (draw) endDraw();
+  if (selState.active) exitSelectMode(true);
+  closeModal();
+  bufferPick = { active: true, seed: null, hits: [] };
+  bufferPreview = null;
+  map.cv.style.cursor = 'crosshair';
+  map.selection = null;
+  map.selectionSet = [];
+  $('#bufferbar').hidden = false;
+  $('#buffertext').textContent = 'Tap the feature you want to buffer';
+  $('#bufferpanel').hidden = true;
+  if (mobileQ.matches) closeSheet();
+  updateToolState();
+  map.render();
+  toast('Tap a point, line or polygon on the map');
+}
+function featureTellApart(st, f, siblings) {
+  const name = titleOf(st.obj, f);
+  const labelKey = st.obj?.labelField || st.meta.labelField;
+  const fields = (st.meta.fields || []).filter((fld) => fld?.name && !isCoordinateKey(fld.name));
+  const varied = [], other = [];
+  for (const fld of fields) {
+    const v = f.props?.[fld.name];
+    if (v == null || v === '') continue;
+    const text = (fld.label || fld.name) + ': ' + v;
+    const differs = siblings && siblings.some((s) => {
+      if (s.st.meta.id !== st.meta.id) return true;
+      return String(s.f.props?.[fld.name] ?? '') !== String(v);
+    });
+    if (differs && fld.name !== labelKey) varied.push(text);
+    else if (fld.name !== labelKey) other.push(text);
+  }
+  return { name, layer: st.meta.label, kind: st.meta.kind, bits: (varied.length ? varied : other).slice(0, 4), color: f.fill || f.stroke || '' };
+}
+function pickBufferFeature(x, y) {
+  const hits = map.identify(x, y)
+    .filter((r) => r.feature && ['polygon', 'line', 'point'].includes(r.layer.kind))
+    .map((r) => ({ id: r.layer.id, st: L.get(r.layer.id), f: r.feature }))
+    .filter((r) => r.st);
+  hits.reverse();
+  if (!hits.length) { toast('Nothing there — tap a point, line or polygon'); return; }
+  bufferPick.hits = hits;
+  // The last highlight is the strongest, so the feature drawn on top (hits[0]) goes last.
+  map.selectionSet = hits.slice().reverse().map((h) => ({ layer: { id: h.id }, feature: h.f }));
+  map.selection = hits.length === 1 ? { feature: hits[0].f, layer: { id: hits[0].id } } : null;
+  if (hits.length === 1) chooseBufferSeed(hits[0]);
+  else showBufferChooser(hits);
+  map.render();
+}
+function showBufferChooser(hits) {
+  const box = $('#bufferchoose');
+  const names = new Set(hits.map((h) => titleOf(h.st.obj, h.f)));
+  box.hidden = false;
+  $('#buffersetup').hidden = true;
+  $('#bufferpanel').hidden = false;
+  $('#bufferbar').hidden = true;
+  box.innerHTML = '<p class="hint">' + (names.size === 1
+    ? 'Several features under that tap are all called <b>' + esc([...names][0]) + '</b>. The other details tell them apart. The first one is drawn on top.'
+    : 'Several features are under that tap. Pick the one you mean — or tap the map again.') + '</p>'
+    + '<div class="bufferhits">' + hits.map((h, i) => {
+      const info = featureTellApart(h.st, h.f, hits);
+      const title = names.size === 1 && info.bits.length ? info.bits.join(' · ') : info.name;
+      return '<button type="button" data-hit="' + i + '"><b>' + (info.color ? '<i class="swatch" style="background:' + esc(info.color) + '"></i>' : '') + esc(title) + '</b><small>'
+        + esc(info.name) + ' · ' + esc(info.layer) + ' · ' + esc(info.kind) + (i === 0 ? ' · drawn on top' : '') + '</small></button>';
+    }).join('') + '</div>';
+  box.querySelectorAll('[data-hit]').forEach((b) => {
+    const h = hits[+b.dataset.hit];
+    const glow = () => { map.selection = { feature: h.f, layer: { id: h.id } }; map.render(); };
+    b.onpointerenter = glow;
+    b.onfocus = glow;
+    b.onclick = () => chooseBufferSeed(h);
   });
 }
-async function runBufferAnalysis(body) {
-  const srcSt = L.get(body.querySelector('#bf-src').value);
-  const idx = +body.querySelector('#bf-feat').value;
-  const distKm = +body.querySelector('#bf-dist').value * +body.querySelector('#bf-unit').value;
-  const scope = body.querySelector('#bf-scope').value;
-  const mode = body.querySelector('#bf-mode').value;
-  if (!srcSt || !Number.isFinite(idx)) { toast('Pick a feature'); return; }
-  if (!distKm || distKm <= 0 || distKm > 2000) { toast('Enter a distance between 0 and 2,000 km'); return; }
-  const seed = (srcSt.obj.features || []).find((f) => f.idx === idx);
-  if (!seed) { toast('That feature is no longer loaded'); return; }
-  closeModal();
-  await working('Building the zone');
-  const zone = bufferFeature(seed, distKm * 1000, 16);
+function chooseBufferSeed(hit) {
+  bufferPick.seed = { id: hit.id, idx: hit.f.idx };
+  map.selection = { feature: hit.f, layer: { id: hit.id } };
+  map.selectionSet = [];
+  const info = featureTellApart(hit.st, hit.f, bufferPick.hits);
+  $('#bufferchoose').hidden = true;
+  $('#buffersetup').hidden = false;
+  $('#bufferpanel').hidden = false;
+  $('#bufferbar').hidden = true;
+  $('#bufferpicked').innerHTML = '<b>' + (info.color ? '<i class="swatch" style="background:' + esc(info.color) + '"></i>' : '') + esc(info.name) + '</b>'
+    + '<span class="hint">' + esc(info.layer) + ' · ' + esc(info.kind) + (info.bits.length ? ' · ' + esc(info.bits.join(' · ')) : '') + '</span>';
+  refreshBufferPreview();
+}
+function bufferSeed() {
+  if (!bufferPick?.seed) return null;
+  const st = L.get(bufferPick.seed.id);
+  const f = st?.obj?.features?.find((feat) => feat.idx === bufferPick.seed.idx);
+  return st && f ? { st, f } : null;
+}
+function bufferDistanceKm() {
+  const n = +($('#bf-dist')?.value);
+  const unit = +($('#bf-unit')?.value || 1);
+  return n > 0 ? n * unit : 0;
+}
+function bufferShape() {
+  return $('#bf-shape .on')?.dataset.shape || 'circle';
+}
+function refreshBufferPreview() {
+  const seed = bufferSeed();
+  const distKm = bufferDistanceKm();
+  if (!seed || !distKm || distKm > 2000) { bufferPreview = null; map.render(); return; }
+  try {
+    const zone = bufferZone(seed.f, distKm * 1000, bufferShape());
+    bufferPreview = zone?.parts || null;
+  } catch { bufferPreview = null; }
+  map.render();
+}
+async function runBufferAnalysis() {
+  const seed = bufferSeed();
+  const distKm = bufferDistanceKm();
+  const scope = $('#bf-scope')?.value || 'all';
+  const mode = $('#bf-mode')?.value || 'overlap';
+  const shape = bufferShape();
+  if (!seed) { toast('Tap a feature on the map first'); return; }
+  if (!distKm || distKm > 2000) { toast('Enter a distance between 0 and 2,000 km'); return; }
+  const srcSt = seed.st, feature = seed.f;
+  bufferPreview = null;
+  await working('Building the ' + (BUFFER_SHAPES[shape] || 'circle').toLowerCase() + ' zone');
+  const zone = bufferZone(feature, distKm * 1000, shape);
   if (!zone || !zone.parts?.length) { toast('Could not build a zone around this feature'); return; }
   const zoneArea = partsAreaKm2(zone.parts);
-  const seedName = titleOf(srcSt.obj, seed);
+  const told = featureTellApart(srcSt, feature, bufferPick?.hits || []);
+  const seedName = told.bits.length ? told.name + ' (' + told.bits.join(', ') + ')' : told.name;
+  const shapeName = BUFFER_SHAPES[shape] || 'Circle';
+  $('#bufferpanel').hidden = true;
   const targets = [];
   for (const id of visibleLayerIds()) {
     const st = L.get(id);
@@ -4026,7 +4161,7 @@ async function runBufferAnalysis(body) {
   for (const [id, st] of targets) {
     await working('Checking ' + st.meta.label);
     const index = bboxGrid([zone], (b) => b.bb, 4);
-    const feats = (st.obj.features || []).filter((f) => !f.hidden && !(id === srcSt.meta.id && f.idx === seed.idx));
+    const feats = (st.obj.features || []).filter((f) => !f.hidden && !(id === srcSt.meta.id && f.idx === feature.idx));
     let inside = 0, area = 0, length = 0, wholly = 0;
     const values = new Map();
     const field = (st.meta.fields || []).find((fld) => fld.type === 'text')?.name;
@@ -4041,8 +4176,11 @@ async function runBufferAnalysis(body) {
       if (rel.wholly) wholly++;
       if (field && f.props?.[field] != null) values.set(String(f.props[field]), (values.get(String(f.props[field])) || 0) + 1);
       if (rows.length < 500) {
+        const who = featureTellApart(st, f, null);
         rows.push({
-          layer: st.meta.label, feature: titleOf(st.obj, f), kind: f.type,
+          layer: st.meta.label,
+          feature: who.bits.length ? who.name + ' · ' + who.bits.slice(0, 2).join(' · ') : who.name,
+          kind: f.type,
           relation: rel.wholly ? 'wholly inside' : 'partly inside',
           area_km2: m.area ? +m.area.toFixed(2) : '',
           length_km: m.length ? +m.length.toFixed(2) : '',
@@ -4061,7 +4199,7 @@ async function runBufferAnalysis(body) {
   const layerRows = byLayer.sort((a, b) => b.inside - a.inside).map((r) =>
     '<tr><td>' + esc(r.layer) + '</td><td>' + esc(r.kind) + '</td><td><b>' + fmtNum(r.inside) + '</b></td><td>' + fmtNum(r.wholly) + '</td><td>' +
     (r.kind === 'polygon' ? fmtNum(r.area) + ' km²' : r.kind === 'line' ? fmtNum(r.length) + ' km' : '—') + '</td><td>' + esc(r.top || '—') + '</td></tr>').join('');
-  const html = '<p class="hint">Zone around <b>' + esc(seedName) + '</b> (' + esc(srcSt.meta.label) + ', ' + esc(seed.type) + ') · <b>' + esc(distLabel) + '</b> · zone area <b>' + fmtNum(zoneArea) + ' km²</b>.</p>' +
+  const html = '<p class="hint">' + esc(shapeName) + ' zone around <b>' + esc(seedName) + '</b> (' + esc(srcSt.meta.label) + ', ' + esc(feature.type) + ') · <b>' + esc(distLabel) + '</b> · zone area <b>' + fmtNum(zoneArea) + ' km²</b>.</p>' +
     '<div class="statgrid"><div class="statbox"><b>' + fmtNum(total) + '</b><small>features inside</small></div>' +
     '<div class="statbox"><b>' + byLayer.length + '</b><small>layers touched</small></div>' +
     '<div class="statbox"><b>' + fmtNum(byLayer.reduce((s, r) => s + r.wholly, 0)) + '</b><small>wholly inside</small></div></div>' +
@@ -4069,10 +4207,11 @@ async function runBufferAnalysis(body) {
     (rows.length ? '<h4>Features inside the zone</h4><table class="mini"><tr><th>Layer</th><th>Feature</th><th>Relation</th></tr>' +
       rows.slice(0, 40).map((r) => '<tr><td>' + esc(r.layer) + '</td><td>' + esc(r.feature) + '</td><td>' + esc(r.relation) + '</td></tr>').join('') + '</table>' +
       (rows.length > 40 ? '<p class="hint">Showing 40 of ' + fmtNum(rows.length) + '. Export the full list below.</p>' : '') : '');
-  analysisResultModal('Buffer — ' + seedName, html, rows, {
-    feature: seedName, layer: srcSt.meta.label, kind: seed.type, distance_km: distKm,
+  analysisResultModal('Buffer — ' + told.name, html, rows, {
+    feature: seedName, layer: srcSt.meta.label, kind: feature.type, shape: shapeName, distance_km: distKm,
     zone_area_km2: +zoneArea.toFixed(2), rule: mode, layers: byLayer.map((r) => ({ layer: r.layer, inside: r.inside, wholly_inside: r.wholly })),
   });
+  stopBufferPick(true);
   if (drawn) map.fitBounds(mercBoundsToLonLat(drawn.bb), 48);
   toast(total + ' feature' + (total === 1 ? '' : 's') + ' inside ' + distLabel + ' of ' + seedName);
 }
@@ -5528,6 +5667,31 @@ function updateMeasure() {
 }
 $('#measureclear').onclick = () => { if (measure) { measure.pts = []; updateMeasure(); } };
 $('#measuredone').onclick = () => { measure = null; $('#measurebar').hidden = true; updateToolState(); map.render(); };
+$('#buffercancel').onclick = () => { stopBufferPick(); toast('Buffer cancelled'); };
+$('#bufferclose').onclick = () => stopBufferPick();
+$('#bf-retap').onclick = () => {
+  if (!bufferPick) return;
+  bufferPick.seed = null;
+  bufferPick.hits = [];
+  bufferPreview = null;
+  map.selection = null;
+  map.selectionSet = [];
+  $('#bufferpanel').hidden = true;
+  $('#bufferbar').hidden = false;
+  $('#buffertext').textContent = 'Tap the feature you want to buffer';
+  map.cv.style.cursor = 'crosshair';
+  map.render();
+  toast('Tap a point, line or polygon');
+};
+$('#bf-run').onclick = () => runBufferAnalysis();
+$('#bf-shape').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-shape]');
+  if (!b) return;
+  $('#bf-shape').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+  refreshBufferPreview();
+});
+$('#bf-dist').oninput = () => refreshBufferPreview();
+$('#bf-unit').onchange = () => refreshBufferPreview();
 $('#measureexport').onclick = () => {
   if (!measure || measure.pts.length < 2) { toast('Nothing measured yet'); return; }
   const p = measure.pts;
@@ -9439,7 +9603,7 @@ const TOOL_HELP = {
   aoi: { about: 'Counts every switched-on layer inside the focus area: features, summed polygon area, top raster classes.', steps: ['Set a focus area first (Clip to an area).', 'Tools → <b>Area summary</b>.', 'Read the chart and table; <b>Zoom to area</b> shows it on the map, <b>Clear focus</b> returns to the whole country.'], needs: 'A focus area, and at least one layer on.' },
   filter: { about: 'Hide every row that does not match. Filters are numbered in one list. Several on the same layer are combined — a row must match all of them.', steps: ['Switch on the layer you want to filter. Only layers that are on can be chosen.', 'Tools → <b>Filter features</b>. The list is at the top — the first one you add is #1.', 'Pick the layer, a field and a condition, then <b>Add filter</b>. Add another on the same layer or a different one; they stack.', '<b>Edit</b> changes one filter. <b>Remove</b> drops just that one. Layers → <b>Clear filters</b> drops them all.'], tip: 'The same list sits at the top of the Layers panel, so you can edit or remove a filter without opening the tool again.' },
   reclass: { about: 'Groups a numeric field into classes and recolours the layer so patterns stand out.', steps: ['Tools → <b>Group into classes</b>.', 'Choose the layer, the numeric field, the number of classes and the method.', 'Apply — the legend follows the new classes. Remove classes to return to the original colours.'] },
-  buffer: { about: 'Draws a zone around one feature you pick — a point, a line or a polygon — then names and summarises everything that falls inside it, from the same layer and from every other layer that is switched on.', steps: ['Switch on the layers you want checked.', 'Tools → <b>Buffer / Proximity</b>, choose the feature and a distance.', 'Run it: the zone is drawn, and each layer is counted, measured and broken down.'], tip: 'Choose whether a feature counts when any part enters the zone, only when it lies wholly inside, or when its centre falls inside.' },
+  buffer: { about: 'Tap one feature on the map — a point, a line or a polygon — then set the distance and the shape of the zone. Everything inside that zone is named and summarised.', steps: ['Switch on the layers you want checked.', 'Tools → <b>Buffer / Proximity</b>, then tap the feature on the map. If several sit on the same spot, the list shows the details that tell them apart, not just the shared name.', 'Choose Circle, Square, Diamond or Hexagon, set the distance, and press Analyse.'], tip: 'The zone reaches at least the distance you set. A square also covers the corners; a circle is the same distance all round.' },
   intersect: { about: 'Cuts two polygon layers against each other and keeps only the area they share, measured in km².', steps: ['Switch on two polygon layers.', 'Tools → <b>Intersect / Overlay</b>, choose A and B.', 'Run; each overlapping pair is drawn and its area listed.'], needs: 'Two polygon layers on.' },
   nearest: { about: 'Matches each feature of one layer to the closest feature in another, measured edge to edge rather than centre to centre.', steps: ['Switch on both layers.', 'Tools → <b>Nearest Neighbor</b>, choose the source and target layers.', 'Run; each match is drawn as a line and listed with its distance.'] },
   dissolve: { about: 'Merges polygons that share the same value in a field into one shape per group, removing the borders they share and keeping the gaps between them.', steps: ['Tools → <b>Dissolve / Merge</b>.', 'Choose the polygon layer and the grouping field.', 'Run; one merged outline per group is drawn, with its area.'], needs: 'A polygon layer on.' },

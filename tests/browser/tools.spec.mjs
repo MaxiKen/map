@@ -176,6 +176,42 @@ test('every tool opens and runs without throwing', async ({ page }) => {
   expect(failures, JSON.stringify(failures, null, 1)).toEqual([]);
 });
 
+test('buffer is picked on the map and the zone can be a square', async ({ page }) => {
+  const errors = capturePageErrors(page);
+  await blockThirdParty(page);
+  await bootMap(page);
+  await enableLayer(page, LGA, 'Local government areas (GADM)');
+  await page.evaluate(() => window.__nwg.map.setView(8.5, 11.9, 8.5));
+  await closeSheet(page);
+  await page.evaluate(() => document.querySelector('[data-tool="buffer"]').click());
+  await expect(page.locator('#bufferbar')).toBeVisible();
+  await expect(page.locator('#bufferbar')).toContainText('Tap the feature');
+  await expect(page.locator('#bf-feat')).toHaveCount(0);
+  await expect(page.locator('#bf-src')).toHaveCount(0);
+
+  const point = await page.evaluate(() => {
+    const map = window.__nwg.map;
+    const rect = map.cv.getBoundingClientRect();
+    for (let y = map.H * 0.3; y < map.H * 0.75; y += 16) {
+      for (let x = map.W * 0.35; x < map.W * 0.8; x += 16) {
+        if (map.identify(x, y).some((hit) => hit.feature)) return [rect.left + x, rect.top + y];
+      }
+    }
+    return null;
+  });
+  expect(point, 'a feature must be on screen to tap').not.toBeNull();
+  await page.mouse.click(point[0], point[1]);
+  await expect(page.locator('#buffersetup')).toBeVisible();
+  await expect(page.locator('#bufferpicked')).toContainText('Local government areas');
+  await page.locator('#bf-shape [data-shape="square"]').click();
+  await expect(page.locator('#bf-shape [data-shape="square"]')).toHaveClass(/on/);
+  await page.locator('#bf-shape [data-shape="diamond"]').click();
+  await page.locator('#bf-shape [data-shape="hexagon"]').click();
+  await page.locator('#bf-shape [data-shape="circle"]').click();
+  await expect(page.locator('#bf-run')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test('the guide documents every tool and can be searched', async ({ page }) => {
   await bootMap(page);
   await page.evaluate(() => window.__nwg.openGuide());

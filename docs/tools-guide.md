@@ -106,15 +106,15 @@ _Spatial analysis between layers. Results are drawn on the map and can be saved 
 
 ### Buffer / Proximity
 
-`buffer` — Find features within a distance of another layer.
+`buffer` — Tap a feature, then choose the zone shape.
 
-Draws a zone around one feature you pick — a point, a line or a polygon — then names and summarises everything that falls inside it, from the same layer and from every other layer that is switched on.
+Tap one feature on the map — a point, a line or a polygon — then set the distance and the shape of the zone. Everything inside that zone is named and summarised.
 
 1. Switch on the layers you want checked.
-2. Tools → **Buffer / Proximity**, choose the feature and a distance.
-3. Run it: the zone is drawn, and each layer is counted, measured and broken down.
+2. Tools → **Buffer / Proximity**, then tap the feature on the map. If several sit on the same spot, the list shows the details that tell them apart, not just the shared name.
+3. Choose Circle, Square, Diamond or Hexagon, set the distance, and press Analyse.
 
-**Tip.** Choose whether a feature counts when any part enters the zone, only when it lies wholly inside, or when its centre falls inside.
+**Tip.** The zone reaches at least the distance you set. A square also covers the corners; a circle is the same distance all round.
 
 ### Intersect / Overlay
 
