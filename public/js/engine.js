@@ -971,6 +971,105 @@ function ringOfPoint(f, distMeters) {
   for (let i = 0; i < f.parts.length; i += 2) out.push(bufferPoint(f.parts[i], f.parts[i + 1], distMeters));
   return out;
 }
+
+// A closed ring, in mercator, for one buffer shape centred on a point.
+// The flat side (or the circle itself) sits `distMeters` from the centre, so
+// every shape reaches at least that far. Corners of a square reach a little further.
+function shapeRingAt(x, y, distMeters, shape) {
+  const lon = unX(x), lat = unY(y);
+  const d = distMeters;
+  const east = (m) => m / Math.max(1, 111320 * Math.cos(lat * Math.PI / 180));
+  const north = (m) => m / 110574;
+  const at = (e, n) => [mercX(lon + east(e)), mercY(lat + north(n))];
+  let pts;
+  if (shape === 'square') pts = [[d, d], [d, -d], [-d, -d], [-d, d]];
+  else if (shape === 'diamond') {
+    const r = d * Math.SQRT2;
+    pts = [[0, r], [r, 0], [0, -r], [-r, 0]];
+  } else if (shape === 'hexagon') {
+    const r = d / Math.cos(Math.PI / 6);
+    pts = [];
+    for (let i = 0; i < 6; i++) {
+      const a = -Math.PI / 2 + i * Math.PI / 3;
+      pts.push([Math.cos(a) * r, Math.sin(a) * r]);
+    }
+  } else return bufferPoint(x, y, d, 32);
+  const ring = new Float64Array((pts.length + 1) * 2);
+  pts.forEach(([e, n], i) => { const p = at(e, n); ring[i * 2] = p[0]; ring[i * 2 + 1] = p[1]; });
+  ring[pts.length * 2] = ring[0]; ring[pts.length * 2 + 1] = ring[1];
+  return ring;
+}
+function sampleFlat(flat, maxVerts, closed) {
+  const n = flat.length / 2;
+  if (n < 2) return flat;
+  const repeat = closed && flat[0] === flat[n * 2 - 2] && flat[1] === flat[n * 2 - 1];
+  const usable = repeat ? n - 1 : n;
+  if (usable <= maxVerts) return flat;
+  const step = Math.ceil(usable / maxVerts);
+  const out = [];
+  for (let i = 0; i < usable; i += step) out.push(flat[i * 2], flat[i * 2 + 1]);
+  if (closed || repeat) out.push(out[0], out[1]);
+  return new Float64Array(out);
+}
+// Zone around one feature. `circle` follows the feature with a round offset.
+// Square, diamond and hexagon use that shape as the buffer kernel, so a point
+// becomes that shape and a line or polygon grows by it.
+export function bufferZone(f, distMeters, shape = 'circle') {
+  const dist = +distMeters;
+  if (!f || !f.parts || !(dist > 0)) return null;
+  if (!shape || shape === 'circle') return bufferFeature(f, dist, 20);
+  if (f.type === 'point') {
+    const parts = [];
+    for (let i = 0; i < f.parts.length; i += 2) {
+      const ring = shapeRingAt(f.parts[i], f.parts[i + 1], dist, shape);
+      if (ring && ring.length >= 8) parts.push([ring]);
+    }
+    const bb = partsBBox(parts);
+    return parts.length && bb ? { type: 'poly', parts, bb } : null;
+  }
+  const pieces = [];
+  const addRing = (ring) => {
+    if (!ring || ring.length < 8) return;
+    const bb = partsBBox([[ring]]);
+    if (bb) pieces.push({ type: 'poly', parts: [[ring]], bb });
+  };
+  const grow = (flat, closed) => {
+    let ring = flat;
+    if (ring.length / 2 > 40) {
+      const thinned = simplifyRing(ring, Math.max(0.05, dist / 1000 / 5));
+      if (thinned && thinned.length >= 6) ring = thinned;
+    }
+    ring = sampleFlat(ring, 36, closed);
+    const n = ring.length / 2;
+    const repeat = n > 1 && ring[0] === ring[n * 2 - 2] && ring[1] === ring[n * 2 - 1];
+    const verts = repeat ? n - 1 : n;
+    if (verts < 1) return;
+    for (let i = 0; i < verts; i++) addRing(shapeRingAt(ring[i * 2], ring[i * 2 + 1], dist, shape));
+    const edges = closed || repeat ? verts : verts - 1;
+    for (let i = 0; i < edges; i++) {
+      const j = (i + 1) % verts;
+      const ax = ring[i * 2], ay = ring[i * 2 + 1], bx = ring[j * 2], by = ring[j * 2 + 1];
+      if (haversineMerc(ax, ay, bx, by) < dist / 1000 * 1.4) continue;
+      const a = shapeRingAt(ax, ay, dist, shape), b = shapeRingAt(bx, by, dist, shape);
+      const pts = [];
+      for (let k = 0; k < a.length; k += 2) pts.push([a[k], a[k + 1]]);
+      for (let k = 0; k < b.length; k += 2) pts.push([b[k], b[k + 1]]);
+      addRing(convexHullPoints(pts));
+    }
+  };
+  if (f.type === 'line') {
+    for (const line of f.parts) if (line && line.length >= 4) grow(line, false);
+  } else if (f.type === 'poly') {
+    pieces.push(f);
+    for (const poly of f.parts || []) for (const ring of poly) if (ring && ring.length >= 6) grow(ring, true);
+  }
+  const valid = pieces.filter((p) => p && p.type === 'poly' && p.bb && p.parts?.length);
+  if (!valid.length) return bufferFeature(f, dist, 16);
+  if (valid.length === 1) return valid[0];
+  const parts = polygonBoolean(valid, 'union');
+  const bb = partsBBox(parts);
+  return parts.length && bb ? { type: 'poly', parts, bb } : bufferFeature(f, dist, 16);
+}
 function closeRing(part) {
   const n = part.length;
   if (n < 4) return part;

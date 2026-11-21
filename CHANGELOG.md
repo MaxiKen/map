@@ -68,6 +68,7 @@ collected under **Unreleased** until `scripts/prepare_release.py` assigns a vers
   minutes.
 - Work in progress is announced in the toast with a name ("Checking 775 polygons…") and always replaced
   by a real result, so no tool can leave a permanent "working" message.
+- **Buffer / Proximity is chosen on the map.** Tap the point, line or polygon — there is no list of identical names. If several features sit under the tap, the list shows the details that tell them apart. The zone can be a circle, square, diamond or hexagon.
 - **Spatial analysis tools do the operation they name.** Buffer / Proximity works on one chosen feature
   and summarises everything inside its zone, from the same layer and from every other layer that is on.
   Intersect reports the real overlapping area. Nearest neighbour measures edge to edge. Dissolve unions
