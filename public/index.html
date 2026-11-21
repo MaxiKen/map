@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b3d2e">
 <meta name="description" content="Interactive map of Nigeria: geology, minerals and more.">
-<meta name="build" content="3260331311">
+<meta name="build" content="d991be72a1">
 <title>Nigeria WebGIS</title>
-<link rel="manifest" href="manifest.webmanifest?v=3260331311">
+<link rel="manifest" href="manifest.webmanifest?v=d991be72a1">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="css/app.css?v=3260331311">
+<link rel="stylesheet" href="css/app.css?v=d991be72a1">
 </head>
 <body>
 <canvas id="map" aria-label="Map"></canvas>
@@ -31,7 +31,7 @@
 </div>
 <div id="mapinfo"><span id="coords"></span><span id="scalebar"><i></i><b></b></span></div>
 <div id="attrib"></div>
-<div id="measurebar" hidden><span id="measuretext">Tap the map to measure</span><button id="measureclear">Clear</button><button id="measuredone">Done</button></div>
+<div id="measurebar" hidden><span id="measuretext">Tap the map to measure</span><button id="measureexport" title="Save the measurement — coordinates are never included">Export</button><button id="measureclear">Clear</button><button id="measuredone">Done</button></div>
 <div id="drawbar" hidden><span id="drawtext">Draw an area</span><button id="drawclear">Clear</button><button id="drawdone">Done</button></div>
 <div id="selbar" hidden role="toolbar" aria-label="Selection">
   <span id="seltext">Select mode: tap a feature, or drag a box</span>
@@ -39,6 +39,7 @@
   <button id="selall" hidden title="Select everything on screen">All</button>
   <button id="sellist" title="List the selected features">List</button>
   <button id="selzoom" title="Zoom to the selection">Zoom</button>
+  <button id="selcsv" title="Export the selection — coordinates are never included">Export</button>
   <button id="selclearall" title="Clear the selection">Clear</button>
   <button id="seldone" class="selprimary">Done</button>
 </div>
@@ -128,6 +129,6 @@
 </div>
 
 <div id="toast" role="status"></div>
-<script type="module" src="js/app.js?v=3260331311"></script>
+<script type="module" src="js/app.js?v=d991be72a1"></script>
 </body>
 </html>

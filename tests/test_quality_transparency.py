@@ -44,25 +44,33 @@ class QualityTransparencyTests(unittest.TestCase):
         netlify = (ROOT / 'netlify.toml').read_text(encoding='utf8')
         self.assertIn('for = "/quality-register.json"', netlify)
 
-    def test_raw_geospatial_download_controls_are_removed(self):
+    def test_exports_exist_but_never_carry_coordinates(self):
         app = (ROOT / 'app/js/app.js').read_text(encoding='utf8')
         quality = (ROOT / 'app/js/quality.js').read_text(encoding='utf8')
+        # Geometry files are coordinates by definition, so they stay unavailable.
         for forbidden in (
             'href="${esc(m.file)}" download', 'href="${esc(meta.file)}" download',
             'data-x="json"', 'id="e-geo"', "download('feature.json'",
             "download('visible-layers.geojson'", 'function toGeoJSON(',
             'Download layers as GeoJSON / CSV', 'Download GeoJSON',
-            # the application has no data export at all: no CSV, no JSON, no GeoJSON files
-            'text/csv', '.csv', 'Download full JSON register', 'a[download]',
             'href="${esc(registerFile)}" download',
         ):
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(forbidden, app + quality)
-        # the only download offered is the PNG map picture
+        # Tables, selections and analysis results can be saved, but only through
+        # the one helper that strips latitude and longitude first.
+        self.assertIn('function download(', app)
+        self.assertIn("exportHasCoordinates(body)", app)
+        self.assertIn('id="selcsv"', (ROOT / 'app/index.html').read_text(encoding='utf8'))
+        self.assertIn('selection.csv', app)
+        self.assertIn('select-by-area.csv', app)
+        self.assertIn('data-quality-download', quality)
         self.assertIn("['export', 'camera', 'Picture with title &", app)
         self.assertIn('id="e-png"', app)
         self.assertNotIn('id="e-csv"', app)
-        self.assertNotIn('id="selcsv"', app)
+        # The picture caption used to stamp the centre as degrees; it must not.
+        export = app[app.index('async function exportMapImage'):app.index('function fitVisible')]
+        self.assertNotIn('fmtLL(', export)
         self.assertIn('Import GeoJSON', app)
 
     @unittest.skipUnless(shutil.which('node'), 'Node.js is needed for JavaScript runtime tests')

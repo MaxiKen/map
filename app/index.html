@@ -31,7 +31,7 @@
 </div>
 <div id="mapinfo"><span id="coords"></span><span id="scalebar"><i></i><b></b></span></div>
 <div id="attrib"></div>
-<div id="measurebar" hidden><span id="measuretext">Tap the map to measure</span><button id="measureclear">Clear</button><button id="measuredone">Done</button></div>
+<div id="measurebar" hidden><span id="measuretext">Tap the map to measure</span><button id="measureexport" title="Save the measurement — coordinates are never included">Export</button><button id="measureclear">Clear</button><button id="measuredone">Done</button></div>
 <div id="drawbar" hidden><span id="drawtext">Draw an area</span><button id="drawclear">Clear</button><button id="drawdone">Done</button></div>
 <div id="selbar" hidden role="toolbar" aria-label="Selection">
   <span id="seltext">Select mode: tap a feature, or drag a box</span>
@@ -39,6 +39,7 @@
   <button id="selall" hidden title="Select everything on screen">All</button>
   <button id="sellist" title="List the selected features">List</button>
   <button id="selzoom" title="Zoom to the selection">Zoom</button>
+  <button id="selcsv" title="Export the selection — coordinates are never included">Export</button>
   <button id="selclearall" title="Clear the selection">Clear</button>
   <button id="seldone" class="selprimary">Done</button>
 </div>

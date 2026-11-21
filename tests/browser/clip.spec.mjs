@@ -100,7 +100,7 @@ test('clipping: Current view clips to everything on screen', async ({ page }) =>
   expect(errors).toEqual([]);
 });
 
-test('clipping: the area summary has no CSV export', async ({ page }) => {
+test('clipping: the area summary can be exported without coordinates', async ({ page }) => {
   const errors = capturePageErrors(page);
   await openMap(page);
   await page.evaluate(() => window.__nwg.focusFromRect([7.5, 11], [9, 12]));
@@ -109,8 +109,7 @@ test('clipping: the area summary has no CSV export', async ({ page }) => {
   await expect(page.locator('#modal')).toContainText('Focus area:');
   const acts = await page.evaluate(() => [...document.querySelectorAll('#modal [data-act]')].map((b) => b.textContent.trim()));
   expect(acts).toContain('Clear focus');
-  expect(acts.some((t) => /csv/i.test(t))).toBe(false);
-  expect(await page.evaluate(() => /export summary/i.test(document.body.textContent))).toBe(false);
+  await expect(page.locator('#modal .result-exports')).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -353,7 +352,7 @@ test('clipping: a saved circle keeps its ground radius', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('the only download in the app is a PNG picture', async ({ page }) => {
+test('downloads never include coordinates or geometry files', async ({ page }) => {
   const errors = capturePageErrors(page);
   await openMap(page);
 
@@ -373,10 +372,10 @@ test('the only download in the app is a PNG picture', async ({ page }) => {
       const out = [];
       for (const a of document.querySelectorAll('a[download]')) out.push(`${a.textContent.trim()} -> ${a.getAttribute('href')}`);
       for (const b of document.querySelectorAll('[data-act],[data-x],button')) {
-        if (/\bcsv\b|geojson|\bkml\b|shapefile|\.zip\b/i.test(b.textContent)) out.push(`button: ${b.textContent.trim()}`);
+        if (/geojson|\bkml\b|shapefile|\.zip\b/i.test(b.textContent)) out.push(`button: ${b.textContent.trim()}`);
       }
       for (const el of document.querySelectorAll('#panel-quality, #panel-layers, #info, #modal')) {
-        if (/export summary|download full json|export csv/i.test(el.textContent)) out.push(`text in ${el.id || el.className}`);
+        if (/export summary|download full json/i.test(el.textContent)) out.push(`text in ${el.id || el.className}`);
       }
       return out;
     });

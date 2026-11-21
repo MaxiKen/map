@@ -5,8 +5,9 @@ hand to a colleague. It is generated from the same tool list that builds the Too
 always matches the app: 125 tools, in the order you usually need them.
 
 - Every tool is read-only: nothing here edits the underlying data files.
-- Results are drawn on the map or shown in a panel. The only download is a PNG picture of the
-  map — no data is ever exported as CSV, GeoJSON or any other file.
+- Results are drawn on the map or shown in a panel, and most panels can be saved as CSV, JSON or a
+  printable table. Location coordinates are never included in any export, and geometry files
+  (GeoJSON, KML, shapefile) are not offered.
 - The map behaves the same on a phone, a tablet and a desktop. Where a gesture differs, the
   guide says so.
 
@@ -107,23 +108,23 @@ _Spatial analysis between layers. Results are drawn on the map and can be saved 
 
 `buffer` — Find features within a distance of another layer.
 
-Draws a zone at a fixed distance around features of one layer, then counts features of another layer that fall inside it.
+Draws a zone around one feature you pick — a point, a line or a polygon — then names and summarises everything that falls inside it, from the same layer and from every other layer that is switched on.
 
-1. Switch on the source layer and the layer you want to check.
-2. Tools → **Buffer / Proximity**, pick both layers and the distance in km.
-3. Run it: the buffer is drawn and the matches are counted.
+1. Switch on the layers you want checked.
+2. Tools → **Buffer / Proximity**, choose the feature and a distance.
+3. Run it: the zone is drawn, and each layer is counted, measured and broken down.
 
-**Tip.** Works with points (circles), lines (corridors) and polygons.
+**Tip.** Choose whether a feature counts when any part enters the zone, only when it lies wholly inside, or when its centre falls inside.
 
 ### Intersect / Overlay
 
 `intersect` — Find where two polygon layers overlap.
 
-Shows only the area where two polygon layers overlap.
+Cuts two polygon layers against each other and keeps only the area they share, measured in km².
 
 1. Switch on two polygon layers.
 2. Tools → **Intersect / Overlay**, choose A and B.
-3. Run; the overlap shapes are drawn on top.
+3. Run; each overlapping pair is drawn and its area listed.
 
 **Needs.** Two polygon layers on.
 
@@ -131,21 +132,21 @@ Shows only the area where two polygon layers overlap.
 
 `nearest` — Match each feature to its closest feature in another layer.
 
-Matches each feature of one layer to its closest feature in another layer.
+Matches each feature of one layer to the closest feature in another, measured edge to edge rather than centre to centre.
 
 1. Switch on both layers.
 2. Tools → **Nearest Neighbor**, choose the source and target layers.
-3. Run; distances are listed per feature.
+3. Run; each match is drawn as a line and listed with its distance.
 
 ### Dissolve / Merge
 
 `dissolve` — Merge polygons sharing the same attribute.
 
-Merges polygons that share the same value in a field into one shape per group.
+Merges polygons that share the same value in a field into one shape per group, removing the borders they share and keeping the gaps between them.
 
 1. Tools → **Dissolve / Merge**.
 2. Choose the polygon layer and the grouping field.
-3. Run; one merged outline per group is drawn.
+3. Run; one merged outline per group is drawn, with its area.
 
 **Needs.** A polygon layer on.
 
@@ -506,7 +507,7 @@ Downloads the current map as a PNG picture.
 
 `export` — PNG with a title, legend, scale and grid.
 
-Saves the map as a PNG picture with a title, legend, scale bar, north arrow and grid — there is no data download.
+Saves the map as a PNG picture with a title, legend, scale bar, north arrow and grid lines. The picture never shows latitude or longitude.
 
 1. Tools → **Picture with title & frame**.
 2. Choose the area (whole view, focus area or picked polygons), tick what to draw around the map, then download the PNG.

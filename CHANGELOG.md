@@ -32,11 +32,12 @@ collected under **Unreleased** until `scripts/prepare_release.py` assigns a vers
   (outer ring minus holes). A focus area also survives a reload, a map preset, a session code and a share
   link in every form — circle radius in metres included.
 
-- **No data export anywhere.** The only download left in the whole application is a PNG picture of the
-  map. Removed: the selection bar's **Export** button and its CSV writer, **Export CSV** in the selected
-  features list, **Export selection (CSV)** in Select-by-area results, and the **Download full JSON
-  register** link in the quality panel (the register id and SHA-256 are still shown as text). **Export
-  results** is now **Picture with title & frame** and offers only the PNG. Guide, README and docs say so.
+- **Exports are back, without location coordinates.** Selection, the selection list, select-by-area,
+  attribute tables, statistics, charts, the area summary, measurements and every spatial-analysis result
+  can be saved as CSV, JSON or a printable table. The quality panel downloads the register again. Every
+  file is stripped of latitude, longitude and bounding boxes before it is written, and a file that still
+  contains them is refused. Saved pictures leave degree labels and the centre coordinate off the caption.
+  GeoJSON, KML and shapefile downloads stay unavailable.
 
 ### Fixed
 
@@ -46,7 +47,7 @@ collected under **Unreleased** until `scripts/prepare_release.py` assigns a vers
   app reported a focus area in the toast while the map kept drawing everything. The engine now accepts the
   two corners in either order, keeps the bbox in its own top/bottom order, and `setFocus` says so when a
   shape cannot be used instead of announcing an area it never applied.
-- Area summary no longer offers **Export summary (CSV)**; **Zoom to area** and the other export tools remain.
+- Area summary, selection and analysis results can be exported again. The files never include latitude or longitude.
 - **Selection could not pick polygons** on either layer: the map kept panning during a box drag and the
   Info panel named the geometry kind instead of the layer. Select mode now owns the pointer while it is
   on, boxes select every feature inside them, and Info card headers name the layer the feature came from.
@@ -67,6 +68,11 @@ collected under **Unreleased** until `scripts/prepare_release.py` assigns a vers
   minutes.
 - Work in progress is announced in the toast with a name ("Checking 775 polygons…") and always replaced
   by a real result, so no tool can leave a permanent "working" message.
+- **Spatial analysis tools do the operation they name.** Buffer / Proximity works on one chosen feature
+  and summarises everything inside its zone, from the same layer and from every other layer that is on.
+  Intersect reports the real overlapping area. Nearest neighbour measures edge to edge. Dissolve unions
+  shared borders and keeps the gaps. Count points and zonal statistics test the polygon itself, including
+  holes. Simplify honours the kilometre tolerance. Polygon overlay uses an inlined polygon-clipping library.
 - Restrict mutable source-fetch workflows to main-branch pushes or manual dispatch so release tags and
   pull-request branch pushes never fetch and commit replacement data.
 - Correct the EMAG2 future-fetch mask's height/width order, exercise the failed non-square grid, and make the
