@@ -23,10 +23,11 @@ The interface deliberately states that structural checks are not survey certific
 not licence clearance, and no numeric quality score is assigned. The per-layer `5 of 6` or `6 of 6` values are
 counts of six tracked metadata fields, not quality ratings.
 
-Source GeoPackage names and SHA-256 values are plain provenance text, not package downloads. The application has
-no data export at all: the only download it offers is a PNG picture of the map. Layer rows, feature results and the
-quality panel therefore carry no GeoJSON, CSV or JSON download, and the register is described in the page rather
-than handed out as a file. The rendering data, fallback path, source metadata and evidence bytes are unchanged.
+Source GeoPackage names and SHA-256 values are plain provenance text, not package downloads. The quality panel
+offers the full register as a download, but that copy has every latitude, longitude and bounding-box field removed,
+so it is not the hash-covered file — the hash shown on the page is of the complete register. No export anywhere in
+the app carries location coordinates, and geometry files are not offered. The rendering data, fallback path, source
+metadata and evidence bytes are unchanged.
 
 ## Full evidence download
 

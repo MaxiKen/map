@@ -157,6 +157,8 @@ function overviewHTML(catalog, published) {
       <p>The register covers all <b>${summary.layer_count ?? 0}</b> sources: ${summary.visible_layer_count ?? published.length} visible and ${summary.hidden_layer_count ?? 0} hidden. Across those sources, ${structural.structural_pass ?? 0} pass applicable structural checks and ${structural.historical_defects_retained ?? 0} hidden originals retain historical defects as provenance.</p>
       <p><code>${esc(register.registerId)}</code> · generated ${esc((register.generatedUtc || '').slice(0, 10) || 'date not recorded')}</p>
       <p class="quality-hash-label">Register SHA-256<br><code class="quality-hash">${esc(register.registerSha256 || 'not recorded')}</code></p>
+      <button class="chip" data-quality-download="${esc(register.registerFile || 'quality-register.json')}" title="Download the full register with every location coordinate removed">Download register (coordinates removed)</button>
+      <p class="quality-note">The downloaded copy drops latitude, longitude and bounding-box fields. The hash above is of the complete register, not of that stripped copy.</p>
     </div>
   </section>`;
 }

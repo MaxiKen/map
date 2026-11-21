@@ -49,8 +49,9 @@ out.push('hand to a colleague. It is generated from the same tool list that buil
 out.push(`always matches the app: ${total} tools, in the order you usually need them.`);
 out.push('');
 out.push('- Every tool is read-only: nothing here edits the underlying data files.');
-out.push('- Results are drawn on the map or shown in a panel. The only download is a PNG picture of the');
-out.push('  map — no data is ever exported as CSV, GeoJSON or any other file.');
+out.push('- Results are drawn on the map or shown in a panel, and most panels can be saved as CSV, JSON or a');
+out.push('  printable table. Location coordinates are never included in any export, and geometry files');
+out.push('  (GeoJSON, KML, shapefile) are not offered.');
 out.push('- The map behaves the same on a phone, a tablet and a desktop. Where a gesture differs, the');
 out.push('  guide says so.');
 out.push('');

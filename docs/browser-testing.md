@@ -54,8 +54,8 @@ requests before that hash is applied.
 - **Real browser/vector path** — turn on the national boundary through the actual Layers UI, fetch and decompress its
   `.geojson.gz` in a dedicated module worker, verify converted geometry and the single-colour legend, and assert that
   the uncompressed main-thread fallback was not requested. The data URL must be application-root anchored, not resolved
-  relative to `/js/vector-worker.js`. The layer row has no GeoJSON download link, and the picture modal offers a
-  PNG only—no CSV and no feature or visible-layer GeoJSON.
+  relative to `/js/vector-worker.js`. The layer row has no GeoJSON download link. Tables and results can be saved as
+  CSV or JSON, but no export carries latitude or longitude, and there is no feature or visible-layer GeoJSON.
 - **Desktop Quality UI** — overview counts, WPDx review evidence, metadata gaps, safe external source links, absence
   of every data download control, the complete register summary, IGRAC complete metadata, and returning to the
   overview.

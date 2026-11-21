@@ -12,10 +12,10 @@ assert.match(overview, /39 hidden/);
 assert.match(overview, /82 pass applicable structural checks/);
 assert.match(overview, /16 hidden originals retain historical defects/);
 assert.match(overview, /groundwater_boreholes_wpdx_pt/);
-assert.doesNotMatch(overview, /quality-register\.json/);
+assert.match(overview, /data-quality-download="quality-register\.json"/);
+assert.match(overview, /coordinates removed/i);
 assert.match(overview, /Evidence, not a score/);
-assert.doesNotMatch(overview, /download/i);
-assert.doesNotMatch(overview, /\.json['"][^>]*download/);
+assert.doesNotMatch(overview, /href="[^"]*quality-register\.json"/);
 assert.ok(!overview.includes('undefined'));
 assert.ok(!overview.includes('NaN'));
 
