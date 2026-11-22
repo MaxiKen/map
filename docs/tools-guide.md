@@ -542,9 +542,9 @@ Summarises one numeric column separately for each group in another column (for e
 
 Reads a GeoPackage in this browser and lists its layers under Imported. The file is not sent anywhere. A layer stays off until you turn it on, and can then be used with the published layers.
 
-1. Tools → **Import GeoPackage** and choose a .gpkg file.
-2. Read the coordinate-system note. Files in Minna are shifted to WGS 84, and that shift is only good to about 15 metres.
-3. Press **Add to imported layers**. They appear below On the map and above All layers.
+1. Open **Layers**. **Import GeoPackage** is the green button at the top.
+2. Choose a .gpkg file and read the coordinate-system note. Files in Minna are shifted to WGS 84, and that shift is only good to about 15 metres.
+3. Press **Add to imported layers**. They are listed at the top of Layers, above On the map.
 4. Turn on the layer you want. It can then be used with Buffer, clip and the other tools.
 
 **Tip.** The file is forgotten when you close the tab. If the shapes land in the wrong place, remove the layer and import again with a different coordinate system.

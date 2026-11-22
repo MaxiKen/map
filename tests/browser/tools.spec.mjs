@@ -179,9 +179,20 @@ test('every tool opens and runs without throwing', async ({ page }) => {
 test('a GeoPackage is listed under Imported and stays off until turned on', async ({ page }) => {
   const errors = capturePageErrors(page);
   await blockThirdParty(page);
+  await page.setViewportSize({ width: 390, height: 844 });
   await bootMap(page);
-  await page.locator('.tab[data-tab="tools"]').click();
-  await page.locator('[data-tool="gpkg"]').click();
+  await page.locator('.tab[data-tab="layers"]').click();
+  const importButton = page.locator('#import-gpkg');
+  await expect(importButton).toBeVisible();
+  await expect(importButton).toContainText('Import GeoPackage');
+  const aboveTheMap = await page.evaluate(() => {
+    const button = document.querySelector('#import-gpkg');
+    const onTheMap = document.querySelector('#activelist');
+    return !!(button && onTheMap && button.compareDocumentPosition(onTheMap) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  expect(aboveTheMap).toBe(true);
+  await importButton.scrollIntoViewIfNeeded();
+  await importButton.click();
   await page.locator('#gp-file').setInputFiles(new URL('../fixtures/minna_abuja.gpkg', import.meta.url).pathname);
   await page.locator('#gp-read').click();
   await expect(page.locator('#gp-out .caveat').first()).toContainText('15 metres');

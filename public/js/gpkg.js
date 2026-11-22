@@ -2,7 +2,7 @@
 // SQLite file in memory. Nothing is uploaded. Geometries stay in the file's
 // own coordinates here; crs.js turns them into longitude and latitude.
 
-import { detectCrs, looksLikeDegrees } from './crs.js?v=38ea4edf96';
+import { detectCrs, looksLikeDegrees } from './crs.js?v=374170f359';
 
 const MAX_BYTES = 80 * 1024 * 1024;
 const MAX_FEATURES = 150000;

@@ -70,10 +70,13 @@
     <button id="sheetclose" class="ghost" aria-label="Close panel" data-i="close"></button></div>
   <div id="panels">
     <div class="panel" id="panel-layers">
-      <div class="searchrow"><input id="layerfilter" type="search" placeholder="Filter layers" autocomplete="off"></div>
+      <div class="layerhead">
+        <button type="button" id="import-gpkg" class="import-gpkg" data-i="upload"><span><b>Import GeoPackage</b><small>Your file stays in this browser</small></span></button>
+        <div class="searchrow"><input id="layerfilter" type="search" placeholder="Filter layers" autocomplete="off"></div>
+      </div>
       <div id="lyrtools" class="lyrtools"></div>
-      <div id="activelist"></div>
       <div id="importlist"></div>
+      <div id="activelist"></div>
       <div id="layerlist"></div>
     </div>
     <div class="panel" id="panel-legend"><div id="legend"></div></div>
