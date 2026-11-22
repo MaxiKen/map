@@ -766,7 +766,8 @@ def main():
                                separators=(',', ':'), ensure_ascii=False)
     hsh = hashlib.md5(semantic_blob.encode())
     for rel in ('index.html', 'css/app.css', 'js/app.js', 'js/engine.js', 'js/loading.js', 'js/quality.js',
-                'js/vector-worker.js', 'sw.js', 'manifest.webmanifest'):
+                'js/crs.js', 'js/gpkg.js', 'js/vector-worker.js', 'sw.js', 'manifest.webmanifest',
+                'vendor/sqljs/sql-wasm.js', 'vendor/sqljs/sql-wasm.wasm'):
         p = os.path.join(a.out, rel)
         if os.path.exists(p): hsh.update(open(p, 'rb').read())
     ver = hsh.hexdigest()[:10]
@@ -791,12 +792,12 @@ def main():
             h = h.replace(before, after)
         h = h.replace('content="dev"', f'content="{ver}"')
         open(idx, 'w', encoding='utf8').write(h)
-    for rel in ('js/app.js', 'js/vector-worker.js'):
+    for rel in ('js/app.js', 'js/gpkg.js', 'js/vector-worker.js'):
         module_path = os.path.join(a.out, rel)
         if not os.path.exists(module_path):
             continue
         text = open(module_path, encoding='utf8').read()
-        for dependency in ('engine.js', 'loading.js', 'quality.js'):
+        for dependency in ('engine.js', 'loading.js', 'quality.js', 'crs.js', 'gpkg.js'):
             text = text.replace(f"from './{dependency}'", f"from './{dependency}?v={ver}'")
         open(module_path, 'w', encoding='utf8').write(text)
     raw_vector_bytes = sum(layer.get('fileBytes', 0) for layer in layers)

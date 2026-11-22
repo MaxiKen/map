@@ -78,7 +78,7 @@ class QualityTransparencyTests(unittest.TestCase):
         subprocess.run([
             'node', '--experimental-default-type=module', 'tests/js_quality_test.mjs',
         ], cwd=ROOT, check=True, capture_output=True, text=True, timeout=30)
-        for relative in ('app/js/app.js', 'app/js/engine.js', 'app/js/quality.js', 'app/sw.js'):
+        for relative in ('app/js/app.js', 'app/js/engine.js', 'app/js/quality.js', 'app/js/crs.js', 'app/js/gpkg.js', 'app/sw.js'):
             subprocess.run([
                 'node', '--experimental-default-type=module', '--check', relative,
             ], cwd=ROOT, check=True, capture_output=True, text=True, timeout=30)

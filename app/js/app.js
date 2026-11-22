@@ -1,6 +1,8 @@
 import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature, pip2, featureCentroid, convexHullFeature, convexHullPoints, simplifyFeature, simplifyRing, bufferFeature, bufferZone, ringIntersection, intersectPolyPoly, polygonBoolean, featureDistanceKm, featureClosestKm, scrubForExport, exportHasCoordinates, isCoordinateKey, partsBBox, segmentsIntersect, polyOverlapsPoly, ringsBBox, normalizeClip, clipBB, circleToPolygon, circleMercRadiusForMetres, distToRingMerc, haversineMerc, ringSignedArea, lonlatRing } from './engine.js';
 import { createLoadScheduler } from './loading.js';
 import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js';
+import { openGeoPackage } from './gpkg.js';
+import { CRS_MENU, crsByCode, caveatFor, assumedCaveat, transformGeometry, geometryInWorld } from './crs.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -703,15 +705,16 @@ function layerRow(id) {
   const qualitySearch = quality ? `${quality.label} ${metadataGapLabels(m.sourceMetadata).join(' ')}` : '';
   row.dataset.search = `${m.label} ${m.group} ${m.table} ${m.description || ''} ${m.sourceMetadata?.publisher || ''} ${m.sourceMetadata?.dataset || ''} ${qualitySearch}`.toLowerCase();
   const isTable = m.kind === 'table';
-  const sub = [KIND_LABEL[m.kind], countText(m)].filter(Boolean).join(' · ');
+  const sub = [KIND_LABEL[m.kind], countText(m), m.crsName].filter(Boolean).join(' · ');
   const qualitySub = quality ? ` · <span class="quality-inline q-${quality.tone}" title="${esc(quality.label)}">${esc(quality.short)}</span>` : '';
   const flags = [
     hasFilter(st) ? `<span class="chip on" data-act="filter">${icon('filter')}${filterRules(st).length > 1 ? filterRules(st).length + ' filters' : 'Filtered'}</span>` : '',
     st.reclass ? `<span class="chip on">${icon('sliders')}Classified</span>` : '',
     st.labels?.field && st.labels.on !== false ? `<span class="chip on">${icon('tag')}${esc(st.labels.field)}</span>` : '',
   ].join('');
+  const imported = m.group === 'imported';
   row.innerHTML = `<div class="lmain">
-      <button class="grip" aria-label="Drag to reorder">${icon('grip')}</button>
+      ${imported ? '' : `<button class="grip" aria-label="Drag to reorder">${icon('grip')}</button>`}
       <span class="kind">${icon(m.kind)}</span>
       <button class="lt"><b>${esc(m.label)}</b><small>${esc(sub)}${qualitySub}</small></button>
       ${isTable ? '<button class="chip" data-act="table">Open</button>' : `<button class="sw${st.on ? ' on' : ''}" role="switch" aria-checked="${st.on}" aria-label="Show layer"></button>`}
@@ -724,6 +727,7 @@ function layerRow(id) {
       ${isTable ? '' : `<span class="chip" data-act="sym">${icon('palette')}Symbology</span>`}
       ${isTable ? '' : `<span class="chip" data-act="labels">${icon('tag')}Labels</span>`}
       <span class="chip" data-act="table">${icon('table')}Attributes</span>
+      ${imported ? `<span class="chip" data-act="remove">${icon('trash')}Remove</span>` : ''}
       ${quality ? `<button type="button" class="chip quality-link q-${quality.tone}" data-act="quality">${icon('quality')}Quality &amp; source</button>` : ''}
       ${st.on ? `<span class="chip" data-act="off">${icon('eyeoff')}Hide</span>` : `<span class="chip" data-act="on">${icon('eye')}Show</span>`}
     </div>`;
@@ -744,6 +748,7 @@ function layerRow(id) {
     else if (act === 'labels') toolLabels(id);
     else if (act === 'on') setLayer(id, true);
     else if (act === 'off') setLayer(id, false);
+    else if (act === 'remove') removeImported(id);
     else if (act === 'filter') toolFilter(id);
   });
   return row;
@@ -795,10 +800,13 @@ function renderLayerLists() {
     }
     enableReorder(arows, (ids) => { stack.splice(0, stack.length, ...ids.reverse()); applyOrderFromStack(); renderLayerLists(); saveProject(); });
   }
+  renderImported();
   // --- all layers, grouped
   const root = $('#layerlist');
-  root.innerHTML = '<div class="sec">All layers <span class="n">' + catalog.layers.length + '</span></div>';
+  const published = catalog.layers.filter((m) => m.group !== 'imported');
+  root.innerHTML = '<div class="sec">All layers <span class="n">' + published.length + '</span></div>';
   for (const g of catalog.groups) {
+    if (g.id === 'imported') continue;
     const items = baseOrder.map((id) => L.get(id)).filter((st) => st && st.meta.group === g.id);
     if (!items.length) continue;
     const grp = document.createElement('div'); grp.className = 'group'; grp.dataset.group = g.id;
@@ -1532,6 +1540,7 @@ const TOOL_GROUPS = {
     ['export', 'camera', 'Picture with title & frame', 'PNG with a title, legend, scale and grid'],
     ['countbyattr', 'chart', 'Count by Attribute', 'Tally features by field value'],
     ['fieldstatsbygroup', 'chart', 'Field Stats by Group', 'Grouped statistics by field'],
+    ['gpkg', 'upload', 'Import GeoPackage', 'Bring your own GeoPackage onto the map'],
   ],
   classification: [
     ['jenksbreaks', 'sliders', 'Natural Breaks (Jenks)', 'Jenks natural breaks classes'],
@@ -1595,6 +1604,7 @@ function runTool(t) {
     case 'stats': toolStats(); break;
     case 'zoomlayer': toolZoomLayer(); break;
     case 'import': toolImport(); break;
+    case 'gpkg': toolGpkg(); break;
     case 'export': toolExport(); break;
     case 'table': toolTable(); break;
     case 'fieldcalc': toolFieldCalc(); break;
@@ -3109,7 +3119,7 @@ $('#lyrtools').addEventListener('click', (e) => {
   const b = e.target.closest('[data-x]'); if (!b) return;
   const x = b.dataset.x;
   if (x === 'showall') {
-    const ids = baseOrder.filter((id) => !isOn(id) && L.get(id).meta.kind !== 'table');
+    const ids = baseOrder.filter((id) => !isOn(id) && L.get(id).meta.kind !== 'table' && L.get(id).meta.group !== 'imported');
     Promise.all(ids.map((id) => setLayer(id, true, { quiet: true }))).then(() => {
       renderLayerLists(); refreshLegend(); pushHash(); saveProject();
     });
@@ -5038,6 +5048,216 @@ function toolZoomLayer() {
 }
 
 // ------------------------------------------------ tool: import
+let importSeq = 0;
+const IMPORT_COLORS = ['#8e44ad', '#c0392b', '#1a7f4b', '#b86e00', '#1f6feb', '#0e7490', '#a33b6b'];
+let importColor = 0;
+
+function renderImported() {
+  const box = $('#importlist');
+  if (!box) return;
+  const q = ($('#layerfilter').value || '').trim().toLowerCase();
+  const items = [...L.values()].filter((st) => st.meta.group === 'imported');
+  items.sort((a, b) => (b.meta.importSeq || 0) - (a.meta.importSeq || 0));
+  if (!items.length) { box.innerHTML = ''; return; }
+  const notes = [...new Set(items.map((st) => st.meta.crsNote).filter(Boolean))];
+  box.innerHTML = `<div class="sec">Imported <span class="n">${items.length}</span></div>
+    <p class="hint">In this browser only, for this visit. Nothing is drawn until you turn a layer on. Then it can be used with the other layers.</p>
+    ${notes.map(caveatBox).join('')}
+    <div class="group"><div class="lrows" id="import-rows"></div></div>`;
+  const rows = $('#import-rows');
+  for (const st of items) {
+    const row = layerRow(st.meta.id);
+    if (q && !row.dataset.search.includes(q)) row.hidden = true;
+    rows.appendChild(row);
+  }
+}
+function caveatBox(note) {
+  const warn = /15 metres|did not name|tens of metres|instead of|wrong place|Latitude was read first/i.test(note);
+  return `<div class="caveat${warn ? '' : ' ok'}">${esc(note)}</div>`;
+}
+function fieldsOf(features) {
+  const keys = new Set();
+  for (const f of features.slice(0, 40)) for (const k of Object.keys(f.props || {})) keys.add(k);
+  return [...keys].map((name) => {
+    const values = features.slice(0, 40).map((f) => f.props?.[name]).filter((v) => v != null && v !== '');
+    const type = values.length && values.every((v) => typeof v === 'number') ? 'number' : 'text';
+    return { name, type, label: name };
+  });
+}
+function addImportedLayer({ label, description, kind, features, crs, fileName }) {
+  const id = 'import_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+  const color = IMPORT_COLORS[importColor++ % IMPORT_COLORS.length];
+  features.forEach((f, i) => { f.fill = f.stroke = f.fill0 = color; f.idx = i; });
+  let box = [1e9, 1e9, -1e9, -1e9];
+  for (const f of features) for (let k = 0; k < 2; k++) { box[k] = Math.min(box[k], f.bb[k]); box[k + 2] = Math.max(box[k + 2], f.bb[k + 2]); }
+  const meta = {
+    id, table: id, kind, group: 'imported', label,
+    description: description || crs.note,
+    count: features.length,
+    fields: fieldsOf(features),
+    style: { mode: 'single', color },
+    labelField: null,
+    bounds: features.length ? [unX(box[0]), unY(box[3]), unX(box[2]), unY(box[1])] : null,
+    file: null, imported: true, importSeq: ++importSeq,
+    crsName: crs.shortName || crs.name, crsNote: crs.note, sourceFile: fileName || '',
+  };
+  catalog.layers.push(meta);
+  const st = {
+    meta, on: false, opacity: kind === 'polygon' ? 0.72 : 0.9, loading: false, loadPromise: null, obj: null,
+    order: 1000 + importSeq, sym: null, labels: null, filter: null, reclass: null, stats: null,
+  };
+  st.sym = defaultSym(meta);
+  st.labels = defaultLabels(meta);
+  st.obj = { id, kind, visible: false, opacity: st.opacity, order: st.order, features, style: meta.style, labelField: null, labels: null, sym: st.sym };
+  L.set(id, st);
+  map.addLayer(st.obj);
+  return id;
+}
+function removeImported(id) {
+  const st = L.get(id);
+  if (!st || st.meta.group !== 'imported') return;
+  if (st.on) setLayer(id, false, { quiet: true });
+  map.removeLayer(id);
+  if (map.selection?.layer?.id === id) map.selection = null;
+  L.delete(id);
+  catalog.layers = catalog.layers.filter((m) => m.id !== id);
+  baseOrder = baseOrder.filter((x) => x !== id);
+  renderLayerLists();
+  refreshLegend();
+  pushHash();
+  saveProject();
+  toast('Imported layer removed');
+}
+function gpkgChoice(layer, value) {
+  if (!value) return null;
+  if (value === 'file') return layer.detected;
+  const chosen = crsByCode(+value);
+  if (layer.detected && chosen && chosen.code === layer.detected.code) return layer.detected;
+  return chosen;
+}
+function gpkgNote(layer, crs, latFirst) {
+  if (!crs) return caveatFor(null);
+  const assumed = !layer.detected;
+  let note = assumed ? assumedCaveat(crs) : crs.note;
+  if (layer.detected && crs.code && layer.detected.code && crs.code !== layer.detected.code) {
+    note = `You chose ${crs.name} instead of what the file said (${layer.detected.name}). ${caveatFor(crs)}`;
+  }
+  if (latFirst && crs.method === 'longlat') note += ' Latitude was read first, as you asked.';
+  return note;
+}
+function gpkgOptions(layer) {
+  const detected = layer.detected;
+  const inMenu = detected?.code && CRS_MENU.some((item) => item.code === detected.code);
+  const fileOption = detected && !inMenu ? `<option value="file">From the file: ${esc(detected.shortName || detected.name)}</option>` : '';
+  const blank = !detected && !layer.degreeLike ? '<option value="">Choose a coordinate system</option>' : '';
+  return blank + fileOption + CRS_MENU.map((item) => `<option value="${item.code}">${esc(item.label)}</option>`).join('');
+}
+function gpkgSelected(layer) {
+  if (layer.detected?.code && CRS_MENU.some((item) => item.code === layer.detected.code)) return String(layer.detected.code);
+  if (layer.detected) return 'file';
+  if (layer.degreeLike) return '4326';
+  return '';
+}
+function renderGpkgResult(body, parsed) {
+  const out = body.querySelector('#gp-out');
+  const latFirst = body.querySelector('#gp-lat')?.checked;
+  const previous = [...body.querySelectorAll('select[data-crs]')].map((select) => select.value);
+  const cards = parsed.layers.map((layer, i) => {
+    const selected = previous[i] || gpkgSelected(layer);
+    const crs = gpkgChoice(layer, selected);
+    const kind = layer.kind === 'polygon' ? 'polygons' : layer.kind === 'line' ? 'lines' : 'points';
+    return `<div class="gpkg-layer" data-i="${i}">
+      <b>${esc(layer.label)}</b>
+      <small class="hint">${layer.count.toLocaleString()} ${kind}${layer.detected ? ' · file says ' + esc(layer.detected.name) : ' · no coordinate system in the file'}</small>
+      <div class="frow"><label>System</label><select data-crs="${i}">${gpkgOptions(layer)}</select></div>
+      ${caveatBox(gpkgNote(layer, crs, latFirst))}
+    </div>`;
+  }).join('');
+  const skipped = parsed.skipped.length
+    ? `<p class="hint">Not added: ${esc(parsed.skipped.map((item) => item.name + ' (' + item.reason + ')').join('; '))}.</p>`
+    : '';
+  out.innerHTML = `<h4>${esc(parsed.name || 'GeoPackage')}</h4>
+    ${parsed.layers.length ? cards + skipped + '<div class="frow act"><button class="btn primary" id="gp-add">Add to imported layers</button></div>' : skipped + '<p class="empty">Nothing in that file can be drawn.</p>'}
+    <p class="hint">Layers are listed under Imported and stay off until you turn one on.</p>`;
+  out.querySelectorAll('select[data-crs]').forEach((select) => {
+    select.value = previous[+select.dataset.crs] || gpkgSelected(parsed.layers[+select.dataset.crs]);
+    select.onchange = () => {
+      const layer = parsed.layers[+select.dataset.crs];
+      const note = select.parentElement.nextElementSibling;
+      if (note) note.outerHTML = caveatBox(gpkgNote(layer, gpkgChoice(layer, select.value), body.querySelector('#gp-lat')?.checked));
+    };
+  });
+  out.querySelector('#gp-add')?.addEventListener('click', () => commitGpkgImport(body, parsed));
+}
+async function commitGpkgImport(body, parsed) {
+  const latFirst = !!body.querySelector('#gp-lat')?.checked;
+  const choices = [...body.querySelectorAll('select[data-crs]')].map((select) => ({
+    layer: parsed.layers[+select.dataset.crs],
+    crs: gpkgChoice(parsed.layers[+select.dataset.crs], select.value),
+  }));
+  if (choices.some((item) => !item.crs)) { toast('Choose a coordinate system for every layer'); return; }
+  await working('Adding imported layers');
+  const problems = [];
+  let added = 0;
+  for (const item of choices) {
+    const useLatFirst = latFirst && item.crs.method === 'longlat';
+    const features = [];
+    let dropped = 0;
+    let seen = 0;
+    for (const feature of item.layer.features) {
+      let geometry = null;
+      try { geometry = transformGeometry(feature.geometry, item.crs, useLatFirst); } catch { geometry = null; }
+      const world = geometryInWorld(geometry);
+      if (!geometry || !world.ok || world.bad > world.ok) { dropped++; continue; }
+      const converted = convertFeature({ type: 'Feature', properties: feature.properties, geometry });
+      if (!converted) { dropped++; continue; }
+      features.push(converted);
+      if (++seen % 2000 === 0) await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    const note = gpkgNote(item.layer, item.crs, useLatFirst);
+    if (!features.length || features.length < dropped) {
+      problems.push(item.layer.label + ' did not land on the map. Try another coordinate system.');
+      continue;
+    }
+    item.crs.note = note;
+    addImportedLayer({ label: item.layer.label, description: note, kind: item.layer.kind, features, crs: item.crs, fileName: parsed.name });
+    added++;
+    if (dropped) problems.push(item.layer.label + ': ' + dropped + ' feature' + (dropped === 1 ? '' : 's') + ' fell outside the world and ' + (dropped === 1 ? 'was' : 'were') + ' left out.');
+  }
+  if (!added) { toast(problems[0] || 'Nothing could be added'); return; }
+  closeModal();
+  openSheet('layers');
+  renderLayerLists();
+  toast(added + ' layer' + (added === 1 ? '' : 's') + ' added. Turn one on to draw it.' + (problems.length ? ' ' + problems[0] : ''), 5200);
+}
+function toolGpkg() {
+  openModal('Import GeoPackage', (body) => {
+    let parsed = null;
+    body.innerHTML = `<p class="muted">Bring a GeoPackage onto the map for this visit. It is read in this browser and is not sent anywhere. The layers are listed under Imported, and nothing is drawn until you turn one on.</p>
+      <div class="frow"><label>File</label><input id="gp-file" type="file" accept=".gpkg,application/geopackage+sqlite3"></div>
+      <label class="chk"><input id="gp-lat" type="checkbox"> Latitude is written first (unusual)</label>
+      <p class="hint">Leave that off unless a longitude/latitude file lands in the wrong place. Projected files, such as UTM, are not affected.</p>
+      <div class="frow act"><button class="btn primary" id="gp-read">Read file</button></div>
+      <div id="gp-out"></div>`;
+    const read = async () => {
+      const file = body.querySelector('#gp-file').files?.[0];
+      if (!file) { toast('Choose a .gpkg file'); return; }
+      if (file.size > 80 * 1024 * 1024) { toast('That file is over 80 MB. Split it into smaller layers and try again.'); return; }
+      await working('Reading the GeoPackage');
+      try {
+        parsed = await openGeoPackage(await file.arrayBuffer(), BUILD);
+        parsed.name = file.name;
+        renderGpkgResult(body, parsed);
+      } catch (error) {
+        console.error(error);
+        toast(error.message || 'Could not read that GeoPackage');
+      }
+    };
+    body.querySelector('#gp-read').onclick = read;
+    body.querySelector('#gp-lat').onchange = () => { if (parsed) renderGpkgResult(body, parsed); };
+  });
+}
+
 function toolImport() {
   openModal('Import GeoJSON', (body) => {
     body.innerHTML = `<p class="muted">Bring a GeoJSON file (points, lines or polygons) onto the map. It is added as a layer for this session and can be styled and labelled; the rows stay on the map only.</p>
@@ -5054,7 +5274,7 @@ function toolImport() {
       const id = 'import_' + Date.now().toString(36);
       let box = [1e9, 1e9, -1e9, -1e9];
       feats.forEach((f, i) => { f.fill = f.stroke = f.fill0 = '#8e44ad'; f.idx = i; for (let k = 0; k < 2; k++) { box[k] = Math.min(box[k], f.bb[k]); box[k + 2] = Math.max(box[k + 2], f.bb[k + 2]); } });
-      const meta = { id, table: id, kind, group: 'imported', label: 'Imported ' + (feats.length === 1 ? 'feature' : feats.length + ' features'), description: 'Imported GeoJSON', count: feats.length, fields: Object.keys(feats[0].props || {}).map((n) => ({ name: n, type: typeof feats[0].props[n] === 'number' ? 'number' : 'text', label: n })), style: { mode: 'single', color: '#8e44ad' }, labelField: null, bounds: [unX(box[0]), unY(box[3]), unX(box[2]), unY(box[1])], file: null };
+      const meta = { id, table: id, kind, group: 'imported', label: 'Imported ' + (feats.length === 1 ? 'feature' : feats.length + ' features'), description: 'Imported GeoJSON. Already longitude and latitude. Nothing was shifted.', count: feats.length, fields: Object.keys(feats[0].props || {}).map((n) => ({ name: n, type: typeof feats[0].props[n] === 'number' ? 'number' : 'text', label: n })), style: { mode: 'single', color: '#8e44ad' }, labelField: null, bounds: [unX(box[0]), unY(box[3]), unX(box[2]), unY(box[1])], file: null, imported: true, importSeq: ++importSeq, crsName: 'WGS 84', crsNote: 'Imported GeoJSON. Already longitude and latitude. Nothing was shifted.' };
       catalog.layers.push(meta); baseOrder.push(id);
       if (!catalog.groups.some((g) => g.id === 'imported')) catalog.groups.push({ id: 'imported', label: 'Imported', order: 99 });
       L.set(id, { meta, on: false, opacity: 0.8, loading: false, obj: null, order: baseOrder.length, sym: null, labels: null, filter: null, reclass: null, stats: null });
@@ -6059,7 +6279,8 @@ function parseHash() {
 function pushHash() {
   if (!catalog || booting) return;
   const [lo, la] = map.center();
-  const h = `c=${la.toFixed(4)},${lo.toFixed(4)},${map.zoom.toFixed(2)}&l=${stack.join(',')}&b=${map.basemap}`;
+  const listed = stack.filter((id) => L.get(id)?.meta?.group !== 'imported');
+  const h = `c=${la.toFixed(4)},${lo.toFixed(4)},${map.zoom.toFixed(2)}&l=${listed.join(',')}&b=${map.basemap}`;
   try { history.replaceState(null, '', '#' + h); } catch { }
 }
 function readProject() { try { return JSON.parse(localStorage.getItem(PKEY) || 'null'); } catch { return null; } }
@@ -6068,6 +6289,7 @@ function saveProject() {
   ensureAllFilterIds();
   const layers = {};
   for (const [id, st] of L) {
+    if (st.meta?.group === 'imported') continue;
     const rec = { on: st.on, opacity: st.opacity };
     if (st.sym) rec.sym = st.sym;
     if (st.labels) rec.labels = st.labels;
@@ -6077,7 +6299,8 @@ function saveProject() {
   }
   try {
     const f = clipRecord();
-    localStorage.setItem(PKEY, JSON.stringify({ v: 1, layers, stack, annotations, grid: gridOn, clip: f, notes: mapNotes }));
+    const kept = stack.filter((id) => L.get(id)?.meta?.group !== 'imported');
+    localStorage.setItem(PKEY, JSON.stringify({ v: 1, layers, stack: kept, annotations, grid: gridOn, clip: f, notes: mapNotes }));
   } catch { }
 }
 let projTimer;
@@ -9739,6 +9962,16 @@ const TOOL_HELP = {
   addlabel: { about: 'Author mode: place free text anywhere on the map.', steps: ['Author mode → Tools → <b>Add a label</b>, then type in the label editor.'] },
   savelabels: { about: 'Author mode: manage the labels you placed.', steps: ['Author mode → Tools → <b>Label list</b>.'] },
   import: { about: 'Author mode: brings your own GeoJSON onto the map.', steps: ['Author mode → Tools → <b>Import GeoJSON</b>, choose a file or paste the text.'] },
+  gpkg: {
+    about: 'Reads a GeoPackage in this browser and lists its layers under Imported. The file is not sent anywhere. A layer stays off until you turn it on, and can then be used with the published layers.',
+    steps: [
+      'Tools → <b>Import GeoPackage</b> and choose a .gpkg file.',
+      'Read the coordinate-system note. Files in Minna are shifted to WGS 84, and that shift is only good to about 15 metres.',
+      'Press <b>Add to imported layers</b>. They appear below On the map and above All layers.',
+      'Turn on the layer you want. It can then be used with Buffer, clip and the other tools.',
+    ],
+    tip: 'The file is forgotten when you close the tab. If the shapes land in the wrong place, remove the layer and import again with a different coordinate system.',
+  },
   reset: { about: 'Author mode: forgets styles, filters, labels and focus.', steps: ['Author mode → Tools → <b>Reset the work</b> and confirm.'] },
 };
 // (quietly) make the “drop the extra name” form of a tool id work too
