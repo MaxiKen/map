@@ -115,7 +115,16 @@ ul.steps li{margin:5px 0}
 h3{margin:16px 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
 .muted{color:var(--muted);font-size:13px}
 .tiny{font-size:11.5px;margin:6px 2px 0}
-.searchrow{position:sticky;top:0;background:var(--panel);padding:2px 0 8px;z-index:2}
+.layerhead{position:sticky;top:0;z-index:3;background:var(--panel);padding:2px 0 8px}
+@media (max-width:899px){
+  .layerhead{top:52px}
+}
+.import-gpkg{display:flex;align-items:center;gap:10px;width:100%;margin:0 0 8px;padding:9px 12px;border:0;border-radius:12px;background:var(--brand);color:#fff;text-align:left;font-weight:700;box-shadow:var(--shadow);white-space:nowrap}
+.import-gpkg span{display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.import-gpkg b{font-size:14.5px;line-height:1.2}
+.import-gpkg small{font-weight:500;font-size:12px;opacity:.88;overflow:hidden;text-overflow:ellipsis}
+.import-gpkg svg{width:22px;height:22px;flex:none}
+.searchrow{position:static;background:transparent;padding:0}
 input[type=search],#tm-filter{width:100%;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:0 14px;font:inherit}
 input[type=search]:focus{outline:2px solid var(--brand);border-color:transparent}
 input[type=text],input[type=number],select{height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:0 10px;font:inherit;min-width:0}

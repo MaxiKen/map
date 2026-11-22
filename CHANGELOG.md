@@ -8,7 +8,7 @@ collected under **Unreleased** until `scripts/prepare_release.py` assigns a vers
 
 ### Added
 
-- **Import GeoPackage.** A `.gpkg` file is read in the browser and is not sent anywhere. Its layers are listed under Imported, below On the map and above All layers, and stay off until you turn one on. They can then be used with the published layers. Files in the usual Nigerian coordinate systems (WGS 84 and Minna UTM zones and belts) are converted to longitude and latitude. A Minna file uses the national shift, which is only good to about 15 metres, and that limit is shown when the file is read and kept on the imported layer.
+- **Import GeoPackage.** The green **Import GeoPackage** button is at the top of Layers. A `.gpkg` file is read in the browser and is not sent anywhere. Its layers are listed under Imported, above On the map, and stay off until you turn one on. They can then be used with the published layers. Files in the usual Nigerian coordinate systems (WGS 84 and Minna UTM zones and belts) are converted to longitude and latitude. A Minna file uses the national shift, which is only good to about 15 metres, and that limit is shown when the file is read and kept on the imported layer.
 
 - **Filter features** keeps one numbered list. Any layer that is switched on can be filtered, and a layer can hold more than one filter — they are combined, so a feature is drawn only if it matches every filter on that layer. Each filter can be edited or removed on its own. The same list sits at the top of the Layers panel. Legend “add as filter”, the attribute table and the temporal filter join that list instead of wiping it.
 - Complete tool guide. **Tools -> Guide** (and **Guide** in About) documents every registered tool with

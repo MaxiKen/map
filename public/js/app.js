@@ -1,8 +1,8 @@
-import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature, pip2, featureCentroid, convexHullFeature, convexHullPoints, simplifyFeature, simplifyRing, bufferFeature, bufferZone, ringIntersection, intersectPolyPoly, polygonBoolean, featureDistanceKm, featureClosestKm, scrubForExport, exportHasCoordinates, isCoordinateKey, partsBBox, segmentsIntersect, polyOverlapsPoly, ringsBBox, normalizeClip, clipBB, circleToPolygon, circleMercRadiusForMetres, distToRingMerc, haversineMerc, ringSignedArea, lonlatRing } from './engine.js?v=38ea4edf96';
-import { createLoadScheduler } from './loading.js?v=38ea4edf96';
-import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=38ea4edf96';
-import { openGeoPackage } from './gpkg.js?v=38ea4edf96';
-import { CRS_MENU, crsByCode, caveatFor, assumedCaveat, transformGeometry, geometryInWorld } from './crs.js?v=38ea4edf96';
+import { GeoMap, BASEMAPS, BASEMAP_ORDER, convertFeature, prepareFeature, DEFAULT_VECTOR_COLOR, mercX, mercY, unX, unY, featureMetrics, haversineKm, labelAnchor, ringAreaKm2, ringPerimeterKm, pointInFeature, pip2, featureCentroid, convexHullFeature, convexHullPoints, simplifyFeature, simplifyRing, bufferFeature, bufferZone, ringIntersection, intersectPolyPoly, polygonBoolean, featureDistanceKm, featureClosestKm, scrubForExport, exportHasCoordinates, isCoordinateKey, partsBBox, segmentsIntersect, polyOverlapsPoly, ringsBBox, normalizeClip, clipBB, circleToPolygon, circleMercRadiusForMetres, distToRingMerc, haversineMerc, ringSignedArea, lonlatRing } from './engine.js?v=374170f359';
+import { createLoadScheduler } from './loading.js?v=374170f359';
+import { qualityPanelHTML, qualityPresentation, metadataGapLabels } from './quality.js?v=374170f359';
+import { openGeoPackage } from './gpkg.js?v=374170f359';
+import { CRS_MENU, crsByCode, caveatFor, assumedCaveat, transformGeometry, geometryInWorld } from './crs.js?v=374170f359';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -146,6 +146,7 @@ async function start() {
   if (saved) restoreProject(saved);
 
   buildBasemaps(); renderLayerTools(); buildTools(); buildAbout(); renderQuality(); renderAnnotations();
+  $('#import-gpkg')?.addEventListener('click', () => toolGpkg());
   $('#layerfilter').addEventListener('input', renderLayerLists);
 
   const h = parseHash();
@@ -1350,7 +1351,7 @@ function openSheet(tab, keep) {
   if (sheet.classList.contains('closed')) { sheet.style.removeProperty('--sheet-h'); sheet.classList.remove('closed'); }
   document.body.classList.add('side-open');
   if (tab === 'legend') refreshLegend();
-  if (tab === 'layers') renderLayerLists();
+  if (tab === 'layers') { renderLayerLists(); $('#panel-layers')?.scrollTo(0, 0); }
   if (tab === 'quality') renderQuality();
   if (tab === 'tools') renderAnnotations();
 }
@@ -5061,7 +5062,7 @@ function renderImported() {
   if (!items.length) { box.innerHTML = ''; return; }
   const notes = [...new Set(items.map((st) => st.meta.crsNote).filter(Boolean))];
   box.innerHTML = `<div class="sec">Imported <span class="n">${items.length}</span></div>
-    <p class="hint">In this browser only, for this visit. Nothing is drawn until you turn a layer on. Then it can be used with the other layers.</p>
+    <p class="hint">In this browser only, for this visit. Nothing is drawn until you turn a layer on. Then it can be used with the other layers. Import another file with the button at the top.</p>
     ${notes.map(caveatBox).join('')}
     <div class="group"><div class="lrows" id="import-rows"></div></div>`;
   const rows = $('#import-rows');
@@ -9965,9 +9966,9 @@ const TOOL_HELP = {
   gpkg: {
     about: 'Reads a GeoPackage in this browser and lists its layers under Imported. The file is not sent anywhere. A layer stays off until you turn it on, and can then be used with the published layers.',
     steps: [
-      'Tools → <b>Import GeoPackage</b> and choose a .gpkg file.',
-      'Read the coordinate-system note. Files in Minna are shifted to WGS 84, and that shift is only good to about 15 metres.',
-      'Press <b>Add to imported layers</b>. They appear below On the map and above All layers.',
+      'Open <b>Layers</b>. <b>Import GeoPackage</b> is the green button at the top.',
+      'Choose a .gpkg file and read the coordinate-system note. Files in Minna are shifted to WGS 84, and that shift is only good to about 15 metres.',
+      'Press <b>Add to imported layers</b>. They are listed at the top of Layers, above On the map.',
       'Turn on the layer you want. It can then be used with Buffer, clip and the other tools.',
     ],
     tip: 'The file is forgotten when you close the tab. If the shapes land in the wrong place, remove the layer and import again with a different coordinate system.',
