@@ -1,0 +1,5 @@
+{
+  "type": "commonjs",
+  "private": true,
+  "description": "Vendored sql.js (MIT). See LICENSE. Loaded by the map only when a GeoPackage is imported."
+}

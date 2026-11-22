@@ -27,6 +27,7 @@ const MIME = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.webmanifest': 'application/manifest+json; charset=utf-8',
+  '.wasm': 'application/wasm',
 };
 
 function json(response, value, status = 200) {

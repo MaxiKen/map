@@ -2,7 +2,7 @@
 
 This is the guide the map itself shows under **Tools → Guide**, as a file you can read, print or
 hand to a colleague. It is generated from the same tool list that builds the Tools panel, so it
-always matches the app: 125 tools, in the order you usually need them.
+always matches the app: 126 tools, in the order you usually need them.
 
 - Every tool is read-only: nothing here edits the underlying data files.
 - Results are drawn on the map or shown in a panel, and most panels can be saved as CSV, JSON or a
@@ -18,7 +18,7 @@ always matches the app: 125 tools, in the order you usually need them.
 - [Navigation & measuring](#navigation-measuring) — 13 tools
 - [Time](#time) — 3 tools
 - [Search & discovery](#search-discovery) — 4 tools
-- [Data & tables](#data-tables) — 12 tools
+- [Data & tables](#data-tables) — 13 tools
 - [Cartography & design](#cartography-design) — 4 tools
 - [View](#view) — 2 tools
 - [Mobile & accessibility](#mobile-accessibility) — 5 tools
@@ -535,6 +535,19 @@ Summarises one numeric column separately for each group in another column (for e
 3. Press **Compute**; each group gets a count, mean, minimum and maximum.
 
 **Tip.** Both columns must be in the same layer. For a single overall summary use Layer statistics instead.
+
+### Import GeoPackage
+
+`gpkg` — Bring your own GeoPackage onto the map.
+
+Reads a GeoPackage in this browser and lists its layers under Imported. The file is not sent anywhere. A layer stays off until you turn it on, and can then be used with the published layers.
+
+1. Tools → **Import GeoPackage** and choose a .gpkg file.
+2. Read the coordinate-system note. Files in Minna are shifted to WGS 84, and that shift is only good to about 15 metres.
+3. Press **Add to imported layers**. They appear below On the map and above All layers.
+4. Turn on the layer you want. It can then be used with Buffer, clip and the other tools.
+
+**Tip.** The file is forgotten when you close the tab. If the shapes land in the wrong place, remove the layer and import again with a different coordinate system.
 
 ## Cartography & design
 

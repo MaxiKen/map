@@ -176,6 +176,40 @@ test('every tool opens and runs without throwing', async ({ page }) => {
   expect(failures, JSON.stringify(failures, null, 1)).toEqual([]);
 });
 
+test('a GeoPackage is listed under Imported and stays off until turned on', async ({ page }) => {
+  const errors = capturePageErrors(page);
+  await blockThirdParty(page);
+  await bootMap(page);
+  await page.locator('.tab[data-tab="tools"]').click();
+  await page.locator('[data-tool="gpkg"]').click();
+  await page.locator('#gp-file').setInputFiles(new URL('../fixtures/minna_abuja.gpkg', import.meta.url).pathname);
+  await page.locator('#gp-read').click();
+  await expect(page.locator('#gp-out .caveat').first()).toContainText('15 metres');
+  await expect(page.locator('#gp-out')).toContainText('Abuja test');
+  await expect(page.locator('#gp-out')).toContainText('Lagos test');
+  await page.locator('#gp-add').click();
+  await expect(page.locator('#importlist')).toContainText('Imported');
+  await expect(page.locator('#importlist')).toContainText('15 metres');
+  await expect(page.locator('#importlist')).toContainText('Abuja test');
+  await expect(page.locator('#layerlist')).not.toContainText('Abuja test');
+  const before = await page.evaluate(() => {
+    const layer = [...window.__nwg.L.values()].find((st) => st.meta.label === 'Abuja test');
+    return { on: layer?.on, id: layer?.meta.id };
+  });
+  expect(before.on).toBe(false);
+  await page.locator(`#importlist .lrow[data-id="${before.id}"] .sw`).click();
+  await expect.poll(() => page.evaluate((id) => window.__nwg.L.get(id)?.on, before.id)).toBe(true);
+  const placed = await page.evaluate((id) => {
+    const st = window.__nwg.L.get(id);
+    return { name: st.obj.features[0].props.name, bounds: st.meta.bounds, lagos: [...window.__nwg.L.values()].find((row) => row.meta.label === 'Lagos test')?.on };
+  }, before.id);
+  expect(placed.name).toBe('Abuja');
+  expect(placed.lagos).toBe(false);
+  expect(placed.bounds[0]).toBeCloseTo(7.3986, 3);
+  expect(placed.bounds[1]).toBeCloseTo(9.0765, 3);
+  expect(errors).toEqual([]);
+});
+
 test('buffer is picked on the map and the zone can be a square', async ({ page }) => {
   const errors = capturePageErrors(page);
   await blockThirdParty(page);

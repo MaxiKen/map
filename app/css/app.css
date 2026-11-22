@@ -1,10 +1,12 @@
 :root{
   --bg:#f3f4f2; --panel:#ffffff; --panel2:#f1f3f0; --text:#16201b; --muted:#5b6761; --line:#dfe4df;
   --brand:#0b6b45; --brand2:#0b3d2e; --accent:#ffd400; --fab:#ffffff; --fabtext:#16201b; --shadow:0 2px 10px rgba(0,0,0,.22);
+  --caveat-bg:#fff6e8; --caveat-line:#e0c48a; --caveat-text:#6a4a12; --caveat-ok-bg:#eef6f1; --caveat-ok-line:#b7d4c4; --caveat-ok-text:#1d4a34;
   --tabh:58px; --safeb:env(safe-area-inset-bottom,0px); --safet:env(safe-area-inset-top,0px);
 }
 @media (prefers-color-scheme:dark){
-  :root{ --bg:#101412; --panel:#171c19; --panel2:#1f2622; --text:#e9efe9; --muted:#9aa8a0; --line:#2b342f; --brand:#34c27d; --brand2:#0b3d2e; --fab:#171c19; --fabtext:#e9efe9; --shadow:0 2px 12px rgba(0,0,0,.6); }
+  :root{ --bg:#101412; --panel:#171c19; --panel2:#1f2622; --text:#e9efe9; --muted:#9aa8a0; --line:#2b342f; --brand:#34c27d; --brand2:#0b3d2e; --fab:#171c19; --fabtext:#e9efe9; --shadow:0 2px 12px rgba(0,0,0,.6);
+    --caveat-bg:#3a2e18; --caveat-line:#8a6a32; --caveat-text:#f3e2c0; --caveat-ok-bg:#173328; --caveat-ok-line:#3d6b54; --caveat-ok-text:#cfe8d8; }
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none}
@@ -128,6 +130,8 @@ input[type=range]{accent-color:var(--brand);flex:1;min-width:0}
 .sec{display:flex;align-items:center;gap:8px;margin:14px 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted)}
 .sec .n{margin-left:auto;font-weight:500;text-transform:none;letter-spacing:0}
 .hint{margin:-2px 2px 8px;font-size:11.5px;color:var(--muted);line-height:1.35}
+.caveat{margin:0 0 8px;padding:10px 12px;border-radius:12px;background:var(--caveat-bg);border:1px solid var(--caveat-line);color:var(--caveat-text);font-size:12.5px;line-height:1.45}
+.caveat.ok{background:var(--caveat-ok-bg);border-color:var(--caveat-ok-line);color:var(--caveat-ok-text)}
 
 .group{margin:6px 0 10px;border:1px solid var(--line);border-radius:14px;overflow:hidden}
 .ghead{display:flex;align-items:center;gap:8px;width:100%;padding:11px 12px;background:var(--panel2);border:0;text-align:left;font-weight:700}
