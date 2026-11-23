@@ -182,15 +182,26 @@ test('a GeoPackage is listed under Imported and stays off until turned on', asyn
   await page.setViewportSize({ width: 390, height: 844 });
   await bootMap(page);
   await page.locator('.tab[data-tab="layers"]').click();
-  const importButton = page.locator('#import-gpkg');
+  const importButton = page.locator('#lyrtools [data-x="gpkg"]');
   await expect(importButton).toBeVisible();
-  await expect(importButton).toContainText('Import GeoPackage');
-  const aboveTheMap = await page.evaluate(() => {
-    const button = document.querySelector('#import-gpkg');
-    const onTheMap = document.querySelector('#activelist');
-    return !!(button && onTheMap && button.compareDocumentPosition(onTheMap) & Node.DOCUMENT_POSITION_FOLLOWING);
+  await expect(importButton).toContainText('Import');
+  const layout = await page.evaluate(() => {
+    const button = document.querySelector('#lyrtools [data-x="gpkg"]');
+    const show = document.querySelector('#lyrtools [data-x="showall"]');
+    const basemap = document.querySelector('#lyrtools [data-x="basemap"]');
+    const title = document.querySelector('#sheettitle');
+    const search = document.querySelector('#layerfilter');
+    const rect = (el) => el.getBoundingClientRect();
+    const overlaps = (a, b) => !(a.right <= b.left + 1 || b.right <= a.left + 1 || a.bottom <= b.top + 1 || b.bottom <= a.top + 1);
+    return {
+      withTheTools: !!(button && show && button.parentElement === show.parentElement),
+      coversTitle: overlaps(rect(button), rect(title)),
+      coversSearch: overlaps(rect(button), rect(search)),
+      coversShow: overlaps(rect(button), rect(show)),
+      coversBasemap: overlaps(rect(button), rect(basemap)),
+    };
   });
-  expect(aboveTheMap).toBe(true);
+  expect(layout).toEqual({ withTheTools: true, coversTitle: false, coversSearch: false, coversShow: false, coversBasemap: false });
   await importButton.scrollIntoViewIfNeeded();
   await importButton.click();
   await page.locator('#gp-file').setInputFiles(new URL('../fixtures/minna_abuja.gpkg', import.meta.url).pathname);

@@ -50,6 +50,7 @@ const CATALOG = {
   3857: { name: 'Web Mercator', method: 'merc' },
   26331: { name: 'Minna / UTM zone 31N', ellip: CLARKE, shift: MINNA_SHIFT, datum: 'minna', ...utmZone(31) },
   26332: { name: 'Minna / UTM zone 32N', ellip: CLARKE, shift: MINNA_SHIFT, datum: 'minna', ...utmZone(32) },
+  26333: { name: 'Minna / UTM zone 33N', ellip: CLARKE, shift: MINNA_SHIFT, datum: 'minna', ...utmZone(33) },
   26391: { name: 'Minna / Nigeria West Belt', ellip: CLARKE, shift: MINNA_SHIFT, datum: 'minna', ...belt(4.5, 230738.26) },
   26392: { name: 'Minna / Nigeria Mid Belt', ellip: CLARKE, shift: MINNA_SHIFT, datum: 'minna', ...belt(8.5, 670553.98) },
   26393: { name: 'Minna / Nigeria East Belt', ellip: CLARKE, shift: MINNA_SHIFT, datum: 'minna', ...belt(12.5, 1110369.7) },
@@ -224,6 +225,255 @@ export function projectToLonLat(x, y, crs, latFirst) {
 
 export function looksLikeDegrees(samples) {
   return samples.length > 0 && samples.every(([x, y]) => Math.abs(x) <= 180 && Math.abs(y) <= 90 && Number.isFinite(x) && Number.isFinite(y));
+}
+
+// Systems the coordinate tools offer. Decimal degrees on the map are always
+// WGS 84. Minna is the national datum, good to about 15 metres, not a survey fix.
+export const GRID_SYSTEMS = [
+  { id: 'wgs-utm', label: 'WGS 84 / UTM (this point’s zone)', kind: 'auto' },
+  { id: '32631', label: 'WGS 84 / UTM zone 31N', kind: 'grid' },
+  { id: '32632', label: 'WGS 84 / UTM zone 32N', kind: 'grid' },
+  { id: '32633', label: 'WGS 84 / UTM zone 33N', kind: 'grid' },
+  { id: '4263', label: 'Minna longitude / latitude', kind: 'longlat' },
+  { id: '26331', label: 'Minna / UTM zone 31N', kind: 'grid' },
+  { id: '26332', label: 'Minna / UTM zone 32N', kind: 'grid' },
+  { id: '26333', label: 'Minna / UTM zone 33N', kind: 'grid' },
+  { id: '26391', label: 'Minna / Nigeria West Belt', kind: 'grid' },
+  { id: '26392', label: 'Minna / Nigeria Mid Belt', kind: 'grid' },
+  { id: '26393', label: 'Minna / Nigeria East Belt', kind: 'grid' },
+];
+
+export function validateLonLat(lon, lat) {
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) return 'Enter a latitude and a longitude.';
+  if (Math.abs(lat) > 90) return 'Latitude must be between −90 and 90.';
+  if (Math.abs(lon) > 180) return 'Longitude must be between −180 and 180.';
+  return '';
+}
+
+export function utmZoneOf(lon, lat) {
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
+  let zone = Math.floor((lon + 180) / 6) + 1;
+  if (lon >= 180) zone = 60;
+  if (lon <= -180) zone = 1;
+  zone = Math.min(60, Math.max(1, zone));
+  const south = lat < 0;
+  return { zone, south, label: `${zone}${south ? 'S' : 'N'}` };
+}
+
+function wgsToDatum(lonDeg, latDeg, entry) {
+  if (!entry?.shift) return [lonDeg, latDeg];
+  const [X, Y, Z] = geodeticToGeocentric(lonDeg * DEG, latDeg * DEG, WGS84.a, WGS84.f);
+  const [lon, lat] = geocentricToGeodetic(X - entry.shift.dx, Y - entry.shift.dy, Z - entry.shift.dz, entry.ellip.a, entry.ellip.f);
+  return [lon / DEG, lat / DEG];
+}
+
+function forwardMerc(lonDeg, latDeg) {
+  const R = WGS84.a;
+  const lat = Math.max(-89.9, Math.min(89.9, latDeg)) * DEG;
+  return [lonDeg * DEG * R, Math.log(Math.tan(Math.PI / 4 + lat / 2)) * R];
+}
+
+function forwardTmerc(lonDeg, latDeg, entry) {
+  const { a, f } = entry.ellip;
+  const e2 = f * (2 - f);
+  const ep2 = e2 / (1 - e2);
+  const phi = latDeg * DEG;
+  const sinPhi = Math.sin(phi);
+  const cosPhi = Math.cos(phi);
+  const tanPhi = Math.tan(phi);
+  const N = a / Math.sqrt(1 - e2 * sinPhi * sinPhi);
+  const T = tanPhi * tanPhi;
+  const C = ep2 * cosPhi * cosPhi;
+  const A = (lonDeg - entry.lon0) * DEG * cosPhi;
+  const M = meridianArc(phi, a, e2);
+  const M0 = meridianArc((entry.lat0 || 0) * DEG, a, e2);
+  const A2 = A * A;
+  const A3 = A2 * A;
+  const A4 = A2 * A2;
+  const A5 = A4 * A;
+  const A6 = A4 * A2;
+  const easting = entry.x0 + entry.k0 * N * (
+    A
+    + (1 - T + C) * A3 / 6
+    + (5 - 18 * T + T * T + 72 * C - 58 * ep2) * A5 / 120
+  );
+  const northing = entry.y0 + entry.k0 * (
+    M - M0
+    + N * tanPhi * (
+      A2 / 2
+      + (5 - T + 9 * C + 4 * C * C) * A4 / 24
+      + (61 - 58 * T + T * T + 600 * C - 330 * ep2) * A6 / 720
+    )
+  );
+  return [easting, northing];
+}
+
+function wgsUtmEntry(lon, lat) {
+  const zone = utmZoneOf(lon, lat);
+  const code = (zone.south ? 32700 : 32600) + zone.zone;
+  const known = entryForCode(code);
+  const entry = known || {
+    name: `WGS 84 / UTM zone ${zone.label}`,
+    ellip: WGS84,
+    shift: null,
+    datum: 'wgs84',
+    ...utmZone(zone.zone, zone.south),
+  };
+  return { code, entry, zone };
+}
+
+function resolveSystem(systemId, lon, lat) {
+  if (systemId === 'wgs-utm') {
+    const picked = wgsUtmEntry(lon, lat);
+    if (!picked) return null;
+    return {
+      kind: 'grid',
+      auto: true,
+      entry: picked.entry,
+      caveat: '',
+      meta: { id: 'wgs-utm', code: picked.code, name: picked.entry.name, zone: picked.zone.label, datum: 'wgs84' },
+    };
+  }
+  const code = +systemId;
+  const entry = entryForCode(code);
+  if (!entry) return null;
+  const crs = finishCrs(code, entry, { fromFile: false });
+  return {
+    kind: entry.method === 'longlat' ? 'longlat' : 'grid',
+    auto: false,
+    entry,
+    caveat: crs.datum === 'minna' ? crs.note : '',
+    meta: { id: String(code), code, name: crs.shortName || entry.name, datum: crs.datum },
+  };
+}
+
+export function lonLatToSystem(lon, lat, systemId) {
+  const err = validateLonLat(lon, lat);
+  if (err) return { error: err };
+  const spec = resolveSystem(systemId, lon, lat);
+  if (!spec) return { error: 'Choose a coordinate system.' };
+  if (spec.kind === 'longlat') {
+    const [x, y] = wgsToDatum(lon, lat, spec.entry);
+    return { ...spec.meta, kind: 'longlat', x, y, caveat: spec.caveat };
+  }
+  const [slon, slat] = wgsToDatum(lon, lat, spec.entry);
+  const [easting, northing] = spec.entry.method === 'merc'
+    ? forwardMerc(slon, slat)
+    : forwardTmerc(slon, slat, spec.entry);
+  return { ...spec.meta, kind: 'grid', easting, northing, caveat: spec.caveat, auto: spec.auto };
+}
+
+export function systemToLonLat(systemId, a, b) {
+  if (systemId === 'wgs-utm') return { error: 'Pick a fixed zone before typing an easting and northing.' };
+  const spec = resolveSystem(systemId, 0, 0);
+  if (!spec) return { error: 'Choose a coordinate system.' };
+  if (spec.kind === 'longlat') {
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return { error: 'Enter a longitude and a latitude.' };
+    if (Math.abs(b) > 90 || Math.abs(a) > 180) return { error: 'That longitude or latitude is off the Earth.' };
+    const [lon, lat] = spec.entry.shift ? applyShift(a, b, spec.entry.ellip, spec.entry.shift) : [a, b];
+    const err = validateLonLat(lon, lat);
+    if (err) return { error: 'That position does not land on the Earth.' };
+    return { lon, lat, caveat: spec.caveat, name: spec.meta.name, datum: spec.meta.datum };
+  }
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return { error: 'Enter an easting and a northing.' };
+  if (Math.abs(a) > 2e7 || Math.abs(b) > 2e7) return { error: 'That easting or northing is not a grid coordinate.' };
+  const [lon, lat] = projectEntry(a, b, spec.entry);
+  if (validateLonLat(lon, lat)) return { error: 'That grid position does not land on the Earth.' };
+  return { lon, lat, caveat: spec.caveat, name: spec.meta.name, datum: spec.meta.datum };
+}
+
+export function formatDms(value, isLat) {
+  if (!Number.isFinite(value)) return '';
+  const neg = value < 0;
+  const max = (isLat ? 90 : 180) * 36000;
+  let tenths = Math.round(Math.abs(value) * 36000);
+  if (tenths > max) tenths = max;
+  const deg = Math.floor(tenths / 36000);
+  const rem = tenths % 36000;
+  const min = Math.floor(rem / 600);
+  const sec = (rem % 600) / 10;
+  const dir = neg ? (isLat ? 'S' : 'W') : (isLat ? 'N' : 'E');
+  const [whole, frac] = sec.toFixed(1).split('.');
+  return `${deg}°${String(min).padStart(2, '0')}'${whole.padStart(2, '0')}.${frac}"${dir}`;
+}
+
+function parseDmsToken(token) {
+  const hem = String(token).match(/[NSEW]/i);
+  const nums = String(token).match(/-?\d+(?:\.\d+)?/g)?.map(Number) || [];
+  if (!nums.length) return null;
+  if (nums.length > 3) return { error: 'A degrees-minutes-seconds value has at most degrees, minutes and seconds.' };
+  const deg = nums[0];
+  const min = nums[1] || 0;
+  const sec = nums[2] || 0;
+  if (min < 0 || sec < 0 || min >= 60 || sec >= 60) return { error: 'Minutes and seconds must be from 0 up to, but not including, 60.' };
+  const sign = deg < 0 ? -1 : 1;
+  let value = sign * (Math.abs(deg) + min / 60 + sec / 3600);
+  let axis = null;
+  if (hem) {
+    const h = hem[0].toUpperCase();
+    axis = h === 'N' || h === 'S' ? 'lat' : 'lon';
+    value = h === 'S' || h === 'W' ? -Math.abs(value) : Math.abs(value);
+  }
+  return { value, axis };
+}
+
+function parseDmsPair(raw) {
+  const parts = raw.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+  let tokens = parts.length >= 2 ? parts.slice(0, 2) : null;
+  if (!tokens) {
+    const bits = raw.match(/[-+]?\d[\d\s.°'′"″dms]*[NSEW]/gi);
+    if (bits && bits.length >= 2) tokens = bits.slice(0, 2);
+  }
+  if (!tokens || tokens.length < 2) return null;
+  const a = parseDmsToken(tokens[0]);
+  const b = parseDmsToken(tokens[1]);
+  if (!a || !b) return null;
+  if (a.error) return a;
+  if (b.error) return b;
+  let lat;
+  let lon;
+  if (a.axis === 'lat' && b.axis === 'lon') { lat = a.value; lon = b.value; }
+  else if (a.axis === 'lon' && b.axis === 'lat') { lon = a.value; lat = b.value; }
+  else if (!a.axis && !b.axis) { lat = a.value; lon = b.value; }
+  else return { error: 'Say which number is latitude (N or S) and which is longitude (E or W).' };
+  const err = validateLonLat(lon, lat);
+  if (err) return { error: err };
+  return { kind: 'lonlat', lon, lat };
+}
+
+function parseGridText(raw) {
+  const minna = /minna/i.test(raw);
+  const m = raw.match(/(?:zone\s*)?(\d{1,2})\s*([NSns])\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  const zone = +m[1];
+  const south = m[2].toUpperCase() === 'S';
+  const easting = +m[3];
+  const northing = +m[4];
+  if (zone < 1 || zone > 60) return { error: 'UTM zone must be from 1 to 60.' };
+  if (minna && (south || zone < 31 || zone > 33)) return { error: 'Minna UTM on this map is zone 31N, 32N or 33N.' };
+  const code = (minna ? 26300 : (south ? 32700 : 32600)) + zone;
+  if (!minna && !entryForCode(code) && (zone < 1 || zone > 60)) return { error: 'That UTM zone is not used here.' };
+  return { kind: 'grid', systemId: String(code), easting, northing };
+}
+
+export function parseCoordinateText(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return { error: 'Paste a coordinate.' };
+  const grid = parseGridText(raw);
+  if (grid) return grid;
+  if (/[°'′"″]|[NSEW]/i.test(raw)) {
+    const dms = parseDmsPair(raw);
+    if (dms) return dms;
+    return { error: 'That degrees-minutes-seconds value could not be read. Include a hemisphere, for example 9°04\'35.4"N, 7°23\'55.0"E.' };
+  }
+  const nums = raw.split(/[,;\s]+/).map(Number).filter((n) => Number.isFinite(n));
+  if (nums.length >= 2) {
+    const [lat, lon] = nums;
+    const err = validateLonLat(lon, lat);
+    if (err) return { error: 'Paste latitude first, then longitude. ' + err };
+    return { kind: 'lonlat', lon, lat };
+  }
+  return { error: 'Paste latitude and longitude, degrees-minutes-seconds, or a zone with easting and northing.' };
 }
 
 // ---- reading a code or a definition out of a GeoPackage --------------------
