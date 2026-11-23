@@ -20,6 +20,37 @@ export const BASEMAPS = {
 };
 export const BASEMAP_ORDER = ['light', 'streets', 'dark', 'satellite', 'topo', 'none'];
 
+// Page frame for a print picture. The map is letterboxed into the frame so a
+// wide screen is not stretched to a portrait page. Sizes are millimetres;
+// the returned box is pixels at `dpi`.
+export const PAGE_SIZES_MM = { a4: [210, 297], a3: [297, 420], letter: [215.9, 279.4] };
+export function pageFrame({ size = 'a4', orient = 'portrait', margin = 15, legend = false } = {}, viewW = 16, viewH = 9, dpi = 110) {
+  const pair = PAGE_SIZES_MM[size] || PAGE_SIZES_MM.a4;
+  const landscape = orient === 'landscape';
+  const pageWmm = landscape ? pair[1] : pair[0];
+  const pageHmm = landscape ? pair[0] : pair[1];
+  const asked = Number.isFinite(+margin) ? +margin : 15;
+  const m = Math.max(5, Math.min(40, asked));
+  const px = dpi / 25.4;
+  const pageW = Math.max(1, Math.round(pageWmm * px));
+  const pageH = Math.max(1, Math.round(pageHmm * px));
+  const marginPx = Math.round(m * px);
+  const titleH = Math.round(12 * px);
+  const footH = Math.round(10 * px);
+  const legendW = legend ? Math.min(Math.round(pageW * 0.28), Math.round(58 * px)) : 0;
+  const innerX = marginPx;
+  const innerY = marginPx + titleH;
+  const innerW = Math.max(1, pageW - marginPx * 2 - legendW);
+  const innerH = Math.max(1, pageH - marginPx * 2 - titleH - footH);
+  const vw = Math.max(1, viewW), vh = Math.max(1, viewH);
+  const scale = Math.min(innerW / vw, innerH / vh);
+  const mapW = Math.max(1, Math.round(vw * scale));
+  const mapH = Math.max(1, Math.round(vh * scale));
+  const mapX = innerX + Math.floor((innerW - mapW) / 2);
+  const mapY = innerY + Math.floor((innerH - mapH) / 2);
+  return { pageW, pageH, pageWmm, pageHmm, marginPx, titleH, footH, legendW, mapX, mapY, mapW, mapH, innerX, innerY, innerW, innerH, dpi };
+}
+
 // ---------------------------------------------------------------- geometry helpers (lon / lat)
 const R_EARTH = 6371.0088;
 const rad = Math.PI / 180;
@@ -344,10 +375,16 @@ export class GeoMap {
     }
   }
   _drawImage(l) {
-    if (!l.img || !l.img.complete || !l.img.naturalWidth) return;
+    const img = l.img;
+    if (!img) return;
+    // A catalog raster is an Image. A derived surface is a canvas, which has
+    // width/height but no naturalWidth, and no complete flag.
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    if (!w || !h || img.complete === false) return;
     const [x0, y0] = this.toScreen(l.wb[0], l.wb[1]), [x1, y1] = this.toScreen(l.wb[2], l.wb[3]);
     if (x1 < 0 || y1 < 0 || x0 > this.W || y0 > this.H) return;
-    this.ctx.imageSmoothingEnabled = !l.categorical; this.ctx.drawImage(l.img, x0, y0, x1 - x0, y1 - y0);
+    this.ctx.imageSmoothingEnabled = !l.categorical; this.ctx.drawImage(img, x0, y0, x1 - x0, y1 - y0);
   }
   _vis(f) { // bbox culling
     const [x0, y0] = this.toScreen(f.bb[0], f.bb[1]), [x1, y1] = this.toScreen(f.bb[2], f.bb[3]);
@@ -4019,6 +4056,18 @@ function multiToParts(multi) {
   return parts;
 }
 // op: 'union' | 'intersection' | 'difference'. Returns polygon parts [[[ring, hole?]]].
+function pairwiseUnion(geoms) {
+  if (!geoms.length) return [];
+  let level = geoms;
+  while (level.length > 1) {
+    const next = [];
+    for (let i = 0; i < level.length; i += 2) {
+      next.push(i + 1 < level.length ? polygonClipping.union(level[i], level[i + 1]) : level[i]);
+    }
+    level = next;
+  }
+  return level[0];
+}
 export function polygonBoolean(features, op = 'intersection') {
   const geoms = (features || []).map(featurePolys).filter((g) => g.length);
   if (!geoms.length) return [];
@@ -4026,7 +4075,7 @@ export function polygonBoolean(features, op = 'intersection') {
   let acc = geoms[0];
   try {
     if (op === 'union') {
-      for (let i = 1; i < geoms.length; i++) acc = polygonClipping.union(acc, geoms[i]);
+      acc = pairwiseUnion(geoms);
     } else if (op === 'difference') {
       for (let i = 1; i < geoms.length; i++) acc = polygonClipping.difference(acc, geoms[i]);
     } else {
@@ -4111,6 +4160,1592 @@ function featureClosest(a, b) {
 export function featureDistanceKm(a, b) { return featureClosest(a, b).km; }
 export function featureClosestKm(a, b) { return featureClosest(a, b); }
 
+// ------------------------------------------------------------------ geometry operations
+// Pure helpers for the Geometry menu. Coordinates stay mercator. Distances are
+// kilometres on the ground, never a mercator delta divided by 111.
+
+const GEOM_MERC_METRES = 40075016.686;
+
+function copyFlat(ring) {
+  return Float64Array.from(ring || []);
+}
+function flatClosed(ring) {
+  const a = Array.from(ring || []);
+  if (a.length >= 4 && (a[0] !== a[a.length - 2] || a[1] !== a[a.length - 1])) a.push(a[0], a[1]);
+  return a.length >= 6 ? a : [];
+}
+function flatPairCount(flat) {
+  return Math.floor((flat?.length || 0) / 2);
+}
+function flatPoint(flat, i) {
+  return [flat[i * 2], flat[i * 2 + 1]];
+}
+function pushPair(out, x, y) {
+  out.push(x, y);
+}
+function samePair(ax, ay, bx, by, eps = 1e-9) {
+  return Math.abs(ax - bx) <= eps && Math.abs(ay - by) <= eps;
+}
+function flatSignedArea(flat) {
+  let a = 0;
+  const n = flatPairCount(flat);
+  if (n < 3) return 0;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const x0 = flat[j * 2], y0 = flat[j * 2 + 1], x1 = flat[i * 2], y1 = flat[i * 2 + 1];
+    a += x0 * y1 - x1 * y0;
+  }
+  return a / 2;
+}
+function pointInFlatRing(x, y, ring) {
+  let inside = false;
+  const n = flatPairCount(ring);
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const xi = ring[i * 2], yi = ring[i * 2 + 1], xj = ring[j * 2], yj = ring[j * 2 + 1];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-15) + xi) inside = !inside;
+  }
+  return inside;
+}
+function segmentCross(ax, ay, bx, by, cx, cy, dx, dy) {
+  const den = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx);
+  if (Math.abs(den) < 1e-18) return null;
+  const t = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / den;
+  const u = ((cx - ax) * (by - ay) - (cy - ay) * (bx - ax)) / den;
+  if (t <= 1e-9 || t >= 1 - 1e-9 || u <= 1e-9 || u >= 1 - 1e-9) return null;
+  return { x: ax + t * (bx - ax), y: ay + t * (by - ay), t, u };
+}
+function collinearOverlap(ax, ay, bx, by, cx, cy, dx, dy) {
+  const abx = bx - ax, aby = by - ay, cdx = dx - cx, cdy = dy - cy;
+  const cross = abx * cdy - aby * cdx;
+  const len = Math.hypot(abx, aby);
+  if (len < 1e-15 || Math.abs(cross) > 1e-9 * len * Math.max(len, Math.hypot(cdx, cdy))) return false;
+  const acx = cx - ax, acy = cy - ay;
+  if (Math.abs(abx * acy - aby * acx) > 1e-9 * len) return false;
+  const dot = (px, py, qx, qy) => px * qx + py * qy;
+  const t0 = dot(acx, acy, abx, aby) / (len * len);
+  const t1 = dot(dx - ax, dy - ay, abx, aby) / (len * len);
+  const lo = Math.min(t0, t1), hi = Math.max(t0, t1);
+  return hi - lo > 1e-7 && hi > 1e-7 && lo < 1 - 1e-7;
+}
+function kmAt(x, y) {
+  const lat = unY(y);
+  return {
+    x: GEOM_MERC_METRES / 1000 * Math.cos(lat * Math.PI / 180),
+    y: GEOM_MERC_METRES / 1000,
+  };
+}
+function offsetMetres(x, y, eastM, northM) {
+  const lat = unY(y), lon = unX(x);
+  const dLat = northM / 110574;
+  const dLon = eastM / Math.max(1, 111320 * Math.cos(lat * Math.PI / 180));
+  return [mercX(lon + dLon), mercY(lat + dLat)];
+}
+function interpMercKm(x1, y1, x2, y2, km) {
+  const total = haversineKm([unX(x1), unY(y1)], [unX(x2), unY(y2)]);
+  if (!(total > 0) || km <= 0) return [x1, y1];
+  if (km >= total) return [x2, y2];
+  // Mercator is not constant ground distance, so the fraction is corrected
+  // until the haversine of the new point matches the asked kilometres.
+  let t = km / total;
+  for (let i = 0; i < 8; i++) {
+    const x = x1 + (x2 - x1) * t, y = y1 + (y2 - y1) * t;
+    const got = haversineKm([unX(x1), unY(y1)], [unX(x), unY(y)]);
+    if (Math.abs(got - km) < 0.0005) return [x, y];
+    t *= km / Math.max(got, 1e-9);
+    t = Math.max(0, Math.min(1, t));
+  }
+  return [x1 + (x2 - x1) * t, y1 + (y2 - y1) * t];
+}
+
+export function areaCentroidMerc(f) {
+  if (!f) return null;
+  if (f.type === 'point') {
+    if (!f.parts || f.parts.length < 2) return null;
+    return [f.parts[0], f.parts[1]];
+  }
+  if (f.type === 'line') {
+    const line = f.parts?.[0];
+    if (!line || line.length < 2) return null;
+    let sx = 0, sy = 0, n = 0;
+    for (let i = 0; i < line.length; i += 2) { sx += line[i]; sy += line[i + 1]; n++; }
+    return n ? [sx / n, sy / n] : null;
+  }
+  let a = 0, cx = 0, cy = 0;
+  for (const poly of f.parts || []) {
+    const ring = poly?.[0];
+    if (!ring || ring.length < 6) continue;
+    const n = flatPairCount(ring);
+    for (let i = 0, j = n - 1; i < n; j = i++) {
+      const x0 = ring[j * 2], y0 = ring[j * 2 + 1], x1 = ring[i * 2], y1 = ring[i * 2 + 1];
+      const c = x0 * y1 - x1 * y0;
+      a += c; cx += (x0 + x1) * c; cy += (y0 + y1) * c;
+    }
+  }
+  if (Math.abs(a) < 1e-18) {
+    const ring = f.parts?.[0]?.[0];
+    if (!ring) return null;
+    let sx = 0, sy = 0, n = 0;
+    for (let i = 0; i < ring.length; i += 2) { sx += ring[i]; sy += ring[i + 1]; n++; }
+    return n ? [sx / n, sy / n] : null;
+  }
+  return [cx / (3 * a), cy / (3 * a)];
+}
+
+export function pointFeature(x, y, props, style) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return {
+    type: 'point',
+    parts: [x, y],
+    bb: [x, y, x, y],
+    props: props || {},
+    fill: style?.fill || '#0b6b45',
+    stroke: style?.stroke || '#0b3d2e',
+    idx: style?.idx || 0,
+  };
+}
+export function lineFeature(parts, props, style) {
+  const clean = (parts || []).map((part) => copyFlat(part)).filter((part) => part.length >= 4);
+  if (!clean.length) return null;
+  return {
+    type: 'line',
+    parts: clean,
+    bb: clipBB(clean),
+    props: props || {},
+    fill: 'none',
+    stroke: style?.stroke || style?.fill || '#0b6b45',
+    idx: style?.idx || 0,
+  };
+}
+export function polygonFeature(parts, props, style) {
+  const clean = [];
+  for (const poly of parts || []) {
+    if (!poly) continue;
+    const rings = [];
+    for (const ring of poly) {
+      const closed = flatClosed(ring);
+      if (closed.length >= 8) rings.push(Float64Array.from(closed));
+    }
+    if (rings.length && rings[0].length >= 8) clean.push(rings);
+  }
+  if (!clean.length) return null;
+  return {
+    type: 'poly',
+    parts: clean,
+    bb: partsBBox(clean),
+    props: props || {},
+    fill: style?.fill || '#0b6b45',
+    stroke: style?.stroke || style?.fill || '#0b6b45',
+    idx: style?.idx || 0,
+  };
+}
+
+export function featureVertices(f) {
+  const pts = [];
+  if (!f?.parts) return pts;
+  if (f.type === 'point') {
+    for (let i = 0; i < f.parts.length; i += 2) pts.push([f.parts[i], f.parts[i + 1]]);
+    return pts;
+  }
+  const rings = f.type === 'line' ? f.parts : (f.parts || []).flat();
+  for (const ring of rings) {
+    if (!ring) continue;
+    const n = flatPairCount(ring);
+    const closed = n > 1 && samePair(ring[0], ring[1], ring[(n - 1) * 2], ring[(n - 1) * 2 + 1]);
+    const limit = closed ? n - 1 : n;
+    for (let i = 0; i < limit; i++) pts.push(flatPoint(ring, i));
+  }
+  return pts;
+}
+
+export function featureBBoxRing(f) {
+  const pts = featureVertices(f);
+  if (!pts.length && f?.bb) {
+    const [x0, y0, x1, y1] = f.bb;
+    return [x0, y0, x1, y0, x1, y1, x0, y1, x0, y0];
+  }
+  if (!pts.length) return null;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [x, y] of pts) {
+    if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x1) x1 = x; if (y > y1) y1 = y;
+  }
+  if (!(x1 > x0) || !(y1 > y0)) return null;
+  return [x0, y0, x1, y0, x1, y1, x0, y1, x0, y0];
+}
+
+export function densifyFlat(flat, intervalKm, closed) {
+  const src = Array.from(flat || []);
+  const n = flatPairCount(src);
+  if (n < 2 || !(intervalKm > 0)) return copyFlat(src);
+  const limit = closed ? n : n - 1;
+  const out = [];
+  for (let i = 0; i < limit; i++) {
+    const j = (i + 1) % n;
+    const x1 = src[i * 2], y1 = src[i * 2 + 1], x2 = src[j * 2], y2 = src[j * 2 + 1];
+    pushPair(out, x1, y1);
+    const seg = haversineKm([unX(x1), unY(y1)], [unX(x2), unY(y2)]);
+    const steps = Math.floor(seg / intervalKm);
+    for (let s = 1; s < steps; s++) {
+      const [x, y] = interpMercKm(x1, y1, x2, y2, s * intervalKm);
+      pushPair(out, x, y);
+    }
+  }
+  if (!closed) pushPair(out, src[(n - 1) * 2], src[(n - 1) * 2 + 1]);
+  else if (out.length >= 2) pushPair(out, out[0], out[1]);
+  return Float64Array.from(out);
+}
+
+export function pointsAlongFlat(flat, intervalKm) {
+  const src = Array.from(flat || []);
+  const n = flatPairCount(src);
+  if (n < 1 || !(intervalKm > 0)) return [];
+  const pts = [[src[0], src[1]]];
+  let carried = 0;
+  for (let i = 0; i < n - 1; i++) {
+    const x1 = src[i * 2], y1 = src[i * 2 + 1], x2 = src[(i + 1) * 2], y2 = src[(i + 1) * 2 + 1];
+    const seg = haversineKm([unX(x1), unY(y1)], [unX(x2), unY(y2)]);
+    if (!(seg > 0)) continue;
+    let mark = intervalKm - carried;
+    while (mark <= seg + 1e-9) {
+      pts.push(interpMercKm(x1, y1, x2, y2, Math.min(mark, seg)));
+      mark += intervalKm;
+    }
+    carried = seg - (mark - intervalKm);
+    if (carried < 1e-9) carried = 0;
+  }
+  return pts;
+}
+
+export function offsetLineFlat(flat, distKm, side) {
+  const src = Array.from(flat || []);
+  const n = flatPairCount(src);
+  if (n < 2 || !(distKm > 0)) return null;
+  const sign = side === 'right' ? -1 : 1;
+  const metres = distKm * 1000 * sign;
+  const shifted = [];
+  for (let i = 0; i < n - 1; i++) {
+    const x1 = src[i * 2], y1 = src[i * 2 + 1], x2 = src[(i + 1) * 2], y2 = src[(i + 1) * 2 + 1];
+    const km = kmAt((x1 + x2) / 2, (y1 + y2) / 2);
+    const dx = (x2 - x1) * km.x, dy = (y2 - y1) * km.y;
+    const len = Math.hypot(dx, dy);
+    if (!(len > 1e-9)) continue;
+    const east = -dy / len * metres, north = dx / len * metres;
+    shifted.push([offsetMetres(x1, y1, east, north), offsetMetres(x2, y2, east, north)]);
+  }
+  if (!shifted.length) return null;
+  const out = [shifted[0][0][0], shifted[0][0][1]];
+  for (let i = 0; i < shifted.length; i++) {
+    if (i === shifted.length - 1) {
+      out.push(shifted[i][1][0], shifted[i][1][1]);
+      continue;
+    }
+    const a = shifted[i][0], b = shifted[i][1], c = shifted[i + 1][0], d = shifted[i + 1][1];
+    const den = (b[0] - a[0]) * (d[1] - c[1]) - (b[1] - a[1]) * (d[0] - c[0]);
+    if (Math.abs(den) < 1e-14) { out.push(b[0], b[1]); continue; }
+    const t = ((c[0] - a[0]) * (d[1] - c[1]) - (c[1] - a[1]) * (d[0] - c[0])) / den;
+    if (t < -0.5 || t > 2.5) { out.push(b[0], b[1]); continue; }
+    out.push(a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]));
+  }
+  return Float64Array.from(out);
+}
+
+export function smoothFlat(flat, passes, closed) {
+  let src = Array.from(flat || []);
+  const times = Math.max(0, Math.min(8, Math.round(+passes || 0)));
+  if (flatPairCount(src) < 3 || !times) return copyFlat(src);
+  for (let pass = 0; pass < times; pass++) {
+    const n = flatPairCount(src);
+    const end = closed && samePair(src[0], src[1], src[src.length - 2], src[src.length - 1]) ? n - 1 : n;
+    const useClosed = closed || end < n;
+    const count = useClosed ? end : n;
+    const next = [];
+    for (let i = 0; i < count; i++) {
+      const p = useClosed ? (i - 1 + count) % count : Math.max(0, i - 1);
+      const q = useClosed ? (i + 1) % count : Math.min(count - 1, i + 1);
+      next.push((src[p * 2] + src[i * 2] + src[q * 2]) / 3, (src[p * 2 + 1] + src[i * 2 + 1] + src[q * 2 + 1]) / 3);
+    }
+    if (useClosed) next.push(next[0], next[1]);
+    src = next;
+  }
+  return Float64Array.from(src);
+}
+
+export function affineFlat(flat, origin, opts) {
+  const src = Array.from(flat || []);
+  const ox = origin?.[0] || 0, oy = origin?.[1] || 0;
+  const scale = Number.isFinite(+opts?.scale) ? +opts.scale : 1;
+  const rot = (+opts?.rotateDeg || 0) * Math.PI / 180;
+  const cos = Math.cos(rot), sin = Math.sin(rot);
+  const shift = offsetMetres(ox, oy, (+opts?.eastKm || 0) * 1000, (+opts?.northKm || 0) * 1000);
+  const dx = shift[0] - ox, dy = shift[1] - oy;
+  const out = new Float64Array(src.length);
+  for (let i = 0; i < src.length; i += 2) {
+    const x = (src[i] - ox) * scale, y = (src[i + 1] - oy) * scale;
+    out[i] = ox + x * cos - y * sin + dx;
+    out[i + 1] = oy + x * sin + y * cos + dy;
+  }
+  return out;
+}
+
+function ringCrossings(ring, line) {
+  const hits = [];
+  const rn = flatPairCount(ring), ln = flatPairCount(line);
+  const closed = rn > 1 && samePair(ring[0], ring[1], ring[(rn - 1) * 2], ring[(rn - 1) * 2 + 1]);
+  const rLimit = closed ? rn - 1 : rn;
+  for (let i = 0; i < rLimit; i++) {
+    const j = (i + 1) % (closed ? rn - 0 : rn);
+    const jj = closed ? (i + 1) % (rn - 1) : i + 1;
+    if (!closed && jj >= rn) continue;
+    const ax = ring[i * 2], ay = ring[i * 2 + 1], bx = ring[jj * 2], by = ring[jj * 2 + 1];
+    for (let k = 0; k < ln - 1; k++) {
+      const hit = segmentCross(ax, ay, bx, by, line[k * 2], line[k * 2 + 1], line[(k + 1) * 2], line[(k + 1) * 2 + 1]);
+      if (!hit) continue;
+      hits.push({ x: hit.x, y: hit.y, edge: i, t: hit.t, line: k + hit.u });
+    }
+  }
+  hits.sort((a, b) => a.edge - b.edge || a.t - b.t);
+  const uniq = [];
+  for (const hit of hits) {
+    const prev = uniq[uniq.length - 1];
+    if (prev && samePair(prev.x, prev.y, hit.x, hit.y, 1e-8)) continue;
+    uniq.push(hit);
+  }
+  return uniq;
+}
+function pathBetween(ring, from, to) {
+  const rn = flatPairCount(ring);
+  const closed = rn > 1 && samePair(ring[0], ring[1], ring[(rn - 1) * 2], ring[(rn - 1) * 2 + 1]);
+  const count = closed ? rn - 1 : rn;
+  const out = [[from.x, from.y]];
+  let i = (from.edge + 1) % count;
+  const stop = (to.edge + 1) % count;
+  let guard = 0;
+  while (i !== stop && guard++ < count + 2) {
+    out.push(flatPoint(ring, i));
+    i = (i + 1) % count;
+  }
+  out.push([to.x, to.y]);
+  return out;
+}
+function lineSlice(line, from, to) {
+  const a = from.line <= to.line ? from : to;
+  const b = from.line <= to.line ? to : from;
+  const out = [[a.x, a.y]];
+  const start = Math.ceil(a.line - 1e-9);
+  const end = Math.floor(b.line + 1e-9);
+  for (let i = start; i <= end; i++) {
+    if (i <= a.line + 1e-8 || i >= b.line - 1e-8) continue;
+    if (i >= 0 && i < flatPairCount(line)) out.push(flatPoint(line, i));
+  }
+  out.push([b.x, b.y]);
+  return from.line <= to.line ? out : out.reverse();
+}
+function ringFromPairs(pairs) {
+  const out = [];
+  for (const [x, y] of pairs) {
+    if (out.length >= 2 && samePair(out[out.length - 2], out[out.length - 1], x, y, 1e-8)) continue;
+    out.push(x, y);
+  }
+  if (out.length >= 4 && !samePair(out[0], out[1], out[out.length - 2], out[out.length - 1], 1e-8)) out.push(out[0], out[1]);
+  return out.length >= 8 ? out : null;
+}
+export function splitRingByLine(ring, line) {
+  const closed = flatClosed(ring);
+  const cutter = Array.from(line || []);
+  if (closed.length < 8 || flatPairCount(cutter) < 2) return [];
+  const hits = ringCrossings(closed, cutter);
+  if (hits.length < 2) return [];
+  const pieces = [];
+  for (let i = 0; i < hits.length; i++) {
+    const a = hits[i], b = hits[(i + 1) % hits.length];
+    const boundary = pathBetween(closed, a, b);
+    const across = lineSlice(cutter, b, a);
+    const pairs = boundary.concat(across.slice(1));
+    const flat = ringFromPairs(pairs);
+    if (!flat) continue;
+    if (Math.abs(flatSignedArea(flat)) < 1e-16) continue;
+    pieces.push(flat);
+  }
+  return pieces;
+}
+export function splitPolygonByLines(feature, lines) {
+  const out = [];
+  const cutters = [];
+  for (const line of lines || []) {
+    const parts = line?.type === 'line' ? line.parts : [line];
+    for (const part of parts || []) if (flatPairCount(part) >= 2) cutters.push(part);
+  }
+  for (const poly of feature?.parts || []) {
+    const outer = poly?.[0];
+    if (!outer) continue;
+    let pieces = [Array.from(outer)];
+    for (const cutter of cutters) {
+      const next = [];
+      for (const piece of pieces) {
+        const split = splitRingByLine(piece, cutter);
+        if (split.length >= 2) next.push(...split);
+        else next.push(piece);
+      }
+      pieces = next;
+    }
+    for (const piece of pieces) {
+      const rings = [piece];
+      for (let h = 1; h < poly.length; h++) {
+        const hole = poly[h];
+        const sample = flatPoint(hole, 0);
+        if (pointInFlatRing(sample[0], sample[1], piece)) rings.push(Array.from(hole));
+      }
+      if (rings[0].length >= 8) out.push(rings);
+    }
+  }
+  return out;
+}
+
+function uniquePoints(points) {
+  const out = [];
+  const seen = new Set();
+  for (const p of points || []) {
+    if (!p || !Number.isFinite(p[0]) || !Number.isFinite(p[1])) continue;
+    const key = p[0].toFixed(7) + ',' + p[1].toFixed(7);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push([p[0], p[1]]);
+  }
+  return out;
+}
+export function concaveHullPoints(points, alphaKm) {
+  const pts = uniquePoints(points).map((p, i) => ({ x: p[0], y: p[1], i }));
+  if (pts.length < 3) return null;
+  const convex = convexHullPoints(pts.map((p) => [p.x, p.y]));
+  if (!convex) return null;
+  const nearest = [];
+  for (let i = 0; i < pts.length; i++) {
+    let best = Infinity;
+    for (let j = 0; j < pts.length; j++) {
+      if (i === j) continue;
+      const d = haversineKm([unX(pts[i].x), unY(pts[i].y)], [unX(pts[j].x), unY(pts[j].y)]);
+      if (d < best) best = d;
+    }
+    if (best < Infinity) nearest.push(best);
+  }
+  nearest.sort((a, b) => a - b);
+  const typical = nearest[Math.floor(nearest.length / 2)] || nearest[0] || 1;
+  const alpha = Math.max(typical, +alphaKm || typical);
+  const k = Math.max(3, Math.min(pts.length - 1, Math.round(2 + 2 * typical / Math.max(alpha, 1e-6))));
+  const crosses = (a, b, c, d) => {
+    if (a === c || a === d || b === c || b === d) return false;
+    const den = (b.x - a.x) * (d.y - c.y) - (b.y - a.y) * (d.x - c.x);
+    if (Math.abs(den) < 1e-18) return false;
+    const t = ((c.x - a.x) * (d.y - c.y) - (c.y - a.y) * (d.x - c.x)) / den;
+    const u = ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x)) / den;
+    return t > 1e-7 && t < 1 - 1e-7 && u > 1e-7 && u < 1 - 1e-7;
+  };
+  let first = pts[0];
+  for (const p of pts) if (p.y > first.y || (p.y === first.y && p.x < first.x)) first = p;
+  const hull = [first];
+  const used = new Set([first]);
+  let current = first;
+  let prev = { x: first.x - 1e-6, y: first.y };
+  for (let step = 0; step < pts.length + 2; step++) {
+    const open = pts.filter((p) => !used.has(p) || (p === first && hull.length > 2));
+    open.sort((a, b) => {
+      const da = haversineKm([unX(current.x), unY(current.y)], [unX(a.x), unY(a.y)]);
+      const db = haversineKm([unX(current.x), unY(current.y)], [unX(b.x), unY(b.y)]);
+      return da - db || a.x - b.x || a.y - b.y;
+    });
+    const windowed = open.slice(0, Math.min(k, open.length));
+    const ranked = windowed.map((p) => {
+      const dx = current.x - prev.x, dy = current.y - prev.y;
+      const ex = p.x - current.x, ey = p.y - current.y;
+      let ang = Math.atan2(ey, ex) - Math.atan2(dy, dx);
+      while (ang <= -Math.PI) ang += Math.PI * 2;
+      while (ang > Math.PI) ang -= Math.PI * 2;
+      return { p, ang, d: haversineKm([unX(current.x), unY(current.y)], [unX(p.x), unY(p.y)]) };
+    }).sort((a, b) => b.ang - a.ang || a.d - b.d);
+    let next = null;
+    for (const { p, d } of ranked) {
+      if (p !== first && d > alpha * 2.5) continue;
+      let hit = false;
+      for (let i = 0; i < hull.length - 1; i++) {
+        if (crosses(hull[i], hull[i + 1], current, p)) { hit = true; break; }
+      }
+      if (hit) continue;
+      if (p === first && hull.length > 2) {
+        const ring = [];
+        for (const h of hull) ring.push(h.x, h.y);
+        ring.push(first.x, first.y);
+        const missed = pts.some((q) => !used.has(q) && !pointInFlatRing(q.x, q.y, ring));
+        if (missed) continue;
+        const area = Math.abs(flatSignedArea(ring));
+        const hullArea = Math.abs(flatSignedArea(convex));
+        if (!(area > 1e-16) || (hullArea > 0 && area > hullArea * 1.02)) return convex;
+        return Float64Array.from(ring);
+      }
+      next = p;
+      break;
+    }
+    if (!next) return convex;
+    hull.push(next);
+    used.add(next);
+    prev = current;
+    current = next;
+  }
+  return convex;
+}
+
+export function polygonMeasure(parts) {
+  let area = 0, perim = 0, holes = 0;
+  for (const poly of parts || []) {
+    if (!poly?.[0]) continue;
+    const outer = lonlatRing(poly[0]);
+    area += ringAreaKm2(outer);
+    perim += ringPerimeterKm(outer);
+    for (let h = 1; h < poly.length; h++) {
+      const hole = lonlatRing(poly[h]);
+      area -= ringAreaKm2(hole);
+      perim += ringPerimeterKm(hole);
+      holes++;
+    }
+  }
+  return { areaKm2: Math.max(0, area), perimKm: perim, holes };
+}
+export function lineLengthStats(features) {
+  const lengths = [];
+  for (const f of features || []) {
+    if (!f || f.type !== 'line') continue;
+    let len = 0;
+    for (const part of f.parts || []) len += lineLengthKm(lonlatRing(part));
+    if (len > 0 || (f.parts || []).some((part) => flatPairCount(part) >= 2)) lengths.push(len);
+  }
+  if (!lengths.length) return { count: 0, totalKm: 0, meanKm: 0, minKm: 0, maxKm: 0 };
+  const total = lengths.reduce((s, n) => s + n, 0);
+  return {
+    count: lengths.length,
+    totalKm: total,
+    meanKm: total / lengths.length,
+    minKm: Math.min(...lengths),
+    maxKm: Math.max(...lengths),
+  };
+}
+export function polygonsTouch(a, b) {
+  if (!a || !b || a === b) return false;
+  const ringsA = (a.parts || []).flat();
+  const ringsB = (b.parts || []).flat();
+  for (const ra of ringsA) {
+    for (const rb of ringsB) {
+      const an = flatPairCount(ra), bn = flatPairCount(rb);
+      const aClosed = an > 1 && samePair(ra[0], ra[1], ra[(an - 1) * 2], ra[(an - 1) * 2 + 1]);
+      const bClosed = bn > 1 && samePair(rb[0], rb[1], rb[(bn - 1) * 2], rb[(bn - 1) * 2 + 1]);
+      const aLimit = aClosed ? an - 1 : an - 1;
+      const bLimit = bClosed ? bn - 1 : bn - 1;
+      for (let i = 0; i < aLimit; i++) {
+        const ax = ra[i * 2], ay = ra[i * 2 + 1], bx = ra[((i + 1) % (aClosed ? an - 1 : an)) * 2], by = ra[((i + 1) % (aClosed ? an - 1 : an)) * 2 + 1];
+        for (let k = 0; k < bLimit; k++) {
+          const cx = rb[k * 2], cy = rb[k * 2 + 1], dx = rb[((k + 1) % (bClosed ? bn - 1 : bn)) * 2], dy = rb[((k + 1) % (bClosed ? bn - 1 : bn)) * 2 + 1];
+          if (collinearOverlap(ax, ay, bx, by, cx, cy, dx, dy)) return true;
+          if (segmentCross(ax, ay, bx, by, cx, cy, dx, dy)) return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+// ------------------------------------------------------------------ topology checks
+// Quality checks for the Topology menu. Distances are ground kilometres or
+// metres. A mercator number is never treated as a degree.
+
+export function ringSelfCrosses(ring) {
+  const n = flatPairCount(ring);
+  if (n < 4) return false;
+  const closed = samePair(ring[0], ring[1], ring[(n - 1) * 2], ring[(n - 1) * 2 + 1]);
+  const count = closed ? n - 1 : n;
+  const edges = closed ? count : Math.max(0, count - 1);
+  for (let i = 0; i < edges; i++) {
+    const i2 = (i + 1) % count;
+    const ax = ring[i * 2], ay = ring[i * 2 + 1], bx = ring[i2 * 2], by = ring[i2 * 2 + 1];
+    for (let j = i + 1; j < edges; j++) {
+      const j2 = (j + 1) % count;
+      if (i === j2 || i2 === j) continue;
+      if (segmentCross(ax, ay, bx, by, ring[j * 2], ring[j * 2 + 1], ring[j2 * 2], ring[j2 * 2 + 1])) return true;
+    }
+  }
+  return false;
+}
+
+export function coordinateOutOfRange(x, y) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return true;
+  const lon = unX(x), lat = unY(y);
+  return !Number.isFinite(lon) || !Number.isFinite(lat) || lon < -180 || lon > 180 || lat < -90 || lat > 90;
+}
+
+export function featurePartCount(f) {
+  if (!f?.parts) return 0;
+  if (f.type === 'point') return Math.floor(f.parts.length / 2);
+  if (f.type === 'line') return f.parts.length;
+  if (f.type === 'poly') return f.parts.length;
+  return 0;
+}
+
+export function geometryIssues(f) {
+  const issues = [];
+  if (!f?.parts || (f.type === 'point' ? f.parts.length < 2 : !f.parts.length)) return ['no coordinates'];
+  const verts = featureVertices(f);
+  if (!verts.length) return ['no coordinates'];
+  if (verts.some(([x, y]) => coordinateOutOfRange(x, y))) issues.push('coordinate outside longitude or latitude range');
+  if (f.type === 'point') return [...new Set(issues)];
+  if (f.type === 'line') {
+    for (const part of f.parts) {
+      if (flatPairCount(part) < 2) issues.push('line with fewer than 2 vertices');
+      else if (ringSelfCrosses(part)) issues.push('line crosses itself');
+    }
+    return [...new Set(issues)];
+  }
+  if (f.type !== 'poly') return [...new Set(issues)];
+  let any = false;
+  for (const poly of f.parts) {
+    if (!poly?.length) { issues.push('empty polygon'); continue; }
+    for (let ri = 0; ri < poly.length; ri++) {
+      const ring = poly[ri];
+      any = true;
+      const n = flatPairCount(ring);
+      const closed = n > 1 && samePair(ring[0], ring[1], ring[(n - 1) * 2], ring[(n - 1) * 2 + 1]);
+      const unique = closed ? n - 1 : n;
+      if (unique < 3) issues.push('ring with fewer than 3 vertices');
+      if (!closed) issues.push('ring is not closed');
+      if (unique >= 3 && Math.abs(ringSignedArea(ring)) < 1e-18) issues.push('zero-area ring');
+      if (ringSelfCrosses(ring)) issues.push('ring crosses itself');
+    }
+  }
+  if (!any) issues.push('no coordinates');
+  return [...new Set(issues)];
+}
+
+export function ringDirectionFaults(f) {
+  const rows = [];
+  if (!f || f.type !== 'poly') return rows;
+  for (let pi = 0; pi < (f.parts || []).length; pi++) {
+    const poly = f.parts[pi] || [];
+    for (let ri = 0; ri < poly.length; ri++) {
+      const ring = poly[ri];
+      if (flatPairCount(ring) < 4) continue;
+      const clockwise = ringSignedArea(ring) >= 0;
+      const role = ri === 0 ? 'outer' : 'hole';
+      const expected = ri === 0 ? 'anticlockwise' : 'clockwise';
+      const actual = clockwise ? 'clockwise' : 'anticlockwise';
+      if (actual !== expected) rows.push({ part: pi + 1, ring: ri + 1, role, expected, actual });
+    }
+  }
+  return rows;
+}
+
+function roundedLonLat(x, y, metres) {
+  const lon = unX(x), lat = unY(y);
+  const step = Math.max(0, +metres || 0) / 111320;
+  if (!(step > 0)) return [lon, lat];
+  return [Math.round(lon / step) * step, Math.round(lat / step) * step];
+}
+function ringSignature(ring, metres) {
+  const n = flatPairCount(ring);
+  if (n < 1) return '';
+  const closed = n > 1 && samePair(ring[0], ring[1], ring[(n - 1) * 2], ring[(n - 1) * 2 + 1]);
+  const count = closed ? n - 1 : n;
+  const pts = [];
+  for (let i = 0; i < count; i++) pts.push(roundedLonLat(ring[i * 2], ring[i * 2 + 1], metres));
+  if (!pts.length) return '';
+  let start = 0;
+  for (let i = 1; i < pts.length; i++) {
+    if (pts[i][0] < pts[start][0] - 1e-9 || (Math.abs(pts[i][0] - pts[start][0]) <= 1e-9 && pts[i][1] < pts[start][1])) start = i;
+  }
+  const seq = (dir) => {
+    const out = [];
+    for (let k = 0; k < pts.length; k++) {
+      const p = pts[(start + dir * k + pts.length * 8) % pts.length];
+      out.push(p[0].toFixed(5), p[1].toFixed(5));
+    }
+    return out.join(',');
+  };
+  const forward = seq(1), back = seq(-1);
+  return forward < back ? forward : back;
+}
+export function geometrySignature(f, metres = 0) {
+  if (!f?.parts) return '';
+  if (f.type === 'point') {
+    const pts = [];
+    for (let i = 0; i < f.parts.length; i += 2) {
+      const [lon, lat] = roundedLonLat(f.parts[i], f.parts[i + 1], metres);
+      pts.push(lon.toFixed(5) + ',' + lat.toFixed(5));
+    }
+    pts.sort();
+    return pts.length ? 'point:' + pts.join('|') : '';
+  }
+  const rings = f.type === 'line' ? f.parts : (f.parts || []).flat();
+  const sigs = rings.map((ring) => ringSignature(ring, metres)).filter(Boolean).sort();
+  return sigs.length ? (f.type || 'geom') + ':' + sigs.join('|') : '';
+}
+export function snapFlatToDegrees(flat, stepDeg) {
+  const step = Math.abs(+stepDeg || 0);
+  const src = Array.from(flat || []);
+  if (!(step > 0)) return Float64Array.from(src);
+  const out = new Float64Array(src.length - (src.length % 2));
+  for (let i = 0; i < out.length; i += 2) {
+    const lon = unX(src[i]), lat = unY(src[i + 1]);
+    const slon = Math.round(lon / step) * step;
+    const slat = Math.max(-85, Math.min(85, Math.round(lat / step) * step));
+    out[i] = mercX(slon);
+    out[i + 1] = mercY(slat);
+  }
+  return out;
+}
+
+export function snapFlatToVertices(flat, targets, metres) {
+  const src = Array.from(flat || []);
+  const tol = Math.max(0, +metres || 0);
+  const out = new Float64Array(src.length - (src.length % 2));
+  if (!(tol > 0) || !targets?.length) {
+    for (let i = 0; i < out.length; i++) out[i] = src[i];
+    return out;
+  }
+  const cell = Math.max(tol / 30000, 1e-8);
+  const buckets = new Map();
+  for (const t of targets) {
+    if (!t || !Number.isFinite(t[0]) || !Number.isFinite(t[1])) continue;
+    const k = Math.floor(t[0] / cell) + ':' + Math.floor(t[1] / cell);
+    if (!buckets.has(k)) buckets.set(k, []);
+    buckets.get(k).push(t);
+  }
+  for (let i = 0; i < out.length; i += 2) {
+    const x = src[i], y = src[i + 1];
+    const cx = Math.floor(x / cell), cy = Math.floor(y / cell);
+    let best = null, bestD = tol;
+    for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+      for (const t of buckets.get((cx + ox) + ':' + (cy + oy)) || []) {
+        const d = haversineKm([unX(x), unY(y)], [unX(t[0]), unY(t[1])]) * 1000;
+        if (d <= bestD) { bestD = d; best = t; }
+      }
+    }
+    out[i] = best ? best[0] : x;
+    out[i + 1] = best ? best[1] : y;
+  }
+  return out;
+}
+
+export function overlapAreaKm2(a, b) {
+  if (!a || !b || a.type !== 'poly' || b.type !== 'poly') return 0;
+  if (a.bb && b.bb && (a.bb[2] < b.bb[0] || a.bb[0] > b.bb[2] || a.bb[3] < b.bb[1] || a.bb[1] > b.bb[3])) return 0;
+  try {
+    return polygonMeasure(polygonBoolean([a, b], 'intersection')).areaKm2;
+  } catch {
+    return 0;
+  }
+}
+
+function ringSample(ring) {
+  const n = flatPairCount(ring);
+  if (n < 1) return null;
+  let a = 0, cx = 0, cy = 0;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const x0 = ring[j * 2], y0 = ring[j * 2 + 1], x1 = ring[i * 2], y1 = ring[i * 2 + 1];
+    const c = x0 * y1 - x1 * y0;
+    a += c; cx += (x0 + x1) * c; cy += (y0 + y1) * c;
+  }
+  if (Math.abs(a) < 1e-18) return [ring[0], ring[1]];
+  return [cx / (3 * a), cy / (3 * a)];
+}
+function insideInputHole(sources, x, y) {
+  for (const f of sources || []) {
+    for (const poly of f.parts || []) {
+      for (let h = 1; h < poly.length; h++) if (pointInFlatRing(x, y, poly[h])) return true;
+    }
+  }
+  return false;
+}
+function outerOnly(f) {
+  return {
+    type: 'poly',
+    parts: (f.parts || []).map((poly) => poly?.[0] ? [poly[0]] : []).filter((poly) => poly.length),
+    bb: f.bb,
+  };
+}
+export function gapRingsFromUnion(unionParts, sources) {
+  const gaps = [];
+  for (const poly of unionParts || []) {
+    for (let h = 1; h < (poly || []).length; h++) {
+      const sample = ringSample(poly[h]);
+      if (!sample || insideInputHole(sources, sample[0], sample[1])) continue;
+      gaps.push(poly[h]);
+    }
+  }
+  return gaps;
+}
+export function enclosedGapParts(features) {
+  const src = (features || []).filter((f) => f?.type === 'poly' && f.parts?.length);
+  if (src.length < 2) return [];
+  const cover = polygonBoolean(src.map(outerOnly), 'union');
+  if (cover.length !== 1 || (cover[0] || []).length < 2) return [];
+  const gaps = [];
+  for (let h = 1; h < cover[0].length; h++) {
+    const sample = ringSample(cover[0][h]);
+    if (!sample || insideInputHole(src, sample[0], sample[1])) continue;
+    gaps.push([cover[0][h]]);
+  }
+  return gaps;
+}
+
+// ------------------------------------------------------------------ network routing
+// A line network joins only where vertices fall within the snap distance, in
+// metres on the ground. Crossing without a shared vertex is not a junction.
+// Lengths are kilometres along the lines, never a mercator step treated as degrees.
+
+function reversePairs(flat) {
+  const out = new Float64Array(flat.length);
+  const n = Math.floor(flat.length / 2);
+  for (let i = 0; i < n; i++) {
+    out[i * 2] = flat[(n - 1 - i) * 2];
+    out[i * 2 + 1] = flat[(n - 1 - i) * 2 + 1];
+  }
+  return out;
+}
+function flatBounds(flat) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (let i = 0; i < flat.length; i += 2) {
+    if (flat[i] < x0) x0 = flat[i];
+    if (flat[i] > x1) x1 = flat[i];
+    if (flat[i + 1] < y0) y0 = flat[i + 1];
+    if (flat[i + 1] > y1) y1 = flat[i + 1];
+  }
+  return [x0, y0, x1, y1];
+}
+function heapPush(heap, item) {
+  heap.push(item);
+  let i = heap.length - 1;
+  while (i > 0) {
+    const p = (i - 1) >> 1;
+    if (heap[p][0] <= heap[i][0]) break;
+    const swap = heap[p]; heap[p] = heap[i]; heap[i] = swap;
+    i = p;
+  }
+}
+function heapPop(heap) {
+  const top = heap[0];
+  const last = heap.pop();
+  if (heap.length && last) {
+    heap[0] = last;
+    let i = 0;
+    for (;;) {
+      let s = i, l = i * 2 + 1, r = l + 1;
+      if (l < heap.length && heap[l][0] < heap[s][0]) s = l;
+      if (r < heap.length && heap[r][0] < heap[s][0]) s = r;
+      if (s === i) break;
+      const swap = heap[s]; heap[s] = heap[i]; heap[i] = swap;
+      i = s;
+    }
+  }
+  return top;
+}
+function clusterPoints(points, metres) {
+  const n = points.length;
+  const parent = new Uint32Array(n);
+  for (let i = 0; i < n; i++) parent[i] = i;
+  const find = (i) => {
+    let r = i;
+    while (parent[r] !== r) r = parent[r];
+    while (parent[i] !== r) { const next = parent[i]; parent[i] = r; i = next; }
+    return r;
+  };
+  const unite = (a, b) => { a = find(a); b = find(b); if (a !== b) parent[a] = b; };
+  const lat = n ? unY(points[Math.floor(n / 2)][1]) : 9;
+  const cell = Math.max(metres / (360 * 111320 * Math.max(0.2, Math.cos(lat * Math.PI / 180))), 1e-12);
+  const buckets = new Map();
+  for (let i = 0; i < n; i++) {
+    const k = Math.floor(points[i][0] / cell) + ':' + Math.floor(points[i][1] / cell);
+    let list = buckets.get(k);
+    if (!list) buckets.set(k, (list = []));
+    list.push(i);
+  }
+  for (let i = 0; i < n; i++) {
+    const cx = Math.floor(points[i][0] / cell), cy = Math.floor(points[i][1] / cell);
+    for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+      for (const j of buckets.get((cx + ox) + ':' + (cy + oy)) || []) {
+        if (j <= i) continue;
+        if (haversineMerc(points[i][0], points[i][1], points[j][0], points[j][1]) * 1000 <= metres) unite(i, j);
+      }
+    }
+  }
+  const rootTo = new Map();
+  const ids = new Uint32Array(n);
+  const reps = [];
+  for (let i = 0; i < n; i++) {
+    const r = find(i);
+    let id = rootTo.get(r);
+    if (id == null) { id = reps.length; rootTo.set(r, id); reps.push(points[i]); }
+    ids[i] = id;
+  }
+  return { ids, reps };
+}
+function polylineLengthKm(flat) {
+  let d = 0;
+  for (let i = 0; i < flat.length - 2; i += 2) d += haversineMerc(flat[i], flat[i + 1], flat[i + 2], flat[i + 3]);
+  return d;
+}
+function closestOnFlat(flat, x, y) {
+  let best = Infinity, bx = flat[0], by = flat[1], along = 0, covered = 0;
+  for (let i = 0; i < flat.length - 2; i += 2) {
+    const x1 = flat[i], y1 = flat[i + 1], x2 = flat[i + 2], y2 = flat[i + 3];
+    const seg = haversineMerc(x1, y1, x2, y2);
+    const dx = x2 - x1, dy = y2 - y1, L = dx * dx + dy * dy;
+    let u = L ? ((x - x1) * dx + (y - y1) * dy) / L : 0;
+    u = Math.max(0, Math.min(1, u));
+    const px = x1 + u * dx, py = y1 + u * dy;
+    const d = haversineMerc(x, y, px, py);
+    if (d < best) { best = d; bx = px; by = py; along = covered + seg * u; }
+    covered += seg;
+  }
+  return { km: best, x: bx, y: by, alongKm: along, totalKm: covered };
+}
+export function sliceLineFlat(flat, fromKm, toKm) {
+  if (!flat || flat.length < 4) return null;
+  if (toKm < fromKm - 1e-9) {
+    const rev = sliceLineFlat(flat, toKm, fromKm);
+    return rev ? reversePairs(rev) : null;
+  }
+  const out = [];
+  const push = (x, y) => {
+    const n = out.length;
+    if (n >= 2 && Math.abs(out[n - 2] - x) < 1e-12 && Math.abs(out[n - 1] - y) < 1e-12) return;
+    out.push(x, y);
+  };
+  let covered = 0;
+  for (let i = 0; i < flat.length - 2; i += 2) {
+    const x1 = flat[i], y1 = flat[i + 1], x2 = flat[i + 2], y2 = flat[i + 3];
+    const seg = haversineMerc(x1, y1, x2, y2);
+    const a = covered, b = covered + seg;
+    if (b >= fromKm - 1e-9 && a <= toKm + 1e-9) {
+      const u0 = seg > 1e-12 ? Math.max(0, Math.min(1, (fromKm - a) / seg)) : 0;
+      const u1 = seg > 1e-12 ? Math.max(0, Math.min(1, (toKm - a) / seg)) : 1;
+      push(x1 + (x2 - x1) * u0, y1 + (y2 - y1) * u0);
+      push(x1 + (x2 - x1) * u1, y1 + (y2 - y1) * u1);
+    }
+    covered = b;
+    if (covered >= toKm - 1e-9) break;
+  }
+  return out.length >= 4 ? Float64Array.from(out) : null;
+}
+function appendFlat(into, flat) {
+  const start = into.length ? 2 : 0;
+  for (let i = start; i < flat.length; i++) into.push(flat[i]);
+}
+function dijkstraFrom(adj, seeds, cutoff = Infinity) {
+  const n = adj.length;
+  const dist = new Float64Array(n);
+  const prevEdge = new Int32Array(n);
+  const prevNode = new Int32Array(n);
+  for (let i = 0; i < n; i++) { dist[i] = Infinity; prevEdge[i] = -1; prevNode[i] = -1; }
+  const heap = [];
+  for (const s of seeds) {
+    if (s.node == null || s.cost > cutoff || s.cost >= dist[s.node]) continue;
+    dist[s.node] = s.cost;
+    heapPush(heap, [s.cost, s.node]);
+  }
+  while (heap.length) {
+    const [d, v] = heapPop(heap);
+    if (d !== dist[v]) continue;
+    for (const e of adj[v] || []) {
+      const nd = d + e.km;
+      if (nd > cutoff || nd >= dist[e.to] - 1e-12) continue;
+      dist[e.to] = nd;
+      prevEdge[e.to] = e.edge;
+      prevNode[e.to] = v;
+      heapPush(heap, [nd, e.to]);
+    }
+  }
+  return { dist, prevEdge, prevNode };
+}
+function adjSkipping(undirected, skip) {
+  if (!skip?.length) return undirected;
+  const banned = new Set(skip);
+  return undirected.map((list) => list.filter((e) => !banned.has(e.edge)));
+}
+export function buildLineNetwork(features, snapMetres = 25) {
+  const metres = Math.max(0, +snapMetres || 0);
+  const parts = [];
+  for (const f of features || []) {
+    if (!f || f.type !== 'line' || !f.parts) continue;
+    const name = f.name || 'Line';
+    for (const part of f.parts) {
+      if (!part || part.length < 4) continue;
+      const km = polylineLengthKm(part);
+      if (!(km > 1e-6)) continue;
+      parts.push({ flat: part, km, name });
+    }
+  }
+  const empty = { snapMetres: metres, nodes: [], edges: [], undirected: [], outgoing: [], incoming: [], grid: { cell: 0.01, buckets: new Map() } };
+  if (!parts.length) return empty;
+  const pts = [];
+  for (const p of parts) {
+    pts.push([p.flat[0], p.flat[1]]);
+    pts.push([p.flat[p.flat.length - 2], p.flat[p.flat.length - 1]]);
+  }
+  const clustered = clusterPoints(pts, metres);
+  const edges = [];
+  for (let i = 0; i < parts.length; i++) {
+    const from = clustered.ids[i * 2], to = clustered.ids[i * 2 + 1];
+    edges.push({ id: edges.length, from, to, km: parts[i].km, flat: parts[i].flat, name: parts[i].name, bb: flatBounds(parts[i].flat) });
+  }
+  const n = clustered.reps.length;
+  const undirected = Array.from({ length: n }, () => []);
+  const outgoing = Array.from({ length: n }, () => []);
+  const incoming = Array.from({ length: n }, () => []);
+  for (const e of edges) {
+    if (e.from !== e.to) {
+      undirected[e.from].push({ to: e.to, km: e.km, edge: e.id });
+      undirected[e.to].push({ to: e.from, km: e.km, edge: e.id });
+    }
+    outgoing[e.from].push({ to: e.to, km: e.km, edge: e.id });
+    incoming[e.to].push({ to: e.from, km: e.km, edge: e.id });
+  }
+  const cell = 0.01;
+  const buckets = new Map();
+  for (const e of edges) {
+    const x0 = Math.floor(e.bb[0] / cell), x1 = Math.floor(e.bb[2] / cell);
+    const y0 = Math.floor(e.bb[1] / cell), y1 = Math.floor(e.bb[3] / cell);
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const k = x + ':' + y;
+      let list = buckets.get(k);
+      if (!list) buckets.set(k, (list = []));
+      list.push(e.id);
+    }
+  }
+  const nodes = clustered.reps.map((p) => ({ x: p[0], y: p[1] }));
+  return { snapMetres: metres, nodes, edges, undirected, outgoing, incoming, grid: { cell, buckets } };
+}
+export function networkNearest(graph, x, y, snapKm) {
+  if (!graph?.edges?.length || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+  const limit = Math.max(0, +snapKm || 0);
+  const cell = graph.grid.cell || 0.01;
+  const pad = Math.max(1, Math.ceil((limit / 20000) / cell));
+  const cx = Math.floor(x / cell), cy = Math.floor(y / cell);
+  const seen = new Set();
+  let best = null;
+  const consider = (id) => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    const e = graph.edges[id];
+    const hit = closestOnFlat(e.flat, x, y);
+    if (!best || hit.km < best.km) best = { ...hit, edge: id };
+  };
+  for (let oy = -pad; oy <= pad; oy++) for (let ox = -pad; ox <= pad; ox++) {
+    for (const id of graph.grid.buckets.get((cx + ox) + ':' + (cy + oy)) || []) consider(id);
+  }
+  if (!best) for (const e of graph.edges) consider(e.id);
+  if (!best || best.km > limit + 1e-9) return null;
+  const edge = graph.edges[best.edge];
+  let node = null;
+  if (best.alongKm <= 1e-4) node = edge.from;
+  else if (edge.km - best.alongKm <= 1e-4) node = edge.to;
+  return { ...best, node, name: edge.name };
+}
+function orientFrom(edge, node) {
+  return edge.from === node ? edge.flat : reversePairs(edge.flat);
+}
+export function networkPath(graph, x1, y1, x2, y2, snapKm) {
+  const none = { ok: false, reason: 'no-network', km: 0, flat: null, names: [] };
+  if (!graph?.edges?.length) return none;
+  const a = networkNearest(graph, x1, y1, snapKm);
+  const b = networkNearest(graph, x2, y2, snapKm);
+  if (!a) return { ...none, reason: 'start-far' };
+  if (!b) return { ...none, reason: 'end-far' };
+  const edgeA = graph.edges[a.edge];
+  const edgeB = graph.edges[b.edge];
+  if (a.node != null && a.node === b.node) return { ok: true, reason: 'same-spot', km: 0, flat: null, names: [], snapKm: a.km };
+  const direct = a.edge === b.edge ? Math.abs(a.alongKm - b.alongKm) : Infinity;
+  const seeds = a.node != null
+    ? [{ node: a.node, cost: 0 }]
+    : [{ node: edgeA.from, cost: a.alongKm }, { node: edgeA.to, cost: edgeA.km - a.alongKm }];
+  const skip = [];
+  if (a.node == null) skip.push(a.edge);
+  if (b.node == null && b.edge !== a.edge) skip.push(b.edge);
+  const adj = adjSkipping(graph.undirected, skip);
+  const { dist, prevEdge, prevNode } = dijkstraFrom(adj, seeds);
+  let best = null;
+  const offer = (node, extra) => {
+    if (node == null || !Number.isFinite(dist[node])) return;
+    const cost = dist[node] + extra;
+    if (!best || cost < best.cost) best = { cost, node };
+  };
+  if (b.node != null) offer(b.node, 0);
+  else { offer(edgeB.from, b.alongKm); offer(edgeB.to, edgeB.km - b.alongKm); }
+  if (direct < (best?.cost ?? Infinity) - 1e-9) {
+    return { ok: true, reason: 'ok', km: direct, flat: sliceLineFlat(edgeA.flat, a.alongKm, b.alongKm), names: [edgeA.name], snapKm: Math.max(a.km, b.km) };
+  }
+  if (!best || !Number.isFinite(best.cost)) return { ...none, reason: 'disconnected', snapKm: Math.max(a.km, b.km) };
+  const nodes = [];
+  const mids = [];
+  let cursor = best.node;
+  while (cursor >= 0 && prevNode[cursor] >= 0) {
+    mids.push(prevEdge[cursor]);
+    nodes.push(cursor);
+    cursor = prevNode[cursor];
+  }
+  nodes.push(cursor);
+  mids.reverse();
+  nodes.reverse();
+  const coords = [];
+  const names = [];
+  if (a.node == null) {
+    const partial = cursor === edgeA.from ? sliceLineFlat(edgeA.flat, a.alongKm, 0) : sliceLineFlat(edgeA.flat, a.alongKm, edgeA.km);
+    if (partial) { appendFlat(coords, partial); names.push(edgeA.name); }
+  }
+  let node = nodes[0];
+  for (const id of mids) {
+    const e = graph.edges[id];
+    appendFlat(coords, orientFrom(e, node));
+    names.push(e.name);
+    node = e.from === node ? e.to : e.from;
+  }
+  if (b.node == null) {
+    const partial = node === edgeB.from ? sliceLineFlat(edgeB.flat, 0, b.alongKm) : sliceLineFlat(edgeB.flat, edgeB.km, b.alongKm);
+    if (partial) { appendFlat(coords, partial); if (!names.includes(edgeB.name)) names.push(edgeB.name); }
+  }
+  return {
+    ok: true, reason: 'ok', km: best.cost,
+    flat: coords.length >= 4 ? Float64Array.from(coords) : null,
+    names, snapKm: Math.max(a.km, b.km),
+  };
+}
+function addInterval(map, id, a, b) {
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  if (!(hi > lo + 1e-8)) return;
+  let list = map.get(id);
+  if (!list) map.set(id, (list = []));
+  list.push([lo, hi]);
+}
+function mergeIntervals(list) {
+  const sorted = list.slice().sort((p, q) => p[0] - q[0]);
+  const out = [];
+  for (const [a, b] of sorted) {
+    const last = out[out.length - 1];
+    if (last && a <= last[1] + 1e-6) last[1] = Math.max(last[1], b);
+    else out.push([a, b]);
+  }
+  return out;
+}
+export function networkReach(graph, points, maxKm, snapKm) {
+  const limit = Math.max(0, +maxKm || 0);
+  const intervals = new Map();
+  let snapped = 0, missed = 0;
+  for (const pt of points || []) {
+    const snap = networkNearest(graph, pt[0], pt[1], snapKm);
+    if (!snap) { missed++; continue; }
+    snapped++;
+    const edge = graph.edges[snap.edge];
+    if (snap.node == null) {
+      const back = Math.min(snap.alongKm, limit);
+      const fore = Math.min(edge.km - snap.alongKm, limit);
+      addInterval(intervals, snap.edge, snap.alongKm - back, snap.alongKm + fore);
+    }
+    const seeds = snap.node != null
+      ? [{ node: snap.node, cost: 0 }]
+      : [
+        snap.alongKm <= limit ? { node: edge.from, cost: snap.alongKm } : null,
+        edge.km - snap.alongKm <= limit ? { node: edge.to, cost: edge.km - snap.alongKm } : null,
+      ].filter(Boolean);
+    const adj = snap.node == null ? adjSkipping(graph.undirected, [snap.edge]) : graph.undirected;
+    const { dist } = dijkstraFrom(adj, seeds, limit);
+    for (const e of graph.edges) {
+      if (snap.node == null && e.id === snap.edge) continue;
+      const du = dist[e.from], dv = dist[e.to];
+      const fromU = du <= limit ? Math.min(e.km, limit - du) : 0;
+      const fromV = dv <= limit ? Math.min(e.km, limit - dv) : 0;
+      if (fromU + fromV >= e.km - 1e-6 && (fromU > 0 || fromV > 0)) addInterval(intervals, e.id, 0, e.km);
+      else {
+        if (fromU > 0) addInterval(intervals, e.id, 0, fromU);
+        if (fromV > 0) addInterval(intervals, e.id, e.km - fromV, e.km);
+      }
+    }
+  }
+  const lines = [];
+  let reachedKm = 0;
+  for (const [id, list] of intervals) {
+    for (const [a, b] of mergeIntervals(list)) {
+      const flat = sliceLineFlat(graph.edges[id].flat, a, b);
+      if (!flat) continue;
+      const km = b - a;
+      reachedKm += km;
+      lines.push({ flat, name: graph.edges[id].name, km });
+    }
+  }
+  return { lines, reachedKm, snapped, missed };
+}
+export function networkTrace(graph, x, y, direction, snapKm) {
+  const snap = networkNearest(graph, x, y, snapKm);
+  if (!snap) return { lines: [], km: 0, reason: 'far' };
+  const down = direction !== 'up';
+  const edge = graph.edges[snap.edge];
+  const lines = [];
+  const used = new Set();
+  let km = 0;
+  const add = (flat, name, len) => {
+    if (!flat || !(len > 1e-6)) return;
+    lines.push({ flat, name, km: len });
+    km += len;
+  };
+  let startNode;
+  if (down) {
+    if (snap.node !== edge.to) {
+      const fromKm = snap.node === edge.from ? 0 : snap.alongKm;
+      add(sliceLineFlat(edge.flat, fromKm, edge.km) || (fromKm <= 1e-4 ? edge.flat : null), edge.name, edge.km - fromKm);
+      used.add(edge.id);
+    }
+    startNode = edge.to;
+  } else {
+    if (snap.node !== edge.from) {
+      const toKm = snap.node === edge.to ? edge.km : snap.alongKm;
+      add(sliceLineFlat(edge.flat, toKm, 0), edge.name, toKm);
+      used.add(edge.id);
+    }
+    startNode = edge.from;
+  }
+  const adj = down ? graph.outgoing : graph.incoming;
+  const queue = [startNode];
+  const seen = new Set([startNode]);
+  while (queue.length) {
+    const node = queue.shift();
+    for (const link of adj[node] || []) {
+      if (used.has(link.edge)) continue;
+      used.add(link.edge);
+      const e = graph.edges[link.edge];
+      const forward = e.from === node;
+      add(forward ? e.flat : reversePairs(e.flat), e.name, e.km);
+      const next = link.to;
+      if (!seen.has(next)) { seen.add(next); queue.push(next); }
+    }
+  }
+  return { lines, km, reason: lines.length ? 'ok' : 'end' };
+}
+export function networkComponents(graph) {
+  const n = graph?.nodes?.length || 0;
+  const parent = new Uint32Array(n);
+  for (let i = 0; i < n; i++) parent[i] = i;
+  const find = (i) => {
+    let r = i;
+    while (parent[r] !== r) r = parent[r];
+    while (parent[i] !== r) { const next = parent[i]; parent[i] = r; i = next; }
+    return r;
+  };
+  for (const e of graph?.edges || []) {
+    const a = find(e.from), b = find(e.to);
+    if (a !== b) parent[a] = b;
+  }
+  const groups = new Map();
+  for (const e of graph?.edges || []) {
+    const r = find(e.from);
+    let g = groups.get(r);
+    if (!g) groups.set(r, (g = { lines: 0, km: 0, sample: e.name }));
+    g.lines++;
+    g.km += e.km;
+  }
+  const deadEnds = (graph?.undirected || []).filter((list) => list.length === 1).length;
+  const rows = [...groups.values()].sort((a, b) => b.km - a.km);
+  return { components: rows.length, deadEnds, nodes: n, lines: graph?.edges?.length || 0, groups: rows };
+}
+export function mergeLineChains(features, snapMetres = 25) {
+  const graph = buildLineNetwork(features, snapMetres);
+  const used = new Set();
+  const flats = [];
+  let joins = 0;
+  const chain = (node) => {
+    const list = graph.undirected[node] || [];
+    return list.length === 2 && list[0].to !== list[1].to;
+  };
+  const other = (node, edgeId) => graph.undirected[node].find((link) => link.edge !== edgeId && !used.has(link.edge));
+  for (const edge of graph.edges) {
+    if (used.has(edge.id)) continue;
+    used.add(edge.id);
+    let coords = Array.from(edge.flat);
+    let node = edge.to;
+    let prev = edge.id;
+    while (chain(node)) {
+      const link = other(node, prev);
+      if (!link) break;
+      used.add(link.edge);
+      const next = graph.edges[link.edge];
+      const seq = next.from === node ? next.flat : reversePairs(next.flat);
+      for (let i = 2; i < seq.length; i++) coords.push(seq[i]);
+      const arrived = next.from === node ? next.to : next.from;
+      prev = link.edge;
+      node = arrived;
+      joins++;
+    }
+    node = edge.from;
+    prev = edge.id;
+    while (chain(node)) {
+      const link = other(node, prev);
+      if (!link) break;
+      used.add(link.edge);
+      const next = graph.edges[link.edge];
+      const seq = next.to === node ? next.flat : reversePairs(next.flat);
+      const head = [];
+      for (let i = 0; i < seq.length - 2; i++) head.push(seq[i]);
+      coords = head.concat(coords);
+      node = next.to === node ? next.from : next.to;
+      prev = link.edge;
+      joins++;
+    }
+    flats.push(Float64Array.from(coords));
+  }
+  return { flats, joins, input: graph.edges.length, output: flats.length };
+}
+export function compassBearing(lon1, lat1, lon2, lat2) {
+  const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+const BEARING_DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+export function lineBearingSummary(features) {
+  const bins = [0, 0, 0, 0, 0, 0, 0, 0];
+  let sin = 0, cos = 0, km = 0, segments = 0;
+  for (const f of features || []) {
+    if (!f || f.type !== 'line') continue;
+    for (const part of f.parts || []) {
+      for (let i = 0; i < part.length - 2; i += 2) {
+        const lon1 = unX(part[i]), lat1 = unY(part[i + 1]), lon2 = unX(part[i + 2]), lat2 = unY(part[i + 3]);
+        const len = haversineKm([lon1, lat1], [lon2, lat2]);
+        if (!(len > 0)) continue;
+        const bearing = compassBearing(lon1, lat1, lon2, lat2);
+        const r = bearing * Math.PI / 180;
+        sin += Math.sin(r) * len;
+        cos += Math.cos(r) * len;
+        km += len;
+        segments++;
+        bins[Math.round(bearing / 45) % 8] += len;
+      }
+    }
+  }
+  const resultant = Math.hypot(sin, cos);
+  const mean = km > 0 && resultant > km * 0.05 ? (Math.atan2(sin, cos) * 180 / Math.PI + 360) % 360 : null;
+  let dominant = null, best = 0;
+  bins.forEach((v, i) => { if (v > best) { best = v; dominant = BEARING_DIRS[i]; } });
+  return { segments, km, mean, dominant, bins: BEARING_DIRS.map((dir, i) => ({ dir, km: bins[i] })) };
+}
+export function networkBetweenness(graph, sourceCap = 400) {
+  const n = graph?.nodes?.length || 0;
+  const score = new Float64Array(n);
+  if (!n || !graph.edges.length) return { rows: [], exact: true, sources: 0, nodes: n };
+  const sources = [];
+  const exact = n <= 1200;
+  const cap = exact ? n : Math.max(1, Math.min(n, sourceCap));
+  if (exact) for (let i = 0; i < n; i++) sources.push(i);
+  else {
+    const step = n / cap;
+    for (let i = 0; i < cap; i++) sources.push(Math.min(n - 1, Math.floor(i * step)));
+  }
+  const adj = graph.undirected;
+  for (const s of sources) {
+    const stack = [];
+    const pred = Array.from({ length: n }, () => []);
+    const sigma = new Float64Array(n);
+    const dist = new Float64Array(n);
+    dist.fill(Infinity);
+    sigma[s] = 1;
+    dist[s] = 0;
+    const heap = [[0, s]];
+    while (heap.length) {
+      const [d, v] = heapPop(heap);
+      if (d !== dist[v]) continue;
+      stack.push(v);
+      for (const e of adj[v] || []) {
+        const nd = d + e.km;
+        if (nd < dist[e.to] - 1e-9) {
+          dist[e.to] = nd;
+          sigma[e.to] = 0;
+          pred[e.to] = [];
+          heapPush(heap, [nd, e.to]);
+        }
+        if (Math.abs(nd - dist[e.to]) <= 1e-7) {
+          sigma[e.to] += sigma[v];
+          pred[e.to].push(v);
+        }
+      }
+    }
+    const delta = new Float64Array(n);
+    while (stack.length) {
+      const w = stack.pop();
+      for (const v of pred[w]) if (sigma[w]) delta[v] += (sigma[v] / sigma[w]) * (1 + delta[w]);
+      if (w !== s) score[w] += delta[w];
+    }
+  }
+  if (exact) for (let i = 0; i < n; i++) score[i] /= 2;
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    if (!(score[i] > 0)) continue;
+    const names = [];
+    for (const link of adj[i] || []) {
+      const name = graph.edges[link.edge]?.name;
+      if (name && !names.includes(name)) names.push(name);
+      if (names.length === 3) break;
+    }
+    rows.push({ junction: names.join(', ') || 'Junction', paths: score[i] });
+  }
+  rows.sort((a, b) => b.paths - a.paths);
+  return { rows, exact, sources: sources.length, nodes: n };
+}
+
+// ------------------------------------------------------------------ generation
+// Cell size is kilometres on the ground, measured with the same haversine as the
+// rest of the app. A degree-as-kilometre shortcut, or a longitude stored as a
+// mercator coordinate, is not a grid.
+export function groundDegreeStep(lat, km) {
+  const lat0 = Math.max(-80, Math.min(80, +lat || 0));
+  const target = Math.max(0, +km || 0);
+  if (!(target > 0)) return { dLat: 0, dLon: 0 };
+  const step = (axis) => {
+    const dist = (deg) => axis === 'lat'
+      ? haversineKm([0, lat0], [0, lat0 + deg])
+      : haversineKm([0, lat0], [deg, lat0]);
+    let hi = 1, guard = 0;
+    while (dist(hi) < target && hi < 80 && guard++ < 24) hi *= 2;
+    let lo = 0;
+    for (let i = 0; i < 48; i++) {
+      const mid = (lo + hi) / 2;
+      if (dist(mid) < target) lo = mid;
+      else hi = mid;
+    }
+    return hi;
+  };
+  return { dLat: step('lat'), dLon: step('lon') };
+}
+function generationBox(west, south, east, north) {
+  if (![west, south, east, north].every(Number.isFinite)) return null;
+  const s = Math.max(-80, Math.min(80, south));
+  const n = Math.max(-80, Math.min(80, north));
+  if (!(east > west) || !(n > s)) return null;
+  return { west, south: s, east, north: n, clamped: s !== south || n !== north };
+}
+export function fishnetCells(west, south, east, north, sizeKm, cap = 2500) {
+  const limit = Math.max(1, cap | 0);
+  const box = generationBox(west, south, east, north);
+  const empty = { cells: [], cols: 0, rows: 0, needed: 0, tooMany: false, cap: limit };
+  if (!box) return { ...empty, reason: 'empty' };
+  const km = +sizeKm;
+  if (!(km > 0)) return { ...empty, reason: 'size' };
+  const centerLat = (box.south + box.north) / 2;
+  const { dLat, dLon } = groundDegreeStep(centerLat, km);
+  if (!(dLat > 0) || !(dLon > 0)) return { ...empty, reason: 'size' };
+  const cols = Math.max(1, Math.ceil((box.east - box.west) / dLon - 1e-6));
+  const rows = Math.max(1, Math.ceil((box.north - box.south) / dLat - 1e-6));
+  const needed = cols * rows;
+  if (!Number.isFinite(needed) || needed > limit) {
+    return { ...empty, cols, rows, needed, tooMany: true, reason: 'cap', centerLat, clamped: box.clamped };
+  }
+  const cells = [];
+  for (let row = 0; row < rows; row++) {
+    const lat0 = box.south + row * dLat;
+    const lat1 = lat0 + dLat;
+    for (let col = 0; col < cols; col++) {
+      const lon0 = box.west + col * dLon;
+      const lon1 = lon0 + dLon;
+      cells.push({
+        col, row, west: lon0, south: lat0, east: lon1, north: lat1,
+        ring: [
+          mercX(lon1), mercY(lat1),
+          mercX(lon1), mercY(lat0),
+          mercX(lon0), mercY(lat0),
+          mercX(lon0), mercY(lat1),
+        ],
+      });
+    }
+  }
+  return { cells, cols, rows, needed, tooMany: false, cap: limit, centerLat, sizeKm: km, clamped: box.clamped };
+}
+export function regularGridPoints(west, south, east, north, spacingKm, cap = 2500) {
+  const limit = Math.max(1, cap | 0);
+  const box = generationBox(west, south, east, north);
+  const empty = { points: [], cols: 0, rows: 0, needed: 0, tooMany: false, cap: limit };
+  if (!box) return { ...empty, reason: 'empty' };
+  const km = +spacingKm;
+  if (!(km > 0)) return { ...empty, reason: 'size' };
+  const centerLat = (box.south + box.north) / 2;
+  const { dLat, dLon } = groundDegreeStep(centerLat, km);
+  if (!(dLat > 0) || !(dLon > 0)) return { ...empty, reason: 'size' };
+  const cols = Math.floor((box.east - box.west) / dLon + 1e-6) + 1;
+  const rows = Math.floor((box.north - box.south) / dLat + 1e-6) + 1;
+  const needed = cols * rows;
+  if (!Number.isFinite(needed) || needed > limit || cols < 1 || rows < 1) {
+    return { ...empty, cols, rows, needed, tooMany: true, reason: 'cap', centerLat, clamped: box.clamped };
+  }
+  const points = [];
+  for (let row = 0; row < rows; row++) {
+    const lat = box.south + row * dLat;
+    if (lat > box.north + 1e-9) continue;
+    for (let col = 0; col < cols; col++) {
+      const lon = box.west + col * dLon;
+      if (lon > box.east + 1e-9) continue;
+      points.push({ x: mercX(lon), y: mercY(lat), col, row });
+    }
+  }
+  return { points, cols, rows, needed: points.length, tooMany: false, cap: limit, centerLat, spacingKm: km, clamped: box.clamped };
+}
+function hexRound(q, r) {
+  let x = q, z = r, y = -x - z;
+  let rx = Math.round(x), ry = Math.round(y), rz = Math.round(z);
+  const xDiff = Math.abs(rx - x), yDiff = Math.abs(ry - y), zDiff = Math.abs(rz - z);
+  if (xDiff > yDiff && xDiff > zDiff) rx = -ry - rz;
+  else if (yDiff > zDiff) ry = -rx - rz;
+  else rz = -rx - ry;
+  return [rx, rz];
+}
+export function hexBinPoints(points, sizeKm, cap = 4000) {
+  const limit = Math.max(1, cap | 0);
+  const km = +sizeKm;
+  if (!(km > 0)) return { hexes: [], max: 0, points: 0, reason: 'size', cap: limit };
+  const pts = [];
+  for (const p of points || []) {
+    const lon = p && p.lon != null ? +p.lon : unX(p?.x ?? p?.[0]);
+    const lat = p && p.lat != null ? +p.lat : unY(p?.y ?? p?.[1]);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) continue;
+    pts.push([lon, lat]);
+  }
+  if (!pts.length) return { hexes: [], max: 0, points: 0, reason: 'empty', cap: limit };
+  let lon0 = 0, lat0 = 0;
+  for (const [lon, lat] of pts) { lon0 += lon; lat0 += lat; }
+  lon0 /= pts.length;
+  lat0 /= pts.length;
+  const kmPerDegLon = haversineKm([lon0, lat0], [lon0 + 1, lat0]) || 1;
+  const kmPerDegLat = haversineKm([lon0, lat0], [lon0, lat0 + 1]) || 1;
+  const radius = km / Math.sqrt(3);
+  const counts = new Map();
+  for (const [lon, lat] of pts) {
+    const x = (lon - lon0) * kmPerDegLon;
+    const y = (lat - lat0) * kmPerDegLat;
+    const [q, r] = hexRound((Math.sqrt(3) / 3 * x - y / 3) / radius, (2 / 3 * y) / radius);
+    const key = q + ',' + r;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  const ranked = [...counts.entries()].map(([key, count]) => {
+    const [q, r] = key.split(',').map(Number);
+    return { q, r, count };
+  }).sort((a, b) => b.count - a.count || a.q - b.q || a.r - b.r);
+  const truncated = ranked.length > limit;
+  const hexes = ranked.slice(0, limit).map((h) => {
+    const cx = radius * (Math.sqrt(3) * h.q + Math.sqrt(3) / 2 * h.r);
+    const cy = radius * 1.5 * h.r;
+    const ring = [];
+    for (let i = 0; i < 6; i++) {
+      const angle = Math.PI / 180 * (60 * i - 30);
+      const lon = lon0 + (cx + radius * Math.cos(angle)) / kmPerDegLon;
+      const lat = lat0 + (cy + radius * Math.sin(angle)) / kmPerDegLat;
+      ring.push(mercX(lon), mercY(lat));
+    }
+    return { ring, count: h.count, q: h.q, r: h.r };
+  });
+  const max = hexes.reduce((m, h) => Math.max(m, h.count), 0);
+  return {
+    hexes, max, points: pts.length, truncated, total: ranked.length, cap: limit,
+    sizeKm: km, origin: [lon0, lat0],
+  };
+}
+
 // ------------------------------------------------------------------ export scrubbing
 // No latitude, longitude or other location coordinate may leave the app in a file.
 const COORD_KEY = /(?:^|_)(?:lat|latitude|lon|lng|long|longitude|easting|northing|utm|coord|coords|coordinates|bbox|bounds|envelope|centroid|centre|center|geometry|geom|wkt|west|east|south|north|merc)(?:_|$)/i;
@@ -4154,4 +5789,142 @@ export function exportHasCoordinates(text) {
   if (/"[^"]*(?:latitude|longitude|easting|northing)[^"]*"\s*:/i.test(s)) return true;
   if (/(?:^|,)"?(?:lat|lon|lng|latitude|longitude|min_longitude|max_latitude)"?(?:,|$)/im.test(s)) return true;
   return false;
+}
+
+// A value on an interior break stays in the lower class. The last class keeps the maximum.
+export function classIndex(value, edges) {
+  const n = (edges?.length || 1) - 1;
+  if (n <= 1) return 0;
+  const top = edges[n];
+  for (let i = 1; i < n; i++) {
+    const edge = edges[i];
+    if (value < edge || (value === edge && edge < top)) return i - 1;
+  }
+  return n - 1;
+}
+
+function prefixStats(sorted, weights) {
+  const n = [0], sum = [0], sq = [0];
+  for (let i = 0; i < sorted.length; i++) {
+    const w = weights ? weights[i] : 1;
+    n.push(n[i] + w);
+    sum.push(sum[i] + sorted[i] * w);
+    sq.push(sq[i] + sorted[i] * sorted[i] * w);
+  }
+  return { n, sum, sq };
+}
+function sliceVariance(stats, i, j) {
+  const count = stats.n[j + 1] - stats.n[i];
+  if (count <= 0) return 0;
+  const sum = stats.sum[j + 1] - stats.sum[i];
+  const sq = stats.sq[j + 1] - stats.sq[i];
+  return sq - (sum * sum) / count;
+}
+function uniqueWeighted(sorted) {
+  const values = [], weights = [];
+  for (const v of sorted) {
+    if (!values.length || v !== values[values.length - 1]) { values.push(v); weights.push(1); }
+    else weights[weights.length - 1]++;
+  }
+  return { values, weights };
+}
+// Fisher–Jenks: the partition of a sorted series that minimises within-class variance.
+// Identical values stay in one class because the search runs on unique values.
+function jenksEdges(sorted, classes) {
+  const { values, weights } = uniqueWeighted(sorted);
+  const m = values.length;
+  const k = Math.max(1, Math.min(classes, m));
+  if (k === 1) return [sorted[0], sorted[sorted.length - 1]];
+  const stats = prefixStats(values, weights);
+  const best = Array.from({ length: k + 1 }, () => new Array(m).fill(Infinity));
+  const cut = Array.from({ length: k + 1 }, () => new Array(m).fill(0));
+  for (let j = 0; j < m; j++) best[1][j] = sliceVariance(stats, 0, j);
+  for (let c = 2; c <= k; c++) {
+    for (let j = c - 1; j < m; j++) {
+      for (let i = c - 1; i <= j; i++) {
+        const score = best[c - 1][i - 1] + sliceVariance(stats, i, j);
+        if (score < best[c][j]) { best[c][j] = score; cut[c][j] = i; }
+      }
+    }
+  }
+  const edges = new Array(k + 1);
+  edges[0] = values[0];
+  edges[k] = values[m - 1];
+  let j = m - 1;
+  for (let c = k; c > 1; c--) {
+    const start = cut[c][j];
+    edges[c - 1] = values[start - 1];
+    j = start - 1;
+  }
+  return edges;
+}
+function quantileEdges(sorted, classes) {
+  const total = sorted.length;
+  const edges = [sorted[0]];
+  let start = 0;
+  for (let i = 0; i < classes; i++) {
+    const left = classes - i;
+    let end = i === classes - 1 ? total : start + Math.max(1, Math.round((total - start) / left));
+    end = Math.min(total - (left - 1), Math.max(start + 1, end));
+    if (i < classes - 1) {
+      const boundary = sorted[end - 1];
+      while (end < total - (left - 1) && sorted[end] === boundary) end++;
+    }
+    edges.push(sorted[end - 1]);
+    start = end;
+  }
+  return edges;
+}
+function equalEdges(sorted, classes) {
+  const lo = sorted[0], hi = sorted[sorted.length - 1];
+  const step = (hi - lo) / classes;
+  const edges = [lo];
+  for (let i = 1; i < classes; i++) edges.push(lo + step * i);
+  edges.push(hi);
+  return edges;
+}
+function sampleSorted(sorted, cap) {
+  if (sorted.length <= cap) return sorted;
+  const out = [];
+  for (let i = 0; i < cap; i++) out.push(sorted[Math.round(i * (sorted.length - 1) / (cap - 1))]);
+  return out;
+}
+
+// Classes for a numeric column. `method` is jenks, quantile, or equal/interval.
+// The class count is not padded past the number of distinct values.
+export function classifyValues(values, asked, method) {
+  const nums = [];
+  for (const value of values || []) {
+    const n = Number(value);
+    if (Number.isFinite(n)) nums.push(n);
+  }
+  nums.sort((a, b) => a - b);
+  const wanted = Math.max(2, Math.min(9, Math.round(+asked) || 5));
+  const distinct = new Set(nums.map((v) => +v.toFixed(6))).size;
+  const kind = method === 'jenks' ? 'jenks' : method === 'quantile' ? 'quantile' : 'equal';
+  if (!nums.length) return { method: kind, asked: wanted, n: 0, count: 0, distinct: 0, sampled: false, classes: [], edges: [] };
+  const n = Math.max(1, Math.min(wanted, distinct));
+  let sampled = false;
+  let edges;
+  if (n === 1) edges = [nums[0], nums[nums.length - 1]];
+  else if (kind === 'jenks') {
+    const sample = sampleSorted(nums, 800);
+    sampled = sample.length !== nums.length;
+    edges = jenksEdges(sample, n);
+    edges[0] = nums[0];
+    edges[edges.length - 1] = nums[nums.length - 1];
+  } else if (kind === 'quantile') edges = quantileEdges(nums, n);
+  else edges = equalEdges(nums, n);
+  const buckets = Array.from({ length: edges.length - 1 }, () => []);
+  for (const value of nums) buckets[classIndex(value, edges)].push(value);
+  const classes = buckets.map((vals, i) => {
+    const lo = edges[i], hi = edges[i + 1];
+    return {
+      index: i + 1,
+      from: kind === 'equal' ? lo : (vals.length ? vals[0] : lo),
+      to: kind === 'equal' ? hi : (vals.length ? vals[vals.length - 1] : hi),
+      count: vals.length,
+    };
+  });
+  return { method: kind, asked: wanted, n: classes.length, count: nums.length, distinct, sampled, classes, edges };
 }

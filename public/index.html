@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b3d2e">
 <meta name="description" content="Interactive map of Nigeria: geology, minerals and more.">
-<meta name="build" content="374170f359">
+<meta name="build" content="d734b880f1">
 <title>Nigeria WebGIS</title>
-<link rel="manifest" href="manifest.webmanifest?v=374170f359">
+<link rel="manifest" href="manifest.webmanifest?v=d734b880f1">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="css/app.css?v=374170f359">
+<link rel="stylesheet" href="css/app.css?v=d734b880f1">
 </head>
 <body>
 <canvas id="map" aria-label="Map"></canvas>
@@ -51,6 +51,22 @@
     <div class="frow act"><button type="button" class="btn" id="bf-retap">Tap a different feature</button><button type="button" class="btn primary" id="bf-run">Analyse</button></div>
   </div>
 </div>
+<div id="finddock" class="mapdock" hidden role="dialog" aria-label="Feature Finder">
+  <div class="bufferhead"><b>Feature Finder</b><button type="button" id="finddone" aria-label="Close">×</button></div>
+  <div id="findbody"></div>
+</div>
+<div id="inspectdock" class="mapdock" hidden role="dialog" aria-label="Coordinate Inspector">
+  <div class="bufferhead"><b>Coordinate Inspector</b><button type="button" id="inspectdone" aria-label="Stop inspecting">×</button></div>
+  <p id="inspecthint" class="hint">Tap the map. The readout stays until you stop.</p>
+  <div id="inspectread" aria-live="polite"><p class="empty">Tap the map.</p></div>
+  <div class="frow"><label for="inspectgrid">Grid</label><select id="inspectgrid"></select></div>
+  <p id="inspectnote" class="hint"></p>
+  <div class="frow act"><button type="button" class="btn" id="inspectinfo">Open info</button><button type="button" class="btn" id="inspectcopy">Copy</button><button type="button" class="btn" id="inspectclear">Clear</button></div>
+</div>
+<div id="discoverdock" class="mapdock" hidden role="dialog" aria-label="Layer Discovery">
+  <div class="bufferhead"><b>Layer Discovery</b><button type="button" id="discoverdone" aria-label="Close">×</button></div>
+  <div id="discoverbody"></div>
+</div>
 <div id="drawbar" hidden><span id="drawtext">Draw an area</span><button id="drawclear">Clear</button><button id="drawdone">Done</button></div>
 <div id="selbar" hidden role="toolbar" aria-label="Selection">
   <span id="seltext">Select mode: tap a feature, or drag a box</span>
@@ -70,10 +86,7 @@
     <button id="sheetclose" class="ghost" aria-label="Close panel" data-i="close"></button></div>
   <div id="panels">
     <div class="panel" id="panel-layers">
-      <div class="layerhead">
-        <button type="button" id="import-gpkg" class="import-gpkg" data-i="upload"><span><b>Import GeoPackage</b><small>Your file stays in this browser</small></span></button>
-        <div class="searchrow"><input id="layerfilter" type="search" placeholder="Filter layers" autocomplete="off"></div>
-      </div>
+      <div class="searchrow"><input id="layerfilter" type="search" placeholder="Filter layers" autocomplete="off"></div>
       <div id="lyrtools" class="lyrtools"></div>
       <div id="importlist"></div>
       <div id="activelist"></div>
@@ -152,6 +165,6 @@
 </div>
 
 <div id="toast" role="status"></div>
-<script type="module" src="js/app.js?v=374170f359"></script>
+<script type="module" src="js/app.js?v=d734b880f1"></script>
 </body>
 </html>
