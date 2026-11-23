@@ -8,7 +8,7 @@ import { blockThirdParty, bootMap, capturePageErrors, settle } from './helpers.m
 const LGA = 'admin_lgas_gadm_pg';
 
 async function enableLayer(page, id, label) {
-  await page.waitForFunction(() => window.__nwg?.L?.size === 59);
+  await page.waitForFunction(() => window.__nwg?.L?.size === 166);
   const needsLayersTab = await page.evaluate(() => (
     document.querySelector('#sheet').classList.contains('closed')
     || !document.querySelector('#panel-layers').classList.contains('active')
@@ -319,7 +319,7 @@ test('clipping: a shared link and a reload bring the same focus back', async ({ 
   await page.evaluate(() => window.__nwg.saveProject());
   const url = await plainUrl(page);
   await page.goto(url, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => window.__nwg?.L?.size === 59);
+  await page.waitForFunction(() => window.__nwg?.L?.size === 166);
   await settle(page);
   const after = await clipState(page);
   expect(after.type).toBe('multi');
@@ -342,7 +342,7 @@ test('clipping: a saved circle keeps its ground radius', async ({ page }) => {
 
   await page.evaluate(() => window.__nwg.saveProject());
   await page.goto(await plainUrl(page), { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => window.__nwg?.L?.size === 59);
+  await page.waitForFunction(() => window.__nwg?.L?.size === 166);
   await settle(page);
   const after = await page.evaluate(() => ({ type: window.__nwg.clip?.type, metres: window.__nwg.clip?.metres, area: window.__nwg.focusAreaKm2() }));
   expect(after.type).toBe('circle');

@@ -1,0 +1,1 @@
+{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"Ilorin","country":"NG"},"geometry":{"type":"MultiPoint","coordinates":[[4.54214,8.49664]]}},{"type":"Feature","properties":{"name":"Offa","country":"NG"},"geometry":{"type":"MultiPoint","coordinates":[[4.72074,8.14911]]}}]}

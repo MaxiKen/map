@@ -39,14 +39,14 @@ export function expectOnlyTileHostsBlocked(blocked) {
 
 export async function bootMap(page, { quality = false } = {}) {
   await page.goto('/#l=&b=none', { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => window.__nwg?.L?.size === 59);
+  await page.waitForFunction(() => window.__nwg?.L?.size === 166);
   await page.evaluate(() => document.fonts.ready);
   if (quality) await openQualityTab(page);
   await settle(page);
 }
 
 export async function openQualityTab(page) {
-  await page.waitForFunction(() => window.__nwg?.L?.size === 59);
+  await page.waitForFunction(() => window.__nwg?.L?.size === 166);
   const needsQualityTab = await page.evaluate(() => (
     document.querySelector('#sheet').classList.contains('closed')
     || !document.querySelector('#panel-quality').classList.contains('active')
@@ -70,7 +70,7 @@ export async function resetPanelScroll(page) {
 }
 
 export async function showNationalBoundary(page) {
-  await page.waitForFunction(() => window.__nwg?.L?.size === 59);
+  await page.waitForFunction(() => window.__nwg?.L?.size === 166);
   const needsLayersTab = await page.evaluate(() => (
     document.querySelector('#sheet').classList.contains('closed')
     || !document.querySelector('#panel-layers').classList.contains('active')

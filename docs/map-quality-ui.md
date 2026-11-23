@@ -5,8 +5,8 @@ layer-data request. It is also available from each expanded layer row, feature/r
 
 ## What users can inspect
 
-- **Catalog overview:** 59 published layers, their use classes, the open review queue, **47 published layers with
-  metadata gaps**, and **86 layers with gaps across all 98 visible and hidden sources**. Published and all-source
+- **Catalog overview:** 166 published layers, their use classes, the open review queue, **142 published layers with
+  metadata gaps**, and **181 layers with gaps across all 205 visible and hidden sources**. Published and all-source
   counts are labelled separately rather than mixed.
 - **Per-layer measured checks:** structural status, topology status, reviewed disposition, coverage interpretation,
   feature count and the source GeoPackage SHA-256.

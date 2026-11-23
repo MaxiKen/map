@@ -72,7 +72,7 @@ test('share link reopens the view and not the colours', async ({ page }) => {
 
   await page.evaluate(() => localStorage.clear());
   await page.goto(url);
-  await page.waitForFunction(() => window.__nwg?.L?.size === 59);
+  await page.waitForFunction(() => window.__nwg?.L?.size === 166);
   await page.waitForFunction((id) => window.__nwg.L.get(id)?.on, NATIONAL_BOUNDARY);
   const restored = await page.evaluate((id) => ({
     base: window.__nwg.map.basemap,

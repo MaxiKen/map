@@ -136,7 +136,7 @@ Vector layers retain their original GeoJSON artifacts for standards-compatible r
 deterministic `.geojson.gz` transport sidecars; the UI does not expose those artifacts as download actions. A module
 worker handles fetching, decompression, JSON parsing and typed-geometry conversion off the UI
 thread; compatible browsers without those APIs use a yielding fallback. A shared scheduler limits all layer loads
-to two at once and deduplicates repeated requests. The current 43 vector sidecars are **83.9% smaller** than their
+to two at once and deduplicates repeated requests. The current 149 vector sidecars are **84.8% smaller** than their
 original representations. See [map loading performance](docs/map-loading-performance.md) for measurements,
 fallback behavior and the exact round-trip validation gates.
 

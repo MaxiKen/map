@@ -278,6 +278,408 @@
       "label": "Geothermal heat flow measurements (IHFC 2024)",
       "labelField": "name",
       "order": 82
+    },
+    "admin_amac_wards_grid3_pg": {
+      "label": "AMAC wards (GRID3)",
+      "labelField": "ward"
+    },
+    "admin_amac_boundary_pg": {
+      "label": "AMAC boundary",
+      "labelField": "name"
+    },
+    "infrastructure_amac_health_grid3_pt": {
+      "label": "AMAC health facilities (GRID3)",
+      "labelField": "facility_name"
+    },
+    "infrastructure_amac_ward_reach_pg": {
+      "label": "AMAC ward health reach",
+      "labelField": "ward"
+    },
+    "infrastructure_amac_uncovered_pg": {
+      "label": "AMAC area beyond health reach",
+      "labelField": "ward"
+    },
+    "admin_ife_central_wards_grid3_pg": {
+      "label": "Ife Central wards (GRID3)",
+      "labelField": "ward"
+    },
+    "admin_ife_central_boundary_pg": {
+      "label": "Ife Central boundary"
+    },
+    "infrastructure_ife_central_health_grid3_pt": {
+      "label": "Ife Central health facilities (GRID3)",
+      "labelField": "facility_name"
+    },
+    "admin_ogbia_wards_grid3_pg": {
+      "label": "Ogbia wards (GRID3)",
+      "labelField": "ward"
+    },
+    "settlements_ogbia_points_pt": {
+      "label": "Ogbia settlements",
+      "labelField": "ward"
+    },
+    "settlements_ogbia_extents_grid3_pg": {
+      "label": "Ogbia settlement extents (GRID3)",
+      "labelField": "ward"
+    },
+    "water_ogbia_rivers_osm_ln": {
+      "label": "Ogbia rivers (OSM)",
+      "labelField": "name"
+    },
+    "water_ogbia_streams_osm_ln": {
+      "label": "Ogbia streams (OSM)"
+    },
+    "transport_ogbia_highways_osm_ln": {
+      "label": "Ogbia highways (OSM)",
+      "labelField": "name"
+    },
+    "admin_zaria_wards_grid3_pg": {
+      "label": "Zaria wards (GRID3)",
+      "labelField": "ward"
+    },
+    "groundwater_zaria_water_points_pt": {
+      "label": "Zaria water points (WPDx)"
+    },
+    "infrastructure_zaria_health_grid3_pt": {
+      "label": "Zaria health facilities (GRID3)",
+      "labelField": "facility_name"
+    },
+    "admin_obio_akpor_wards_pg": {
+      "label": "Obio/Akpor wards",
+      "labelField": "wardname"
+    },
+    "infrastructure_obio_akpor_hospitals_pt": {
+      "label": "Obio/Akpor hospitals (NHFR)",
+      "labelField": "ward"
+    },
+    "admin_anambra_west_boundary_pg": {
+      "label": "Anambra West boundary"
+    },
+    "admin_anambra_west_wards_grid3_pg": {
+      "label": "Anambra West wards (GRID3)",
+      "labelField": "ward"
+    },
+    "infrastructure_anambra_west_hospitals_pt": {
+      "label": "Anambra West public hospitals",
+      "labelField": "ward"
+    },
+    "transport_anambra_west_roads_ln": {
+      "label": "Anambra West roads"
+    },
+    "water_anambra_west_osm_ln": {
+      "label": "Anambra West waterways (OSM)",
+      "labelField": "name"
+    },
+    "admin_ogun_state_pg": {
+      "label": "Ogun State outline"
+    },
+    "admin_ogun_border_study_area_pg": {
+      "label": "Ogun border study area"
+    },
+    "admin_ogun_border_lgas_pg": {
+      "label": "Ogun border LGAs"
+    },
+    "admin_ogun_border_wards_pg": {
+      "label": "Ogun border wards",
+      "labelField": "ward"
+    },
+    "admin_ogun_border_wards_alt_pg": {
+      "label": "Ogun border wards (alternate)",
+      "labelField": "ward"
+    },
+    "settlements_ogun_border_places_pt": {
+      "label": "Ogun border places (OSM)",
+      "labelField": "name"
+    },
+    "settlements_ogun_border_places_1km_pt": {
+      "label": "Ogun border places within 1 km",
+      "labelField": "name"
+    },
+    "transport_ogun_border_primary_roads_osm_ln": {
+      "label": "Ogun border primary roads (OSM)"
+    },
+    "transport_ogun_border_secondary_roads_osm_ln": {
+      "label": "Ogun border secondary roads (OSM)"
+    },
+    "infrastructure_ogun_border_powerlines_pt": {
+      "label": "Ogun border power lines"
+    },
+    "infrastructure_ogun_border_powerlines_ln": {
+      "label": "Ogun border power lines (lines)"
+    },
+    "forest_ogun_border_forest_pg": {
+      "label": "Ogun border forest"
+    },
+    "landcover_ogun_border_natural_pg": {
+      "label": "Ogun border natural areas",
+      "labelField": "name"
+    },
+    "water_ogun_border_osm_ln": {
+      "label": "Ogun border waterways (OSM)",
+      "labelField": "name"
+    },
+    "settlements_ogun_border_buildings_osm_pg": {
+      "label": "Ogun border buildings (OSM)"
+    },
+    "settlements_ogun_border_ward_buildings_pg": {
+      "label": "Ogun border ward buildings"
+    },
+    "admin_city_outlines_pg": {
+      "label": "City outlines",
+      "labelField": "name"
+    },
+    "admin_metro_lgas_pg": {
+      "label": "Metropolitan LGAs"
+    },
+    "settlements_kano_settlements_pt": {
+      "label": "Kano settlements",
+      "labelField": "name"
+    },
+    "admin_lgas_pcodes_pg": {
+      "label": "Local government areas (pcodes)",
+      "labelField": "adm2_name"
+    },
+    "hazards_niger_delta_oilspill_footprints_pg": {
+      "label": "Niger Delta oil-spill footprints"
+    },
+    "hazards_niger_delta_oilspill_sites_pg": {
+      "label": "Niger Delta oil-spill sites"
+    },
+    "hazards_niger_delta_nosdra_pt": {
+      "label": "NOSDRA oil-spill points"
+    },
+    "hazards_south_south_oilspill_pt": {
+      "label": "South-South oil-spill points"
+    },
+    "settlements_kaduna_north_buildings_osm_pg": {
+      "label": "Kaduna North buildings (OSM)",
+      "labelField": "name"
+    },
+    "transport_kaduna_north_highways_osm_ln": {
+      "label": "Kaduna North highways (OSM)",
+      "labelField": "name"
+    },
+    "water_kaduna_north_bodies_pg": {
+      "label": "Kaduna North water bodies"
+    },
+    "water_kaduna_north_waterways_pt": {
+      "label": "Kaduna North waterways"
+    },
+    "admin_abuja_boundary_pg": {
+      "label": "Abuja boundary",
+      "labelField": "name"
+    },
+    "admin_abuja_wards_pg": {
+      "label": "Abuja wards",
+      "labelField": "name"
+    },
+    "infrastructure_abuja_clinics_pt": {
+      "label": "Abuja clinics",
+      "labelField": "name"
+    },
+    "infrastructure_abuja_schools_pt": {
+      "label": "Abuja schools",
+      "labelField": "name"
+    },
+    "settlements_abuja_settlements_pt": {
+      "label": "Abuja settlements",
+      "labelField": "name"
+    },
+    "settlements_abuja_places_pt": {
+      "label": "Abuja places",
+      "labelField": "name"
+    },
+    "admin_ibadan_boundary_pg": {
+      "label": "Ibadan boundary",
+      "labelField": "name"
+    },
+    "admin_ibadan_wards_pg": {
+      "label": "Ibadan wards",
+      "labelField": "name"
+    },
+    "infrastructure_ibadan_clinics_pt": {
+      "label": "Ibadan clinics",
+      "labelField": "name"
+    },
+    "infrastructure_ibadan_schools_pt": {
+      "label": "Ibadan schools",
+      "labelField": "name"
+    },
+    "settlements_ibadan_settlements_pt": {
+      "label": "Ibadan settlements",
+      "labelField": "name"
+    },
+    "settlements_ibadan_places_pt": {
+      "label": "Ibadan places",
+      "labelField": "name"
+    },
+    "admin_kano_boundary_pg": {
+      "label": "Kano boundary",
+      "labelField": "name"
+    },
+    "admin_kano_wards_pg": {
+      "label": "Kano wards",
+      "labelField": "name"
+    },
+    "infrastructure_kano_clinics_pt": {
+      "label": "Kano clinics",
+      "labelField": "name"
+    },
+    "infrastructure_kano_schools_pt": {
+      "label": "Kano schools",
+      "labelField": "name"
+    },
+    "settlements_kano_places_pt": {
+      "label": "Kano places",
+      "labelField": "name"
+    },
+    "admin_lagos_boundary_pg": {
+      "label": "Lagos boundary",
+      "labelField": "name"
+    },
+    "admin_lagos_wards_pg": {
+      "label": "Lagos wards",
+      "labelField": "name"
+    },
+    "infrastructure_lagos_clinics_pt": {
+      "label": "Lagos clinics",
+      "labelField": "name"
+    },
+    "infrastructure_lagos_schools_pt": {
+      "label": "Lagos schools",
+      "labelField": "name"
+    },
+    "settlements_lagos_settlements_pt": {
+      "label": "Lagos settlements",
+      "labelField": "name"
+    },
+    "settlements_lagos_places_pt": {
+      "label": "Lagos places",
+      "labelField": "name"
+    },
+    "admin_port_harcourt_boundary_pg": {
+      "label": "Port Harcourt boundary",
+      "labelField": "name"
+    },
+    "admin_port_harcourt_wards_pg": {
+      "label": "Port Harcourt wards",
+      "labelField": "name"
+    },
+    "infrastructure_port_harcourt_clinics_pt": {
+      "label": "Port Harcourt clinics",
+      "labelField": "name"
+    },
+    "infrastructure_port_harcourt_schools_pt": {
+      "label": "Port Harcourt schools",
+      "labelField": "name"
+    },
+    "settlements_port_harcourt_settlements_pt": {
+      "label": "Port Harcourt settlements",
+      "labelField": "name"
+    },
+    "settlements_port_harcourt_places_pt": {
+      "label": "Port Harcourt places",
+      "labelField": "name"
+    },
+    "population_amac_worldpop_rst": {
+      "label": "AMAC population (WorldPop)"
+    },
+    "admin_kwara_state_pg": {
+      "label": "Kwara State outline",
+      "labelField": "state"
+    },
+    "admin_kwara_lgas_pg": {
+      "label": "Kwara local government areas",
+      "labelField": "lga"
+    },
+    "admin_kwara_wards_inec_pg": {
+      "label": "Kwara wards (INEC)",
+      "labelField": "ward_name"
+    },
+    "admin_ilorin_wards_inec_pg": {
+      "label": "Ilorin wards (INEC)",
+      "labelField": "ward_name"
+    },
+    "settlements_kwara_markets_pt": {
+      "label": "Kwara markets",
+      "labelField": "name"
+    },
+    "settlements_kwara_places_osm_pt": {
+      "label": "Kwara places (OSM)",
+      "labelField": "name"
+    },
+    "infrastructure_kwara_pois_osm_pt": {
+      "label": "Kwara points of interest (OSM)",
+      "labelField": "name"
+    },
+    "infrastructure_kwara_polling_units_pt": {
+      "label": "Kwara polling units",
+      "labelField": "pu_name"
+    },
+    "groundwater_kwara_boreholes_wpdx_pt": {
+      "label": "Kwara water points (WPDx)",
+      "labelField": "wpdx_id"
+    },
+    "transport_ilorin_roads_osm_ln": {
+      "label": "Ilorin roads (OSM)",
+      "labelField": "name"
+    },
+    "transport_ilorin_rail_osm_ln": {
+      "label": "Ilorin rail (OSM)",
+      "labelField": "kind"
+    },
+    "water_ilorin_mapped_pg": {
+      "label": "Ilorin mapped water",
+      "labelField": "name"
+    },
+    "settlements_kwasu_buildings_pg": {
+      "label": "KWASU campus buildings, Malete"
+    },
+    "transport_kwasu_ways_ln": {
+      "label": "KWASU campus ways, Malete",
+      "labelField": "highway"
+    },
+    "landcover_kwara_farm_plots_pg": {
+      "label": "Kwara farm plots",
+      "labelField": "name"
+    },
+    "protected_areas_kwara_wdpa_pg": {
+      "label": "Kwara protected areas (WDPA)",
+      "labelField": "name"
+    },
+    "transport_kwara_roads_diva_ln": {
+      "label": "Kwara roads (DIVA)",
+      "labelField": "route_type"
+    },
+    "forest_kwara_osm_pg": {
+      "label": "Kwara forest (OSM)"
+    },
+    "admin_kwara_state_osm_pg": {
+      "label": "Kwara State (OSM)"
+    },
+    "admin_kwara_state_naturalearth_pg": {
+      "label": "Kwara State (Natural Earth)",
+      "labelField": "name"
+    },
+    "admin_kwara_lgas_simplified_pg": {
+      "label": "Kwara LGAs (simplified)",
+      "labelField": "name"
+    },
+    "transport_ilorin_streets_solstice_ln": {
+      "label": "Ilorin streets (solstice study)",
+      "labelField": "name"
+    },
+    "infrastructure_ilorin_corridor_anchors_pt": {
+      "label": "Ilorin corridor anchors",
+      "labelField": "anchor_name"
+    },
+    "reference_ilorin_corridor_diagram_ln": {
+      "label": "Ilorin corridor diagram",
+      "labelField": "name"
+    },
+    "settlements_kwara_gazetteer_pt": {
+      "label": "Ilorin and Offa points",
+      "labelField": "name"
     }
   }
 }

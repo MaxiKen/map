@@ -26,7 +26,7 @@ make the optimized representation deterministic and allow it to be decoded in th
 
 | Scope | Original GeoJSON | Gzip transport | Reduction |
 | --- | ---: | ---: | ---: |
-| All 43 published vector layers | 118,311,370 bytes (112.8 MiB) | 19,096,408 bytes (18.2 MiB) | **83.9%** |
+| All 142 published vector layers | 189,819,925 bytes (181.0 MiB) | 28,922,648 bytes (27.6 MiB) | **84.8%** |
 | Default two-layer startup set | 3,446,059 bytes | 762,553 bytes | **77.9%** |
 | WPDx boreholes | 26,914,961 bytes | 2,063,218 bytes | **92.3%** |
 | OSM points of interest | 9,037,635 bytes | 825,925 bytes | **90.9%** |
@@ -37,7 +37,7 @@ move the expensive parsing/coordinate conversion off the UI thread; they do not 
 ## Correctness and maintenance
 
 `scripts/build_site.py` writes deterministic gzip files (`mtime=0`) and refreshes them again if legend folding
-adds attributes to an owner layer. `scripts/validate_artifacts.py` decompresses all 43 sidecars and requires exact
+adds attributes to an owner layer. `scripts/validate_artifacts.py` decompresses all 149 sidecars and requires exact
 byte equality with the original GeoJSON, matching byte counts and deterministic timestamps. Build hashing and the
 service-worker shell include `loading.js` and `vector-worker.js` so deployments cannot mix module versions.
 

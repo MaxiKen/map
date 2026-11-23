@@ -90,7 +90,7 @@ test('cartography tools colour, save and page without stretching', async ({ page
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('nwg.custom_basemaps')));
   expect(stored['Agency imagery'].attr).toBe('© Agency');
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => window.__nwg?.L?.size === 59);
+  await page.waitForFunction(() => window.__nwg?.L?.size === 166);
   await expect(page.locator('#basemaps button[data-k="custom:agency-imagery"]')).toHaveCount(1);
   await page.locator('.tab[data-tab="tools"]').click();
   await page.locator('[data-tool="custombasemap"]').click();

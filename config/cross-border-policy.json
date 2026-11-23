@@ -293,6 +293,102 @@
     "settlements_towns_map2023_pt": {
       "scope_class": "map_sheet",
       "scope_note": "scanned-sheet town labels can include neighbouring-country map content; hidden artefacts remain excluded from active data"
+    },
+    "admin_ogun_border_study_area_pg": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Ogun border study area along the Nigeria-Benin boundary; neighbouring-country context is not a Nigerian administrative assignment"
+    },
+    "admin_ogun_border_lgas_pg": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Ogun border LGA extract; neighbouring-country context may remain and is not a Nigerian administrative assignment"
+    },
+    "admin_ogun_border_wards_pg": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Ogun border ward extract; neighbouring-country context may remain and is not a Nigerian administrative assignment"
+    },
+    "admin_ogun_border_wards_alt_pg": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Alternate Ogun border ward drawing; neighbouring-country context may remain and is not a Nigerian administrative assignment"
+    },
+    "settlements_ogun_border_places_pt": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Ogun border place extract; neighbouring-country places are context, not Nigerian settlements by assignment"
+    },
+    "settlements_ogun_border_places_1km_pt": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Derived Ogun border subset; neighbouring-country context is retained and is not a Nigerian assignment"
+    },
+    "transport_ogun_border_primary_roads_osm_ln": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Ogun border road extract; a road may continue into Benin and is retained whole"
+    },
+    "transport_ogun_border_secondary_roads_osm_ln": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Ogun border road extract; a road may continue into Benin and is retained whole"
+    },
+    "infrastructure_ogun_border_powerlines_pt": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Ogun border infrastructure extract; neighbouring-country context may remain"
+    },
+    "infrastructure_ogun_border_powerlines_ln": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Ogun border power-line strings; neighbouring-country context may remain"
+    },
+    "forest_ogun_border_forest_pg": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Ogun border forest extract; neighbouring-country context may remain"
+    },
+    "landcover_ogun_border_natural_pg": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Ogun border natural-area extract; neighbouring-country context may remain"
+    },
+    "water_ogun_border_osm_ln": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Ogun border waterways; a line may continue into Benin and is retained whole"
+    },
+    "settlements_ogun_border_buildings_osm_pg": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Ogun border building footprints; neighbouring-country buildings are context, not a Nigerian assignment"
+    },
+    "settlements_ogun_border_ward_buildings_pg": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Derived Ogun border building subset; neighbouring-country context is retained"
+    },
+    "hazards_niger_delta_oilspill_footprints_pg": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Coastal oil-spill footprints; marine or creek context is not a land-admin assignment"
+    },
+    "hazards_niger_delta_oilspill_sites_pg": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Coastal oil-spill sites; marine or creek context is not a land-admin assignment"
+    },
+    "hazards_niger_delta_nosdra_pt": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Coastal incident points; marine context is not a land-admin assignment"
+    },
+    "hazards_south_south_oilspill_pt": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Coastal oil-spill points; offshore or creek points are context, not a land-admin assignment"
+    },
+    "population_amac_worldpop_rst": {
+      "scope_class": "raster_window",
+      "scope_note": "AMAC population window; cells outside the clip and NoData are not zero population"
+    },
+    "protected_areas_kwara_wdpa_pg": {
+      "scope_class": "nigeria_with_context",
+      "scope_note": "Kwara-attributed WDPA extract. A protected-area polygon can still cross an LGA or state boundary; do not treat the state tag as a clipped legal boundary."
+    },
+    "transport_kwara_roads_diva_ln": {
+      "scope_class": "transboundary_system",
+      "scope_note": "DIVA roads that intersect Kwara were kept whole, so some lines continue into neighbouring states. They were not cut at the state boundary."
+    },
+    "admin_kwara_lgas_simplified_pg": {
+      "scope_class": "nigeria_focused",
+      "scope_note": "Simplified civic LGA outlines. Do not use them as the legal LGA boundary or for area statistics."
+    },
+    "reference_ilorin_corridor_diagram_ln": {
+      "scope_class": "nigeria_focused",
+      "scope_note": "Schematic radial diagram inside Ilorin. Not a road survey and not for length statistics."
     }
   }
 }

@@ -1,7 +1,7 @@
 # Professional geospatial alignment and plausibility audit
 
-Audited source commit: `1f77ccc896f5fd38e8199ddf9a5aea4c9d727948`
-Scope: **all 98 GeoPackages — 82 vector layers, 13 numeric rasters and 3 georeferenced image overlays; visible and hidden data included.**
+Audited source commit: `2493a235a56e4c3f3e6b138c74c97897700934fd`
+Scope: **all 205 GeoPackages — 188 vector layers, 14 numeric rasters and 3 georeferenced image overlays; visible and hidden data included.**
 
 See `layer-review.md` for the explicit disposition and evidence level of every layer.
 
@@ -15,8 +15,8 @@ See `layer-review.md` for the explicit disposition and evidence level of every l
 4. **The magnetic raster is transparently classified as partial coverage.** 90.2% of sampled land cells are valid; Ekiti 0.0%, Osun 5.6%, Oyo 30.4%, and Sokoto 40.2%. The visible label and source description disclose the limitation. Missing cells remain NoData, and no magnetic values were interpolated or shifted.
 5. **Both hidden-source artefacts are resolved without coordinate shifts.** FID 479 “Tow ns” was quarantined as non-settlement legend text, leaving 478 active hidden cross-check points. D0451 was retained byte-for-byte but reclassified as a connected population-class region crossing 16 states and 124 LGAs, excluded from district analysis.
 6. **Stable administrative identifiers are installed.** All 37 states, 774 LGAs and 8,809 wards have persistent `ngmap-admin-v1` IDs and parent keys. The separate INEC crosswalk covers every state/LGA and 8,589/8,809 wards; 220 ambiguous or unmatched ward links remain explicitly null rather than guessed.
-7. **A cross-border data policy governs all 98 spatial layers.** `ngmap-cross-border-v1` preserves complete sources, distinguishes foreign/marine context from Nigerian administration, and requires explicit Nigeria-only filters and clipped measurements. No source geometry was clipped, moved or deleted for this policy.
-8. **A layer quality and metadata register covers all 98 layers.** 82 layers pass applicable structural checks and 16 hidden topology originals retain historical defects as provenance. One WPDx layer still requires source-vintage name-join review. 86 layers have explicit source-metadata gaps; no numeric accuracy score is invented.
+7. **A cross-border data policy governs all 205 spatial layers.** `ngmap-cross-border-v1` preserves complete sources, distinguishes foreign/marine context from Nigerian administration, and requires explicit Nigeria-only filters and clipped measurements. No source geometry was clipped, moved or deleted for this policy.
+8. **A layer quality and metadata register covers all 205 layers.** 189 layers pass applicable structural checks and 16 hidden topology originals retain historical defects as provenance. One WPDx layer still requires source-vintage name-join review. 181 layers have explicit source-metadata gaps; no numeric accuracy score is invented.
 
 Only the documented capital, reviewed polygon-topology, Gada/Illela identity, three evidence-gated residual LGA attribute corrections, metadata-only magnetic partial-coverage reclassification, two evidence-gated hidden-artifact resolutions and schema-only stable administrative identifier additions were applied. FID 479 was quarantined—not silently deleted—while every D0451 feature attribute and geometry byte was retained. Identifier installation preserved every original value and geometry byte. No blanket translation, ward movement, geometry replacement or magnetic infilling was performed. The cross-border task changed policy, audit and catalog metadata only; it did not alter any GeoPackage, feature value or geometry. The layer quality/metadata task added curated source documentation and generated registers; it did not modify any GeoPackage, feature value or geometry.
 
@@ -58,7 +58,7 @@ Only the documented capital, reviewed polygon-topology, Gada/Illela identity, th
 - **Review gates:** 187 automatic cases, three individually reviewed area cases (Gulf of Guinea, Cross River and historical climate water), and one reviewed collapsed-line envelope case. The largest automatic absolute area change was 0.163%. Invalid source signed areas are diagnostic, not authoritative ground areas.
 - **Bounds and unchanged data:** all raw GEOS linework bounds are unchanged. One zero-area vertical line extended 0.006091117859° north of its polygon; discarding it shrinks only that feature envelope. 5,635 untargeted geometry blobs remain byte-identical and every attribute is preserved.
 - **Raster regression:** all 22 exact geology raster/vector class checks retain identical sampled-cell counts and agreement fractions before and after repair.
-- **Static export:** the five-decimal default remains, with 43 per-feature higher-precision fallbacks recorded in `public/catalog.json` to prevent rounding-induced invalidity. The exporter does not MakeValid or alter source geometry.
+- **Static export:** the five-decimal default remains, with 201 per-feature higher-precision fallbacks recorded in `public/catalog.json` to prevent rounding-induced invalidity. The exporter does not MakeValid or alter source geometry.
 - **Provenance:** 16 full source copies are hidden as `*_topology_original`; their 191 invalid geometries are historical evidence and excluded from active-defect counts. `topology-correction-ledger.csv`, `topology-correction-verification.json` and `topology-correction-result.json` record every feature, review, area, bounds delta and hash.
 - **Evidence:** `topology-exceptions-before.csv` preserves the original 191 exceptions; `topology-exceptions.csv` is the now-empty active exception register. `raster-class-agreement-before-topology.csv` preserves the pre-repair raster baseline; `topology-reviewed-cases.png` shows all four reviewed before/after dispositions.
 
@@ -88,34 +88,35 @@ Only the documented capital, reviewed polygon-topology, Gada/Illela identity, th
 
 ### E — Defined: cross-border geographic data policy
 
-- **Coverage:** 59 visible and 39 hidden layers have explicit scope metadata; 19 hidden provenance layers inherit their active layer’s class. Current class counts: map_sheet 35, nigeria_focused 16, nigeria_with_context 13, raster_window 11, regional_reference 5, transboundary_system 18.
+- **Coverage:** 166 visible and 39 hidden layers have explicit scope metadata; 19 hidden provenance layers inherit their active layer’s class. Current class counts: map_sheet 35, nigeria_focused 101, nigeria_with_context 33, raster_window 12, regional_reference 5, transboundary_system 19.
 - **Retention and publication:** every class requires `preserve_unclipped`. Visibility remains unchanged; foreign extraction context, transboundary systems, regional references, map sheets and hidden originals are not silently removed or published.
 - **National statistics:** an explicit named Nigeria mask is required. Foreign-only, boundary, marine and wholly internal features are separate categories. Nigeria-only polygon areas and line lengths are derived clipped measurements; whole transboundary totals are reported separately.
 - **Boundary limits:** GADM and Natural Earth are diagnostic references, not legal sovereignty, international-boundary, territorial-sea or EEZ determinations. Water body / Lake Chad is not Nigerian administration or wholesale Nigerian land. NoData remains unknown, never zero.
 - **Application contract:** catalog `crossBorder` metadata describes required interpretation; the focus-area Area summary is not an automatic country filter. Foreign features never receive Nigerian canonical IDs through nearest-distance or fuzzy-name inference.
-- **Evidence:** `../cross-border-data-policy.md`, `../../config/cross-border-policy.json`, `cross-border-policy-register.csv`, the core audit policy summary and public catalog metadata provide the versioned rules and all 98 layer assignments.
+- **Evidence:** `../cross-border-data-policy.md`, `../../config/cross-border-policy.json`, `cross-border-policy-register.csv`, the core audit policy summary and public catalog metadata provide the versioned rules and all 205 layer assignments.
 
 ### F — Added: layer quality and metadata register
 
-- **Quality use classes:** current_structural_pass 19, current_with_documented_limits 39, hidden_historical_provenance 19, hidden_source_restricted 20, review_required 1. These are evidence-based usage categories, not quality scores. Structural passes do not certify absolute positional accuracy, completeness or legal boundaries.
+- **Quality use classes:** current_structural_pass 102, current_with_documented_limits 63, hidden_historical_provenance 19, hidden_source_restricted 20, review_required 1. These are evidence-based usage categories, not quality scores. Structural passes do not certify absolute positional accuracy, completeness or legal boundaries.
 - **Current review:** `groundwater_boreholes_wpdx_pt` has all 99,245 points contained but 314 non-equivalent LGA-name joins requiring source-vintage review; no coordinate shift is indicated. Ward, magnetic, hidden-source and cross-border limitations remain separate.
-- **Metadata completeness:** documented 12, minimal 19, partial 67. 86 layers have at least one gap across publisher, dataset, URL, licence/terms, temporal coverage and local reference. Missing values remain blank or `not_recorded`; metadata completeness is not licence clearance.
-- **Lineage:** 42 reusable source records cover 79 active layers, with 19 hidden originals inheriting their active source. Every row carries the current GeoPackage SHA-256, CRS, bounds, attributes/grid, visibility, public export, cross-border rule, quality evidence and recommended action.
+- **Metadata completeness:** documented 24, minimal 19, partial 162. 181 layers have at least one gap across publisher, dataset, URL, licence/terms, temporal coverage and local reference. Missing values remain blank or `not_recorded`; metadata completeness is not licence clearance.
+- **Lineage:** 62 reusable source records cover 79 active layers, with 19 hidden originals inheriting their active source. Every row carries the current GeoPackage SHA-256, CRS, bounds, attributes/grid, visibility, public export, cross-border rule, quality evidence and recommended action.
 - **Publication:** compact `quality` and `sourceMetadata` fields are embedded in the public catalog, with a register summary/hash. Hidden layers remain unpublished.
 - **Evidence:** `layer-quality-register.json` / `.csv` / `.md` and `../../config/layer-metadata.json` provide the complete register and maintenance procedure.
 - Visible WDPA includes correctly identified Cameroon features such as Korup, Takamanda and Waza-Logone; the large Gulf of Guinea polygon is explicitly marine; offshore heat-flow records are tagged `domain=marine`. Lake Chad ports are intentionally outside the land-only reference but remain valid water/port context. These are scope issues, not coordinate errors.
-- Classified point-outlier outcomes: **expected Lake Chad/coastal port context: 38**; **expected marine/coastal extraction context: 3**; **expected marine/cross-border gazetteer context: 10**; **expected neighbouring-country extraction context: 3104**; **expected offshore measurement: 36**; **map content in neighbouring country; not a Nigerian coordinate shift: 6**.
+- Classified point-outlier outcomes: **expected Lake Chad/coastal port context: 38**; **expected marine/coastal extraction context: 3**; **expected marine/cross-border gazetteer context: 10**; **expected neighbouring-country extraction context: 3104**; **expected offshore measurement: 36**; **feature-level review: 536**; **map content in neighbouring country; not a Nigerian coordinate shift: 6**.
 - OSM/DIVA extraction envelopes contain neighbouring-country settlements. If the intended product is Nigeria-only, use a separately documented clipped derivative or label them as surrounding context rather than moving them or clipping the source in place.
 
 ## Checks that support alignment
 
 ### Coordinate systems, geometry decoding and raster grids
 
-- **98/98 SQLite integrity checks passed.** All 98 spatial layers declare EPSG:4326 with no contents/geometry-column SRS mismatch.
-- **0 null geometries, 0 empty geometries, 0 non-finite coordinates and 0 out-of-range longitude/latitude geometries** across 82 vector layers.
+- **205/205 SQLite integrity checks passed.** All 205 spatial layers declare EPSG:4326 with no contents/geometry-column SRS mismatch.
+- **0 null geometries, 0 empty geometries, 0 non-finite coordinates and 0 out-of-range longitude/latitude geometries** across 188 vector layers.
 - **0 active invalid geometries.** Hidden topology provenance separately retains **191** historical invalid originals; those copies are not current production data.
-- Every computed vector extent agrees with its declared GeoPackage extent to better than 0.001°. All 16 raster/image tile matrices have positive pixel sizes, decodable tiles and bounds consistent with their contents metadata.
-- Excluding the explicitly partial magnetic product, sampled valid-data coverage inside Nigerian land is **99.4%–100.0%** across the other 12 numeric rasters; outside-land valid fractions are low edge effects. This confirms tile-grid and clipping-mask registration, but is not by itself proof of every cell value’s absolute accuracy.
+- Every computed vector extent agrees with its declared GeoPackage extent to better than 0.001°. All 17 raster/image tile matrices have positive pixel sizes, decodable tiles and bounds consistent with their contents metadata.
+- Excluding the explicitly partial magnetic product, sampled valid-data coverage inside Nigerian land is **99.4%–100.0%** across the other 12 national numeric rasters; outside-land valid fractions are low edge effects. This confirms tile-grid and clipping-mask registration, but is not by itself proof of every cell value’s absolute accuracy.
+- Local raster window `population_amac_worldpop_rst` has **13.1%** valid cells inside the Nigeria land mask because most of its rectangle is source NoData, not because the grid is shifted.
 
 ### Exact raster/vector classification pairs
 
@@ -171,7 +172,7 @@ python scripts/build_site.py
 
 - `audit.json`: full core inventory, per-layer geometry and scope metrics, admin checks, national-boundary and line comparisons.
 - `extended-audit.json`: independent capital checks, topology, raster registration/coverage and named-point results.
-- `layer-review.md` / `layer-review.csv`: explicit disposition, evidence and action for every one of the 98 layers.
+- `layer-review.md` / `layer-review.csv`: explicit disposition, evidence and action for every one of the 205 layers.
 - `capital-correction-ledger.csv` / `capital-correction-result.json`: all 37 correction decisions, previous/new coordinates, sources, QA, review exceptions and hashes.
 - `capital-coordinate-comparison.csv` and `.png`: current capital comparisons; `-before.csv` / `-before.png` preserve the uncorrected evidence.
 - `ward-lga-exceptions.csv` and `sokoto-gada-illela.png`: all 37 current assigned-LGA exceptions and the current Sokoto evidence.
@@ -180,8 +181,8 @@ python scripts/build_site.py
 - `magnetic-coverage-reclassification-verification.json` / `magnetic-coverage-reclassification-result.json` / `magnetic-coverage-reclassification.md`: explicit partial-coverage decision, full-cell and sampled coverage, state register, before/after metadata and unchanged-data hashes.
 - `hidden-source-artifact-ledger.csv` / `hidden-source-artifact-verification.json` / `hidden-source-artifact-result.json` / `hidden-source-artifact-resolution.md`: the quarantined legend row and D0451 semantic exclusion, nearest-settlement and state/LGA-intersection evidence, sidecar provenance and complete before/after digests.
 - `admin-identifier-verification.json` / `admin-identifier-result.json` / `admin-identifier-resolution.md` and `../admin-identifiers/`: canonical assignment rules, the 9,622-row registry, pinned INEC source manifest, external-link limitations, complete original-row/geometry digests and six before/after source hash chains.
-- `../cross-border-data-policy.md` / `../../config/cross-border-policy.json` / `cross-border-policy-register.csv`: versioned retention, publication and aggregation rules, diagnostic-boundary limitations and all 98 per-layer scope assignments. Public catalog `crossBorderPolicy` and per-layer `crossBorder` fields carry the same policy ID and rules.
-- `layer-quality-register.json` / `.csv` / `.md` and `../../config/layer-metadata.json`: all 98 source hashes, structural/topology statuses, review dispositions, attributes/grids, public exports, source attribution, temporal coverage, licence/terms status and explicit metadata gaps. Public catalog `quality` and `sourceMetadata` fields carry the compact register projection.
+- `../cross-border-data-policy.md` / `../../config/cross-border-policy.json` / `cross-border-policy-register.csv`: versioned retention, publication and aggregation rules, diagnostic-boundary limitations and all 205 per-layer scope assignments. Public catalog `crossBorderPolicy` and per-layer `crossBorder` fields carry the same policy ID and rules.
+- `layer-quality-register.json` / `.csv` / `.md` and `../../config/layer-metadata.json`: all 205 source hashes, structural/topology statuses, review dispositions, attributes/grids, public exports, source attribution, temporal coverage, licence/terms status and explicit metadata gaps. Public catalog `quality` and `sourceMetadata` fields carry the compact register projection.
 - `topology-correction-ledger.csv` / `topology-correction-verification.json` / `topology-correction-result.json`: all 191 feature repairs, four explicit review dispositions, before/after areas and bounds, source/provenance hashes and post-apply checks.
 - `topology-exceptions.csv`: current active exceptions; `topology-exceptions-before.csv` preserves all 191 original defects and GEOS reasons.
 - `raster-class-agreement.csv`: all 22 exact geology class checks; `raster-class-agreement-before-topology.csv` preserves the pre-repair baseline.
