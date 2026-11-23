@@ -9,7 +9,7 @@ test('visual: desktop quality overview, evidence detail and source links', async
   await bootMap(page, { quality: true });
 
   await expect(page.locator('#sheettitle')).toHaveText('Quality & source');
-  await expect(page.locator('#quality .quality-stats .statbox').nth(0)).toContainText('59');
+  await expect(page.locator('#quality .quality-stats .statbox').nth(0)).toContainText('166');
   await expect(page.locator('#quality .quality-stats .statbox').nth(1)).toContainText('1');
   await expect(page.locator('#quality .quality-stats .statbox').nth(2)).toContainText('47');
   await expect(page.locator('#quality .quality-stats .statbox').nth(3)).toContainText('86');

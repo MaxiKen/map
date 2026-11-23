@@ -20,9 +20,9 @@ class QualityTransparencyTests(unittest.TestCase):
         summary = catalog['layerQualityRegister']
         self.assertEqual(summary['registerFile'], 'quality-register.json')
         self.assertEqual(summary['registerSha256'], hashlib.sha256(source).hexdigest())
-        self.assertEqual(summary['summary']['layer_count'], 98)
+        self.assertEqual(summary['summary']['layer_count'], 205)
         self.assertEqual(sum(bool(layer.get('quality') and layer.get('sourceMetadata'))
-                             for layer in catalog['layers']), 59)
+                             for layer in catalog['layers']), 166)
 
     def test_quality_shell_is_versioned_and_accessible(self):
         index_source = (ROOT / 'app/index.html').read_text(encoding='utf8')

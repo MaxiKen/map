@@ -53,7 +53,7 @@ class GadaIllelaCorrectionTests(unittest.TestCase):
         cls.index = layer_index()
 
     def test_official_direction_ledger_counts_and_result_hashes(self):
-        self.assertEqual(len(self.index), 98)
+        self.assertEqual(len(self.index), 205)
         self.assertEqual(len(self.ledger), 601)
         self.assertTrue(all(self.verification['checks'].values()))
         self.assertTrue(all(self.result['checks'].values()))
@@ -205,17 +205,17 @@ class GadaIllelaCorrectionTests(unittest.TestCase):
                     self.assertEqual(feature['properties']['previous_lga'],
                                      json.loads(ledger['after_attributes_json'])['previous_lga'])
         catalog = json.loads((ROOT / 'public/catalog.json').read_text())
-        self.assertEqual(len(catalog['layers']), 59)
+        self.assertEqual(len(catalog['layers']), 166)
         self.assertFalse([layer for layer in catalog['layers'] if 'identity_original' in layer['id']])
 
     def test_refreshed_audits_report_and_layer_register(self):
         core = json.loads((OUT / 'audit.json').read_text())
         extended = json.loads((OUT / 'extended-audit.json').read_text())
-        self.assertEqual(len(core['database_integrity']), 98)
-        self.assertEqual(len(core['vectors']), 82)
-        self.assertEqual(len(core['rasters']), 16)
+        self.assertEqual(len(core['database_integrity']), 205)
+        self.assertEqual(len(core['vectors']), 188)
+        self.assertEqual(len(core['rasters']), 17)
         summary = core['geometry_summary']
-        self.assertEqual(summary['active_vector_layers'], 64)
+        self.assertEqual(summary['active_vector_layers'], 170)
         self.assertEqual(summary['active_invalid_geometry_count'], 0)
         self.assertEqual(summary['topology_provenance_invalid_geometry_count'], 191)
         self.assertEqual(summary['identity_provenance_layers'], 2)
@@ -235,10 +235,10 @@ class GadaIllelaCorrectionTests(unittest.TestCase):
         self.assertNotIn('A2 — High: reciprocal', report)
         self.assertIn('A3 — Resolved with provenance: residual ward/LGA exception review', report)
         self.assertIn('Darna/Sabon Gari remains a separate Gwadabawa', report)
-        self.assertIn('all 98 GeoPackages', report)
-        self.assertIn('with 43 per-feature higher-precision fallbacks', report)
+        self.assertIn('all 205 GeoPackages', report)
+        self.assertIn('with 201 per-feature higher-precision fallbacks', report)
         review = {r['layer']: r for r in csv_rows('layer-review.csv')}
-        self.assertEqual(len(review), 98)
+        self.assertEqual(len(review), 205)
         self.assertNotIn('Action required', {r['disposition'] for r in review.values()})
         for table in ('admin_lgas_gadm_identity_original_pg', 'admin_lga_centroids_identity_original_pt'):
             self.assertEqual(review[table]['disposition'], 'Context / scope note')

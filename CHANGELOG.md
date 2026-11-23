@@ -8,6 +8,10 @@ collected under **Unreleased** until `scripts/prepare_release.py` assigns a vers
 
 ### Added
 
+- **Local Nigeria extracts.** 82 GeoPackages in EPSG:4326 were added under the existing theme folders, with a place folder inside each theme so AMAC, Lagos, Ogbia, the Ogun border and the other places stay grouped. They cover wards, health facilities, settlements, roads, water, oil-spill points and two building-footprint layers. UTM inputs were zone 31N or 32N on WGS 84, not a Minna shift. See `docs/import-nigeria-local.md`.
+
+- **Kwara.** Kwara, Ilorin and Malete layers were added from the downloaded files and from Kwara rows already in the national layers: state outlines, LGAs, wards, markets, places, points of interest, polling units, water points, roads, rail, mapped water, the KWASU campus at Malete, farm plots, protected areas and forest. A second OSM relation copy, the low-resolution Natural Earth outline, and the incoherent market-file LGA fragments were not imported again. They stay off until switched on. See `docs/import-nigeria-local.md`.
+
 - **Import GeoPackage.** **Import** sits in the Layers toolbar with Show all, Hide all, Fit visible, Clip, Grid, Labels and Basemap. It is the same size as those controls and does not cover them. A `.gpkg` file is read in the browser and is not sent anywhere. Its layers are listed under Imported, above On the map, and stay off until you turn one on. They can then be used with the published layers. Files in the usual Nigerian coordinate systems (WGS 84 and Minna UTM zones and belts) are converted to longitude and latitude. A Minna file uses the national shift, which is only good to about 15 metres, and that limit is shown when the file is read and kept on the imported layer.
 
 - **Filter features** keeps one numbered list. Any layer that is switched on can be filtered, and a layer can hold more than one filter — they are combined, so a feature is drawn only if it matches every filter on that layer. Each filter can be edited or removed on its own. The same list sits at the top of the Layers panel. Legend “add as filter”, the attribute table and the temporal filter join that list instead of wiping it.

@@ -395,10 +395,16 @@ def raster_registration_checks():
         xx, yy = np.meshgrid(x, y)
         inside = shapely.contains_xy(land, xx, yy)
         valid = (sampled != nodata) & np.isfinite(sampled)
+
+        def fraction(mask):
+            # A local clip can have no sampled cells on one side of the land mask.
+            selected = valid[mask]
+            return None if selected.size == 0 else float(selected.mean())
+
         result['land_masks'][table] = {
-            'inside_land_valid_fraction': float(valid[inside].mean()),
-            'outside_land_valid_fraction': float(valid[~inside].mean()),
-            'whole_grid_valid_fraction': float(valid.mean()),
+            'inside_land_valid_fraction': fraction(inside),
+            'outside_land_valid_fraction': fraction(~inside),
+            'whole_grid_valid_fraction': float(valid.mean()) if valid.size else None,
             'sample_stride_cells': step,
         }
 
@@ -1098,8 +1104,21 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
     osm = capital['summary']['osm']
     diva = capital['summary']['diva']
     grey = next((v for k, v in capital['by_position_basis'].items() if 'grey square' in k), None)
-    land_values = [v['inside_land_valid_fraction'] for k, v in raster['land_masks'].items()
-                   if k != 'geophysics_magnetic_emag2_rst']
+    national_land_values = []
+    local_land_windows = []
+    for key, values in raster['land_masks'].items():
+        if key == 'geophysics_magnetic_emag2_rst':
+            continue
+        bounds = core['rasters'][key]['declared_bounds']
+        span = max(bounds[2] - bounds[0], bounds[3] - bounds[1])
+        fraction = values['inside_land_valid_fraction']
+        if fraction is None:
+            continue
+        if span < 2:
+            local_land_windows.append((key, fraction))
+        else:
+            national_land_values.append(fraction)
+    land_values = national_land_values
     boundaries = {r['comparison']: r for r in core['boundary_comparisons']}
     independent_boundary = boundaries['geoBoundaries national polygon vs Natural Earth Nigeria']
     classifications = Counter(r['classification'] for r in outliers)
@@ -1394,7 +1413,7 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
             'Nigerian canonical IDs through nearest-distance or fuzzy-name inference.',
             '- **Evidence:** `../cross-border-data-policy.md`, `../../config/cross-border-policy.json`, '
             '`cross-border-policy-register.csv`, the core audit policy summary and public catalog metadata '
-            'provide the versioned rules and all 98 layer assignments.',
+            f'provide the versioned rules and all {layer_count} layer assignments.',
         ]
     else:
         cross_border_executive = (
@@ -1751,8 +1770,12 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
         f'- **{database_count}/{database_count} SQLite integrity checks passed.** All {layer_count} spatial layers declare EPSG:4326 with no contents/geometry-column SRS mismatch.',
         f'- **0 null geometries, 0 empty geometries, 0 non-finite coordinates and 0 out-of-range longitude/latitude geometries** across {len(core["vectors"])} vector layers.',
         f'- **{topology["total_invalid"]} active invalid geometries.** Hidden topology provenance separately retains **{topology["provenance_invalid"]}** historical invalid originals; those copies are not current production data.',
-        '- Every computed vector extent agrees with its declared GeoPackage extent to better than 0.001°. All 16 raster/image tile matrices have positive pixel sizes, decodable tiles and bounds consistent with their contents metadata.',
-        f'- Excluding the explicitly partial magnetic product, sampled valid-data coverage inside Nigerian land is **{min(land_values):.1%}–{max(land_values):.1%}** across the other 12 numeric rasters; outside-land valid fractions are low edge effects. This confirms tile-grid and clipping-mask registration, but is not by itself proof of every cell value’s absolute accuracy.',
+        f'- Every computed vector extent agrees with its declared GeoPackage extent to better than 0.001°. All {len(core["rasters"])} raster/image tile matrices have positive pixel sizes, decodable tiles and bounds consistent with their contents metadata.',
+        f'- Excluding the explicitly partial magnetic product, sampled valid-data coverage inside Nigerian land is **{min(land_values):.1%}–{max(land_values):.1%}** across the other {len(land_values)} national numeric rasters; outside-land valid fractions are low edge effects. This confirms tile-grid and clipping-mask registration, but is not by itself proof of every cell value’s absolute accuracy.',
+        *[
+            f'- Local raster window `{name}` has **{fraction:.1%}** valid cells inside the Nigeria land mask because most of its rectangle is source NoData, not because the grid is shifted.'
+            for name, fraction in local_land_windows
+        ],
         '',
         '### Exact raster/vector classification pairs', '',
         '| Raster / vector pair | Classes | Agreement range | Interpretation |',
@@ -1861,11 +1884,11 @@ def make_report(core, capital, cap_rows, ward_summary, ward_rows, topology, rast
            ] if admin_identified else []),
         *(['- `../cross-border-data-policy.md` / `../../config/cross-border-policy.json` / '
            '`cross-border-policy-register.csv`: versioned retention, publication and aggregation rules, '
-           'diagnostic-boundary limitations and all 98 per-layer scope assignments. Public catalog '
+           f'diagnostic-boundary limitations and all {layer_count} per-layer scope assignments. Public catalog '
            '`crossBorderPolicy` and per-layer `crossBorder` fields carry the same policy ID and rules.'
            ] if cross_border_defined else []),
         *(['- `layer-quality-register.json` / `.csv` / `.md` and '
-           '`../../config/layer-metadata.json`: all 98 source hashes, structural/topology statuses, '
+           f'`../../config/layer-metadata.json`: all {layer_count} source hashes, structural/topology statuses, '
            'review dispositions, attributes/grids, public exports, source attribution, temporal coverage, '
            'licence/terms status and explicit metadata gaps. Public catalog `quality` and '
            '`sourceMetadata` fields carry the compact register projection.'

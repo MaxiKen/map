@@ -205,14 +205,14 @@ class TopologyCorrectionTests(unittest.TestCase):
         fallbacks = Counter()
         for layer in catalog['layers']:
             fallbacks.update({int(k): v for k, v in layer.get('geometryPrecisionFallbacks', {}).items()})
-        self.assertEqual(fallbacks, {6: 29, 7: 6, 8: 2, 12: 3, 15: 3})
+        self.assertEqual(fallbacks, {6: 185, 7: 7, 8: 3, 12: 3, 15: 3})
         feature_count = 0
         for path in (ROOT / 'public/data').glob('*.geojson'):
             collection = json.loads(path.read_text())
             for index, feature in enumerate(collection.get('features', [])):
                 feature_count += 1
                 self.assertTrue(shape(feature['geometry']).is_valid, f'{path.stem} feature {index}')
-        self.assertEqual(feature_count, 290455)
+        self.assertEqual(feature_count, 544709)
 
     def test_no_staging_files_or_published_topology_provenance(self):
         self.assertFalse(list((ROOT / 'data').glob('**/*.correcting.gpkg')))

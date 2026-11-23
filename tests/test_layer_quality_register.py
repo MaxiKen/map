@@ -40,9 +40,9 @@ class LayerQualityRegisterTests(unittest.TestCase):
         register.validate_inventory(self.index, self.metadata)
         active = {table for table in self.index if not register.provenance_base(table)}
         self.assertEqual(set(self.metadata['layers']), active)
-        self.assertEqual(len(active), 79)
+        self.assertEqual(len(active), 186)
         self.assertEqual(sum(bool(register.provenance_base(table)) for table in self.index), 19)
-        self.assertEqual(len(self.metadata['sources']), 42)
+        self.assertEqual(len(self.metadata['sources']), 62)
         for key, source in self.metadata['sources'].items():
             self.assertTrue((ROOT / source['metadata_reference']).is_file(), key)
             if source['licence_status'] == 'not_recorded':
@@ -56,10 +56,10 @@ class LayerQualityRegisterTests(unittest.TestCase):
             expected, self.metadata, self.audit))
         self.assertEqual(self.document['cross_border_policy'], self.extended['cross_border_policy'])
         self.assertEqual(self.document['methodology']['quality_score'], 'not_assigned')
-        self.assertEqual(self.document['summary']['layer_count'], 98)
-        self.assertEqual(self.document['summary']['published_layer_count'], 59)
+        self.assertEqual(self.document['summary']['layer_count'], 205)
+        self.assertEqual(self.document['summary']['published_layer_count'], 166)
         self.assertEqual(self.document['summary']['structural_status_counts'], {
-            'historical_defects_retained': 16, 'structural_pass': 82,
+            'historical_defects_retained': 16, 'structural_pass': 189,
         })
 
     def test_every_source_hash_is_current_and_hidden_layers_stay_unpublished(self):
@@ -112,15 +112,15 @@ class LayerQualityRegisterTests(unittest.TestCase):
         self.assertEqual(igrac['licence_or_terms'], 'CC BY-SA 3.0 IGO')
         self.assertEqual(igrac['temporal_coverage'], '2025 edition')
         self.assertEqual(self.document['summary']['metadata_status_counts'], {
-            'documented': 12, 'minimal': 19, 'partial': 67,
+            'documented': 24, 'minimal': 19, 'partial': 162,
         })
-        self.assertEqual(self.document['summary']['layers_with_metadata_gaps'], 86)
+        self.assertEqual(self.document['summary']['layers_with_metadata_gaps'], 181)
 
     def test_csv_and_markdown_cover_every_layer(self):
         with (ROOT / 'docs/geospatial-audit/layer-quality-register.csv').open(
                 encoding='utf8', newline='') as handle:
             csv_rows = list(csv.DictReader(handle))
-        self.assertEqual(len(csv_rows), 98)
+        self.assertEqual(len(csv_rows), 205)
         self.assertEqual({row['layer'] for row in csv_rows}, set(self.index))
         markdown = (ROOT / 'docs/geospatial-audit/layer-quality-register.md').read_text(
             encoding='utf8')
@@ -146,9 +146,9 @@ class LayerQualityRegisterTests(unittest.TestCase):
             stale['summary'][field] = 'stale'
             self.assertFalse(layer_quality_is_current(stale, self.audit), field)
         report = (ROOT / 'docs/geospatial-audit/README.md').read_text(encoding='utf8')
-        self.assertIn('8. **A layer quality and metadata register covers all 98 layers.**', report)
+        self.assertIn('8. **A layer quality and metadata register covers all 205 layers.**', report)
         self.assertIn('One WPDx layer still requires source-vintage name-join review.', report)
-        self.assertIn('86 layers have explicit source-metadata gaps', report)
+        self.assertIn('181 layers have explicit source-metadata gaps', report)
         self.assertIn('metadata completeness is not licence clearance', report)
 
     def test_stale_or_unknown_metadata_mappings_are_rejected(self):

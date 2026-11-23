@@ -28,8 +28,8 @@ test('offline reload restores the shell, catalog, gzip worker layer and complete
     if (!response.ok) throw new Error(`Register preload failed: ${response.status}`);
     return response.json();
   });
-  expect(onlineRegister.summary.layer_count).toBe(98);
-  expect(onlineRegister.layers).toHaveLength(98);
+  expect(onlineRegister.summary.layer_count).toBe(205);
+  expect(onlineRegister.layers).toHaveLength(205);
   expect(await page.evaluate(async () => {
     const hit = await caches.match('data/admin_country_geoboundaries_pg.geojson.gz');
     const register = await caches.match('quality-register.json');
@@ -41,13 +41,13 @@ test('offline reload restores the shell, catalog, gzip worker layer and complete
     await context.setOffline(true);
     expect(await page.evaluate(() => navigator.onLine)).toBe(false);
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => window.__nwg?.L?.size === 59);
+    await page.waitForFunction(() => window.__nwg?.L?.size === 166);
     await page.evaluate(() => document.fonts.ready);
     expect(await serviceWorkerBuild(page)).toBe(build);
 
     await showNationalBoundary(page);
     await openQualityTab(page);
-    await expect(page.locator('#quality .quality-stats .statbox').nth(0)).toContainText('59');
+    await expect(page.locator('#quality .quality-stats .statbox').nth(0)).toContainText('166');
     const offlineRegister = await page.evaluate(async () => {
       const response = await fetch('quality-register.json');
       const bytes = await response.arrayBuffer();
@@ -57,7 +57,7 @@ test('offline reload restores the shell, catalog, gzip worker layer and complete
       return { status: response.status, count: register.layers.length, hex };
     });
     expect(offlineRegister.status).toBe(200);
-    expect(offlineRegister.count).toBe(98);
+    expect(offlineRegister.count).toBe(205);
     await expect(page.locator('#quality .quality-hash-label code')).toHaveText(offlineRegister.hex);
 
     const afterOffline = await serverState();

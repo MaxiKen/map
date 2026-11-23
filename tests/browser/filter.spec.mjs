@@ -5,7 +5,7 @@ const STATES = 'admin_states_gadm_pg';
 const LGAS = 'admin_lgas_gadm_pg';
 
 async function enableLayer(page, id, label) {
-  await page.waitForFunction(() => window.__nwg?.L?.size === 59);
+  await page.waitForFunction(() => window.__nwg?.L?.size === 166);
   const needsLayersTab = await page.evaluate(() => (
     document.querySelector('#sheet').classList.contains('closed')
     || !document.querySelector('#panel-layers').classList.contains('active')

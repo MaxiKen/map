@@ -41,7 +41,7 @@ The words **must**, **must not**, and **required** below are repository requirem
 | `map_sheet` | Scanned-sheet derivatives, images, graticules, and sheet furniture | Retain sheet context, including foreign content where present | Exclude foreign sheet content; clip derived measurements |
 | `raster_window` | Numeric raster grids | Respect the source valid-data mask | Apply both the analysis AOI and valid-data mask |
 
-The current register covers **98 spatial layers: 59 visible and 39 hidden**. Hidden topology, identity, and
+The current register covers **205 spatial layers: 166 visible and 39 hidden**. Hidden topology, identity, and
 capital originals inherit the active layer's scope class but have `hidden_provenance` publication semantics.
 A new layer uses the safe kind default until a reviewer assigns a more specific override. Stale overrides,
 unknown classes, and missing register/catalog coverage fail validation.

@@ -31,7 +31,7 @@ test('a new worker build activates, replaces the shell and reloads once', async 
         .catch(() => {});
     });
     await page.waitForFunction((key) => (
-      Number(localStorage.getItem(key)) === 2 && window.__nwg?.L?.size === 59
+      Number(localStorage.getItem(key)) === 2 && window.__nwg?.L?.size === 166
     ), NAVIGATION_COUNT, { timeout: 20_000 });
     await waitForServiceWorker(page);
 

@@ -35,7 +35,7 @@ class LoadingPerformanceTests(unittest.TestCase):
             self.assertEqual(compressed[4:8], b'\0\0\0\0', layer['id'])
             original_total += len(original)
             compressed_total += len(compressed)
-        self.assertEqual(len(self.vectors), 43)
+        self.assertEqual(len(self.vectors), 149)
         self.assertGreater(1 - compressed_total / original_total, 0.60)
         for layer in self.catalog['layers']:
             if layer not in self.vectors:

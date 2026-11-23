@@ -5,11 +5,11 @@ import { DEFAULT_VECTOR_COLOR, prepareFeature } from '../app/js/engine.js';
 
 const catalog = JSON.parse(readFileSync('public/catalog.json', 'utf8'));
 const overview = qualityPanelHTML(catalog);
-assert.match(overview, /<b>59<\/b><small>published layers/);
-assert.match(overview, /<b>47<\/b><small>published layers have metadata gaps/);
-assert.match(overview, /<b>86<\/b><small>layers with gaps across all 98 sources/);
+assert.match(overview, /<b>166<\/b><small>published layers/);
+assert.match(overview, /<b>142<\/b><small>published layers have metadata gaps/);
+assert.match(overview, /<b>181<\/b><small>layers with gaps across all 205 sources/);
 assert.match(overview, /39 hidden/);
-assert.match(overview, /82 pass applicable structural checks/);
+assert.match(overview, /189 pass applicable structural checks/);
 assert.match(overview, /16 hidden originals retain historical defects/);
 assert.match(overview, /groundwater_boreholes_wpdx_pt/);
 assert.match(overview, /data-quality-download="quality-register\.json"/);

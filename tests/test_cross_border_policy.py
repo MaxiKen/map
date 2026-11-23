@@ -103,7 +103,7 @@ class CrossBorderPolicyTests(unittest.TestCase):
                 table, visible=meta['visible'], kind=meta['kind'], policy=self.policy)
             self.assertEqual(collection[table]['cross_border_policy'], expected)
         report = (ROOT / 'docs/geospatial-audit/README.md').read_text(encoding='utf8')
-        self.assertIn('7. **A cross-border data policy governs all 98 spatial layers.**', report)
+        self.assertIn('7. **A cross-border data policy governs all 205 spatial layers.**', report)
         self.assertIn('No source geometry was clipped, moved or deleted for this policy.', report)
         self.assertIn('not an automatic country filter', report)
         self.assertIn('not legal sovereignty', report)

@@ -106,7 +106,7 @@ class HiddenSourceArtifactTests(unittest.TestCase):
     def test_sidecars_and_hidden_features_are_not_published(self):
         catalog = json.loads((ROOT / 'public/catalog.json').read_text(encoding='utf8'))
         ids = {row['id'] for row in catalog['layers']}
-        self.assertEqual(len(ids), 59)
+        self.assertEqual(len(ids), 166)
         self.assertNotIn(TOWNS, ids)
         self.assertNotIn(POPULATION, ids)
         self.assertNotIn(TOWNS_SIDE, ids)
